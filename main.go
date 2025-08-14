@@ -1,6 +1,9 @@
 package main
 
 import (
+	"log"
+	"time"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/verbeux-ai/whatsmiau/env"
@@ -10,8 +13,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
-	"log"
-	"time"
 )
 
 //	@title			Whatsmiau API
@@ -43,6 +44,10 @@ func main() {
 		logger, err = zap.NewProduction()
 	}
 
+	ctx, c := context.WithTimeout(context.Background(), 10*time.Second)
+	defer c()
+	lib.LoadMiau(ctx, services.SQLStore())
+
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -58,10 +63,6 @@ func main() {
 	app.Pre(middleware.CORS())
 
 	routes.Load(app)
-
-	ctx, c := context.WithTimeout(context.Background(), 10*time.Second)
-	defer c()
-	lib.LoadWhatsmiau(ctx, services.SQLStore())
 
 	port := ":" + env.Env.Port
 	zap.L().Info("starting server...", zap.String("port", port))

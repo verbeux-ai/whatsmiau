@@ -1,15 +1,16 @@
 package models
 
 type Instance struct {
-	ID              string          `json:"id"`
-	RejectCall      bool            `json:"rejectCall"`
-	MsgCall         string          `json:"msgCall"`
-	GroupsIgnore    bool            `json:"groupsIgnore"`
-	AlwaysOnline    bool            `json:"alwaysOnline"`
-	ReadMessages    bool            `json:"readMessages"`
-	ReadStatus      bool            `json:"readStatus"`
-	SyncFullHistory bool            `json:"syncFullHistory"`
-	Webhook         InstanceWebhook `json:"webhook"`
+	ID              string          `json:"id,omitempty"`
+	RejectCall      bool            `json:"rejectCall,omitempty"`
+	MsgCall         string          `json:"msgCall,omitempty"`
+	GroupsIgnore    bool            `json:"groupsIgnore,omitempty"`
+	AlwaysOnline    bool            `json:"alwaysOnline,omitempty"`
+	ReadMessages    bool            `json:"readMessages,omitempty"`
+	ReadStatus      bool            `json:"readStatus,omitempty"`
+	SyncFullHistory bool            `json:"syncFullHistory,omitempty"`
+	RemoteJID       string          `json:"remoteJID,omitempty"`
+	Webhook         InstanceWebhook `json:"webhook,omitempty"`
 }
 
 type InstanceWebhook struct {
@@ -21,6 +22,6 @@ type InstanceWebhook struct {
 }
 
 type InstanceWebhookHeaders struct {
-	Autorization string `json:"autorization"`
-	ContentType  string `json:"Content-Type"` // Following EvolutionAPI Pattern
+	Authorization string `json:"authorization"`
+	ContentType   string `json:"Content-Type"` // Following EvolutionAPI Pattern
 }

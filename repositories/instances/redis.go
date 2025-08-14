@@ -2,15 +2,20 @@ package instances
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+
 	"github.com/go-redis/redis/v8"
-	"github.com/verbeux-ai/whatsmiau/interface"
+	"github.com/verbeux-ai/whatsmiau/interfaces"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"golang.org/x/net/context"
 )
 
 // These verify if RedisInstance follows instances interface pattern
-var _ _interface.InstanceRepository = (*RedisInstance)(nil)
+var _ interfaces.InstanceRepository = (*RedisInstance)(nil)
+
+var ErrorNotFound = errors.New("not found")
+var ErrorAlreadyExists = errors.New("instance already exists")
 
 type RedisInstance struct {
 	db *redis.Client
@@ -31,6 +36,15 @@ func (s *RedisInstance) Create(ctx context.Context, instance *models.Instance) e
 		return ErrInstanceIDEmpty
 	}
 
+	result, err := s.List(ctx, instance.ID)
+	if err != nil {
+		return err
+	}
+
+	if len(result) > 0 {
+		return ErrorAlreadyExists
+	}
+
 	data, err := json.Marshal(instance)
 	if err != nil {
 		return err
@@ -38,13 +52,46 @@ func (s *RedisInstance) Create(ctx context.Context, instance *models.Instance) e
 	return s.db.Set(ctx, s.key(instance.ID), data, redis.KeepTTL).Err()
 }
 
-func (s *RedisInstance) List(ctx context.Context) ([]models.Instance, error) {
+func (s *RedisInstance) Update(ctx context.Context, id string, instance *models.Instance) error {
+	if id == "" {
+		return ErrInstanceIDEmpty
+	}
+
+	result, err := s.List(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if len(result) <= 0 {
+		return ErrorNotFound
+	}
+
+	oldInstance := result[0]
+	oldInstance.RemoteJID = instance.RemoteJID
+
+	data, err := json.Marshal(oldInstance)
+	if err != nil {
+		return err
+	}
+
+	return s.db.Set(ctx, s.key(id), data, redis.KeepTTL).Err()
+}
+
+func (s *RedisInstance) List(ctx context.Context, id string) ([]models.Instance, error) {
 	var (
 		cursor uint64
 		keys   []string
 	)
+
+	pattern := "instance_"
+	if len(id) > 0 {
+		pattern = fmt.Sprintf("instance_%s", id)
+	} else {
+		pattern += "*"
+	}
+
 	for {
-		batch, newCursor, err := s.db.Scan(ctx, cursor, "instance_*", 100).Result()
+		batch, newCursor, err := s.db.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
 			return nil, err
 		}
@@ -81,4 +128,21 @@ func (s *RedisInstance) List(ctx context.Context) ([]models.Instance, error) {
 	}
 
 	return instances, nil
+}
+
+func (s *RedisInstance) Delete(ctx context.Context, id string) error {
+	if id == "" {
+		return ErrInstanceIDEmpty
+	}
+
+	result, err := s.List(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if len(result) <= 0 {
+		return ErrorNotFound
+	}
+
+	return s.db.Del(ctx, s.key(id)).Err()
 }
