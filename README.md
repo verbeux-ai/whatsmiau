@@ -1,5 +1,7 @@
 # WhatsMiau
 
+![logo-whatsmiau](logo.png)
+
 WhatsMiau is a backend service for WhatsApp, built with Go. It uses the Whatsmeow library to connect to WhatsApp and provides an HTTP API to send and receive messages.
 
 [Community Whatsapp (BR)](https://chat.whatsapp.com/FXMrTY552nOBFXU71Be8Zh)
