@@ -71,3 +71,45 @@ This API is designed to be compatible with the Evolution API. This means that yo
 
 It exclusively supports webhooks in the Evolution API format, offering two distinct approaches for their implementation, providing flexibility for different use cases.
 
+## API Routes
+Same Pattern: https://www.postman.com/agenciadgcode/evolution-api/overview
+| Method | Path                                      | Description                 |
+|--------|-------------------------------------------|-----------------------------|
+| POST   | /v1/instance                            | Create a new instance       |
+| GET    | /v1/instance                            | List all instances          |
+| POST   | /v1/instance/:id/connect                | Connect to an instance      |
+| POST   | /v1/instance/:id/logout                 | Logout from an instance     |
+| DELETE | /v1/instance/:id                        | Delete an instance          |
+| GET    | /v1/instance/:id/status                 | Get instance status         |
+| POST   | /v1/instance/:instance/message/text     | Send a text message         |
+| POST   | /v1/instance/:instance/message/audio    | Send an audio message       |
+| POST   | /v1/instance/:instance/message/document | Send a document             |
+| POST   | /v1/instance/:instance/message/image    | Send an image message       |
+| POST   | /v1/instance/:instance/chat/presence    | Send chat presence          |
+| POST   | /v1/instance/:instance/chat/read-messages| Mark messages as read       |
+
+### Evolution API Compatibility Routes
+
+| Method | Path                               | Description                 |
+|--------|------------------------------------|-----------------------------|
+| POST   | /v1/instance/create                | Create a new instance       |
+| GET    | /v1/instance/fetchInstances        | List all instances          |
+| GET    | /v1/instance/connect/:id           | Connect to an instance      |
+| GET    | /v1/instance/connectionState/:id   | Get instance status         |
+| DELETE | /v1/instance/logout/:id            | Logout from an instance     |
+| DELETE | /v1/instance/delete/:id            | Delete an instance          |
+| POST   | /v1/message/sendText/:instance     | Send a text message         |
+| POST   | /v1/message/sendWhatsAppAudio/:instance | Send an audio message       |
+| POST   | /v1/message/sendMedia/:instance    | Send a media message        |
+| POST   | /v1/chat/markMessageAsRead/:instance | Mark messages as read       |
+| POST   | /v1/chat/sendPresence/:instance    | Send chat presence          |
+
+## Supported Events
+
+The application can send webhook events for the following actions:
+
+| Event             | Description                                         |
+|-------------------|-----------------------------------------------------|
+| `MESSAGES_UPSERT` | Triggered when a new message is received.           |
+| `MESSAGES_UPDATE` | Triggered when a message status changes (e.g., read). |
+| `CONTACTS_UPSERT` | Triggered when a contact is created or updated.     |
