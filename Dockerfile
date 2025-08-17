@@ -13,6 +13,7 @@ FROM alpine:latest
 
 WORKDIR /app
 
+RUN mkdir /data
 COPY --from=builder /app/whatsmiau .
 
 EXPOSE 8080
