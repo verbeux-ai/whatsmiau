@@ -9,6 +9,7 @@ func Load(app *echo.Echo) {
 }
 
 func V1(group *echo.Group) {
-
 	Instance(group.Group("/instance"))
+	Message(group.Group("/instance/:id/message"))
+	MessageEVO(group.Group("/message"))
 }

@@ -2,6 +2,7 @@ package lib
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -26,15 +27,22 @@ type Whatsmiau struct {
 	qrCache       *xsync.Map[string, string]
 	lockConn      *sync.Mutex
 	instanceCache *xsync.Map[string, models.Instance]
+	emitter       chan emitter
+	httpClient    *http.Client
 }
 
 var instance *Whatsmiau
+var mu = &sync.Mutex{}
 
 func Get() *Whatsmiau {
+	mu.Lock()
+	defer mu.Unlock()
 	return instance
 }
 
 func LoadMiau(ctx context.Context, container *sqlstore.Container) {
+	mu.Lock()
+	defer mu.Unlock()
 	deviceStore, err := container.GetAllDevices(ctx)
 	if err != nil {
 		panic(err)
@@ -91,11 +99,17 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		qrCache:       xsync.NewMap[string, string](),
 		instanceCache: xsync.NewMap[string, models.Instance](),
 		lockConn:      &sync.Mutex{},
+		emitter:       make(chan emitter),
+		httpClient: &http.Client{
+			Timeout: time.Second * 10, // TODO: load from env
+		},
 	}
+
+	go instance.startEmitter()
 
 	clients.Range(func(id string, client *whatsmeow.Client) bool {
 		zap.L().Info("stating event handler", zap.String("jid", client.Store.ID.String()))
-		client.AddEventHandler(instance.StartEmitter(id))
+		client.AddEventHandler(instance.Handle(id))
 		return true
 	})
 
@@ -105,6 +119,7 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 	client, ok := s.clients.Load(id)
 	if !ok {
 		device := s.container.NewDevice()
+		device.Platform = "Verboo 👻"
 		client = whatsmeow.NewClient(device, s.logger)
 		s.clients.Store(id, client)
 	}
@@ -168,10 +183,11 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 					canStop = true
 					zap.L().Info("device connected successfully", zap.String("id", id))
 					if client.Store.ID == nil {
+						//TODO: remove device
 						zap.L().Error("jid is nil after login", zap.String("id", id))
 					} else {
 						client.RemoveEventHandlers()
-						client.AddEventHandler(s.StartEmitter(id))
+						client.AddEventHandler(s.Handle(id))
 						if err := s.repo.Update(context.Background(), id, &models.Instance{
 							RemoteJID: client.Store.ID.String(),
 						}); err != nil {

@@ -4,5 +4,5 @@ import "errors"
 
 // redis
 var (
-	ErrInstanceIDEmpty = errors.New("instance ID cannot be empty")
+	ErrInstanceIDEmpty = errors.New("instance InstanceID cannot be empty")
 )

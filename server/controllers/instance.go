@@ -41,7 +41,7 @@ func (s *Instance) Create(ctx echo.Context) error {
 	request.RemoteJID = ""
 
 	c := ctx.Request().Context()
-	if err := s.repo.Create(c, &request.Instance); err != nil {
+	if err := s.repo.Create(c, request.Instance); err != nil {
 		zap.L().Error("failed to create instance", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to create instance")
 	}
@@ -185,7 +185,9 @@ func (s *Instance) Delete(ctx echo.Context) error {
 	}
 
 	if len(result) == 0 {
-		return utils.HTTPFail(ctx, http.StatusNotFound, err, "instance not found")
+		return ctx.JSON(http.StatusOK, dto.DeleteInstanceResponse{
+			Message: "instance doesn't exists",
+		})
 	}
 
 	if err := s.whatsmiau.Logout(c, request.ID); err != nil {
