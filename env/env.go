@@ -12,6 +12,9 @@ type E struct {
 	RedisURL      string `ENV:"REDIS_URL" envDefault:"localhost:6379"`
 	RedisPassword string `ENV:"REDIS_PASSWORD"`
 	RedisTLS      bool   `ENV:"REDIS_TLS" envDefault:"false"`
+
+	DBDialect string `ENV:"DIALECT_DB" envDefault:"sqlite3"`                   // sqlite3 or postgres
+	DBURL     string `ENV:"DB_URL" envDefault:"file:data.db?_foreign_keys=on"` // "postgres://<user>:<pass>@<host>:<port>/<DB>?sslmode=disable
 }
 
 var Env E
