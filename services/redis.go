@@ -2,7 +2,9 @@ package services
 
 import (
 	"crypto/tls"
+
 	"github.com/verbeux-ai/whatsmiau/env"
+	"golang.org/x/net/context"
 
 	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
@@ -35,6 +37,9 @@ func NewRedis() (*redis.Client, error) {
 	}
 
 	client := redis.NewClient(opt)
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		zap.L().Panic("failed to connect to redis", zap.Error(err))
+	}
 
 	return client, nil
 }
