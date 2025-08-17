@@ -1,28 +1,20 @@
-FROM golang:1.24 as build
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod .
-
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-ENV GOOS linux
-ENV GOARCH amd64
-ENV CGO_ENABLED 1
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o whatsmiau main.go
 
-RUN go build -a -installsuffix cgo -o app
-
-FROM --platform=linux/amd64 debian
-
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates
-
-RUN update-ca-certificates
+FROM alpine:latest
 
 WORKDIR /app
 
-COPY --from=build /app/app /app
+COPY --from=builder /app/whatsmiau .
 
-ENTRYPOINT [ "/app/app" ]
+EXPOSE 8080
+
+CMD ["./whatsmiau"]

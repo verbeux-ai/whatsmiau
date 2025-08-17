@@ -51,6 +51,23 @@ To get a local copy up and running follow these simple steps.
    go run main.go
    ```
 
+## Running with Docker
+
+You can also run the application using Docker and Docker Compose.
+
+1.  **Build and run the containers:**
+    ```sh
+    docker-compose up -d --build
+    ```
+2.  **View the logs:**
+    ```sh
+    docker-compose logs -f
+    ```
+3.  **Stop the containers:**
+    ```sh
+    docker-compose down
+    ```
+
 ## Configuration
 
 The application is configured using environment variables. The following variables are available:
