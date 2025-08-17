@@ -16,6 +16,6 @@ WORKDIR /app
 RUN mkdir /data
 COPY --from=builder /app/whatsmiau .
 
-EXPOSE 8080
+EXPOSE 8081
 
 CMD ["./whatsmiau"]
