@@ -10,6 +10,10 @@ func Load(app *echo.Echo) {
 
 func V1(group *echo.Group) {
 	Instance(group.Group("/instance"))
-	Message(group.Group("/instance/:id/message"))
+	Message(group.Group("/instance/:instance/message"))
+	Chat(group.Group("/instance/:instance/chat"))
+
+	ChatEVO(group.Group("/chat"))
 	MessageEVO(group.Group("/message"))
+
 }

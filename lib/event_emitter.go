@@ -56,12 +56,8 @@ func (s *Whatsmiau) getInstanceCached(id string) *models.Instance {
 }
 
 func (s *Whatsmiau) startEmitter() {
-	sem := make(chan struct{}, 10) //TODO: add on env
-
 	for event := range s.emitter {
-		sem <- struct{}{} // lock if has 10 simultaneous requests
 		go func(event emitter) {
-			defer func() { <-sem }() // unlock after this request ends
 			data, err := json.Marshal(event.data)
 			if err != nil {
 				zap.L().Error("failed to marshal event", zap.Error(err))
@@ -153,7 +149,6 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertEventReceipt(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
 				return
 			}
 
@@ -297,34 +292,62 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 }
 
 func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.Pushname, conversations []*waHistorySync.Conversation) WookContactUpsertData {
-	var result []WookContact
+	resultMap := make(map[string]WookContact)
 	for _, pushName := range event {
+
 		if len(pushName.GetPushname()) == 0 {
 			continue
 		}
 
-		result = append(result, WookContact{
+		if dt := strings.Split(pushName.GetPushname(), "@"); len(dt) == 2 && (dt[1] == "g.us" || dt[1] == "s.whatsapp.net") {
+			return nil
+		}
+
+		resultMap[pushName.GetID()] = WookContact{
 			RemoteJid:  pushName.GetID(),
 			PushName:   pushName.GetPushname(),
 			InstanceId: id,
-		})
+		}
 	}
 
 	for _, conversation := range conversations {
 		name := conversation.GetName()
 		if len(name) == 0 {
 			name = conversation.GetDisplayName()
-		} else if len(name) == 0 {
+		}
+		if len(name) == 0 {
 			name = conversation.GetUsername()
-		} else {
+		}
+		if len(name) == 0 {
+			continue
+		}
+		if dt := strings.Split(name, "@"); len(dt) == 2 && (dt[1] == "g.us" || dt[1] == "s.whatsapp.net") {
+			return nil
+		}
+
+		resultMap[conversation.GetID()] = WookContact{
+			RemoteJid:  conversation.GetID(),
+			PushName:   name,
+			InstanceId: id,
+		}
+	}
+
+	var result []WookContact
+	for _, c := range resultMap {
+		jid, err := types.ParseJID(c.RemoteJid)
+		if err != nil {
 			continue
 		}
 
-		result = append(result, WookContact{
-			RemoteJid:  conversation.GetNewJID(),
-			PushName:   name,
-			InstanceId: id,
-		})
+		url, _, err := s.getPic(id, jid)
+		if err != nil {
+			if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+				zap.L().Error("failed to get pic", zap.Error(err))
+			}
+		}
+
+		c.ProfilePicUrl = url
+		result = append(result, c)
 	}
 
 	return result
@@ -340,7 +363,7 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		return nil
 	}
 
-	if evt == nil || evt.Message == nil {
+	if evt == nil || evt.Message == nil || evt.Info.ID == "status@broadcast" {
 		return nil
 	}
 
@@ -376,9 +399,9 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		messageType = "reactionMessage"
 		reactionKey := &WookKey{}
 		if rk := r.GetKey(); rk != nil {
-			reactionKey.RemoteJid = rk.GetRemoteJid()
+			reactionKey.RemoteJid = rk.GetRemoteJID()
 			reactionKey.FromMe = rk.GetFromMe()
-			reactionKey.Id = rk.GetId()
+			reactionKey.Id = rk.GetID()
 			reactionKey.Participant = rk.GetParticipant()
 		}
 		raw.ReactionMessage = &ReactionMessageRaw{
@@ -588,11 +611,11 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 	}
 
 	return &WookMessageData{
-		Key:      key,
-		PushName: strings.TrimSpace(e.Info.PushName),
-		Status:   status,
-		Message:  raw,
-		//ContextInfo:      messageContext,
+		Key:              key,
+		PushName:         strings.TrimSpace(e.Info.PushName),
+		Status:           status,
+		Message:          raw,
+		ContextInfo:      &messageContext,
 		MessageType:      messageType,
 		MessageTimestamp: int(ts.Unix()),
 		InstanceId:       id,
@@ -628,9 +651,9 @@ func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMe
 }
 
 func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact {
-	url, b64, err := s.getPic(id, evt.JID)
+	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 	}
@@ -646,24 +669,31 @@ func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact 
 		return nil
 	}
 
+	if dt := strings.Split(name, "@"); len(dt) == 2 && (dt[1] == "g.us" || dt[1] == "s.whatsapp.net") {
+		return nil
+	}
+
 	return &WookContact{
 		RemoteJid:     evt.JID.String(),
 		PushName:      name,
 		ProfilePicUrl: url,
 		InstanceId:    id,
-		Base64Pic:     b64,
 	}
 }
 
 func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookContact {
-	url, b64, err := s.getPic(id, evt.JID)
+	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 	}
 
-	if len(evt.Name.Name) == 0 {
+	if evt.Name == nil || len(evt.Name.Name) == 0 {
+		return nil
+	}
+
+	if dt := strings.Split(evt.Name.Name, "@"); len(dt) == 2 && (dt[1] == "g.us" || dt[1] == "s.whatsapp.net") {
 		return nil
 	}
 
@@ -672,31 +702,42 @@ func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookCont
 		PushName:      evt.Name.Name,
 		ProfilePicUrl: url,
 		InstanceId:    id,
-		Base64Pic:     b64,
 	}
 }
 
 func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContact {
-	pushName := evt.NewPushName
-	if len(pushName) == 0 {
-		pushName = evt.OldPushName
+	url, _, err := s.getPic(id, evt.JID)
+	if err != nil {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+			zap.L().Error("failed to get pic", zap.Error(err))
+		}
 	}
 
-	if pushName == "" {
+	name := evt.NewPushName
+	if len(name) == 0 {
+		name = evt.OldPushName
+	}
+
+	if name == "" {
+		return nil
+	}
+
+	if dt := strings.Split(name, "@"); len(dt) == 2 && (dt[1] == "g.us" || dt[1] == "s.whatsapp.net") {
 		return nil
 	}
 
 	return &WookContact{
-		RemoteJid:  evt.JID.String(),
-		PushName:   evt.NewPushName,
-		InstanceId: id,
+		RemoteJid:     evt.JID.String(),
+		PushName:      evt.NewPushName,
+		InstanceId:    id,
+		ProfilePicUrl: url,
 	}
 }
 
 func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact {
 	url, b64, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 		return nil
@@ -717,7 +758,7 @@ func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact 
 func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *WookContact {
 	url, b64, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 		return nil
@@ -736,6 +777,10 @@ func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *Wo
 	}
 	if name == "" {
 		name = evt.Message.VerifiedName.Details.GetVerifiedName()
+	}
+
+	if dt := strings.Split(name, "@"); len(dt) == 2 && (dt[1] == "g.us" || dt[1] == "s.whatsapp.net") {
+		return nil
 	}
 
 	return &WookContact{

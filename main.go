@@ -56,9 +56,7 @@ func main() {
 
 	app := echo.New()
 	app.Pre(middleware.Recover())
-	app.Pre(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: "[${time_rfc3339}] ${remote_ip} -> ${method} ${uri} ${status} ${latency_human}\n",
-	}))
+	app.Pre(middleware.Logger())
 	app.Pre(middleware.RemoveTrailingSlash())
 	app.Pre(middleware.CORS())
 

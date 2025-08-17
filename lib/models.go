@@ -215,13 +215,13 @@ const (
 )
 
 type WookMessageUpdateData struct {
-	MessageId   string                  `json:"messageId"`
-	KeyId       string                  `json:"keyId"`
-	RemoteJid   string                  `json:"remoteJid"`
-	FromMe      bool                    `json:"fromMe"`
-	Participant string                  `json:"participant"`
-	Status      WookMessageUpdateStatus `json:"status"`
-	InstanceId  string                  `json:"instanceId"`
+	MessageId   string                  `json:"messageId,omitempty"`
+	KeyId       string                  `json:"keyId,omitempty"`
+	RemoteJid   string                  `json:"remoteJid,omitempty"`
+	FromMe      bool                    `json:"fromMe,omitempty"`
+	Participant string                  `json:"participant,omitempty"`
+	Status      WookMessageUpdateStatus `json:"status,omitempty"`
+	InstanceId  string                  `json:"instanceId,omitempty"`
 }
 
 type WookContact struct {
