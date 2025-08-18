@@ -38,7 +38,7 @@ func NewRedis() (*redis.Client, error) {
 
 	client := redis.NewClient(opt)
 	if err := client.Ping(context.Background()).Err(); err != nil {
-		zap.L().Panic("failed to connect to redis", zap.Error(err))
+		zap.L().Panic("failed to connect to redis", zap.Error(err), zap.Any("env", env.Env))
 	}
 
 	return client, nil

@@ -3,7 +3,7 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
 # Install gcc and SQLite dev libraries
-RUN apk add build-base sqlite-dev
+RUN apk add build-base sqlite-dev gcc musl-dev
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -17,16 +17,10 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Create a non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
 COPY --from=builder /app/whatsmiau /app/whatsmiau
 
-RUN mkdir data && chown -R appuser:appgroup /app/data
-
-# Switch to the non-root user
-USER appuser
+RUN mkdir /app/data && chmod 777 -R /app/data
 
 EXPOSE 8081
 
-CMD ["./whatsmiau"]
+ENTRYPOINT ["./whatsmiau"]

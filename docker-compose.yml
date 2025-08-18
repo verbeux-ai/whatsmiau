@@ -14,7 +14,6 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
-    user: "appuser"
 
   redis:
     image: redis:latest
