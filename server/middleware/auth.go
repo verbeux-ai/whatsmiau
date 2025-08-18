@@ -8,7 +8,7 @@ import (
 )
 
 func Auth(ctx echo.Context, next echo.HandlerFunc) error {
-	gotApikey := ctx.Get("apikey")
+	gotApikey := ctx.Request().Header.Get("apikey")
 	if gotApikey != env.Env.ApiKey {
 		return echo.NewHTTPError(http.StatusUnauthorized)
 	}
