@@ -8,15 +8,16 @@ services:
       - "8081:8081"
     environment:
       - REDIS_URL=redis:6379
-      - DB_URL="file:/data/data.db?_foreign_keys=on"
+      - DB_URL=file:/app/data/data.db?_foreign_keys=on
     volumes:
-      - ./data:/data
+      - whatsmeow:/app/data
     depends_on:
       - redis
     restart: unless-stopped
+    user: "appuser"
 
   redis:
-    image: redis:7-alpine
+    image: redis:latest
     container_name: redis
     volumes:
       - redis-data:/data
@@ -24,4 +25,6 @@ services:
 
 volumes:
   redis-data:
+    driver: local
+  whatsmeow:
     driver: local
