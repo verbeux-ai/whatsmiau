@@ -23,4 +23,5 @@ func ChatEVO(group *echo.Group) {
 	// Evolution API Compatibility (partially REST)
 	group.POST("/markMessageAsRead/:instance", controller.ReadMessages)
 	group.POST("/sendPresence/:instance", controller.SendChatPresence)
+	group.POST("/whatsappNumbers/:instance", controller.NumberExists)
 }

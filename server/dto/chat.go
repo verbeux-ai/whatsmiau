@@ -36,3 +36,7 @@ type SendChatPresenceRequest struct {
 type SendChatPresenceResponse struct {
 	Presence SendPresenceRequestPresence `json:"presence"`
 }
+
+type NumberExistsRequest struct {
+	Numbers []string `json:"numbers"     validate:"required,min=1,dive,required"`
+}

@@ -116,3 +116,30 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 
 	return ctx.JSON(http.StatusOK, map[string]interface{}{})
 }
+
+func (s *Chat) NumberExists(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+
+	var request dto.NumberExistsRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	if err := validator.New().Struct(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
+	}
+
+	response, err := s.whatsmiau.NumberExists(&lib.NumberExistsRequest{
+		InstanceID: instanceID,
+		Numbers:    request.Numbers,
+	})
+	if err != nil {
+		zap.L().Error("Whatsmiau.NumberExists failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to check numbers")
+	}
+
+	return ctx.JSON(http.StatusOK, response)
+}

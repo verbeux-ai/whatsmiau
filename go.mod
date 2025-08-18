@@ -14,6 +14,7 @@ require (
 	go.mau.fi/whatsmeow v0.0.0-20250811141640-b804d10c54c2
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.43.0
+	google.golang.org/protobuf v1.36.7
 )
 
 require (
@@ -41,5 +42,4 @@ require (
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
-	google.golang.org/protobuf v1.36.7 // indirect
 )
