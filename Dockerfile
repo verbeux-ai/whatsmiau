@@ -18,6 +18,7 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /app/whatsmiau /app/whatsmiau
+RUN apk update && apk add --no-cache ffmpeg
 
 RUN mkdir /app/data && chmod 777 -R /app/data
 
