@@ -341,7 +341,7 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 
 		url, _, err := s.getPic(id, jid)
 		if err != nil {
-			if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+			if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
 				zap.L().Error("failed to get pic", zap.Error(err))
 			}
 		}
@@ -518,95 +518,100 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 
 	// Map MessageContextInfo (quoted, mentions, disappearing mode, external ad reply)
 	var messageContext WookMessageContextInfo
-	ci := m.GetExtendedTextMessage().GetContextInfo()
+	if extendedTextMessage := m.GetExtendedTextMessage(); extendedTextMessage != nil {
+		if ci := extendedTextMessage.GetContextInfo(); ci != nil {
+			messageContext.EphemeralSettingTimestamp = i64(ci.GetEphemeralSettingTimestamp())
+			messageContext.StanzaId = ci.GetStanzaID()
+			messageContext.Participant = ci.GetParticipant()
+			messageContext.Expiration = int(ci.GetExpiration())
+			messageContext.MentionedJid = ci.GetMentionedJID()
+			messageContext.ConversionSource = ci.GetConversionSource()
+			messageContext.ConversionData = b64(ci.GetConversionData())
+			messageContext.ConversionDelaySeconds = int(ci.GetConversionDelaySeconds())
+			messageContext.EntryPointConversionSource = ci.GetEntryPointConversionSource()
+			messageContext.EntryPointConversionApp = ci.GetEntryPointConversionApp()
+			messageContext.EntryPointConversionDelaySeconds = int(ci.GetEntryPointConversionDelaySeconds())
+			messageContext.TrustBannerAction = ci.GetTrustBannerAction()
 
-	if ci != nil {
-		messageContext.EphemeralSettingTimestamp = i64(ci.GetEphemeralSettingTimestamp())
-		messageContext.StanzaId = ci.GetStanzaID()
-		messageContext.Participant = ci.GetParticipant()
-		messageContext.Expiration = int(ci.GetExpiration())
-		messageContext.MentionedJid = ci.GetMentionedJID()
-		messageContext.ConversionSource = ci.GetConversionSource()
-		messageContext.ConversionData = b64(ci.GetConversionData())
-		messageContext.ConversionDelaySeconds = int(ci.GetConversionDelaySeconds())
-		messageContext.EntryPointConversionSource = ci.GetEntryPointConversionSource()
-		messageContext.EntryPointConversionApp = ci.GetEntryPointConversionApp()
-		messageContext.EntryPointConversionDelaySeconds = int(ci.GetEntryPointConversionDelaySeconds())
-		messageContext.TrustBannerAction = ci.GetTrustBannerAction()
-
-		if dm := ci.GetDisappearingMode(); dm != nil {
-			messageContext.DisappearingMode = &ContextInfoDisappearingMode{
-				Initiator:     dm.GetInitiator().String(),
-				Trigger:       dm.GetTrigger().String(),
-				InitiatedByMe: dm.GetInitiatedByMe(),
-			}
-		}
-
-		if ear := ci.GetExternalAdReply(); ear != nil {
-			messageContext.WookMessageContextInfoExternalAdReply = &WookMessageContextInfoExternalAdReply{
-				Title:                 ear.GetTitle(),
-				Body:                  ear.GetBody(),
-				MediaType:             ear.GetMediaType().String(),
-				ThumbnailUrl:          ear.GetThumbnailURL(),
-				Thumbnail:             b64(ear.GetThumbnail()),
-				SourceType:            ear.GetSourceType(),
-				SourceId:              ear.GetSourceID(),
-				SourceUrl:             ear.GetSourceURL(),
-				ContainsAutoReply:     ear.GetContainsAutoReply(),
-				RenderLargerThumbnail: ear.GetRenderLargerThumbnail(),
-				ShowAdAttribution:     ear.GetShowAdAttribution(),
-				CtwaClid:              ear.GetCtwaClid(),
-			}
-		}
-
-		if qm := ci.GetQuotedMessage(); qm != nil {
-			var q WookMessageContextInfoQuotedMessage
-
-			if qet := qm.GetExtendedTextMessage(); qet != nil {
-				q.ExtendedTextMessage.Text = qet.GetText()
-				if qci := qet.GetContextInfo(); qci != nil {
-					q.ExtendedTextMessage.ContextInfo.Expiration = int(qci.GetExpiration())
-					if qdm := qci.GetDisappearingMode(); qdm != nil {
-						q.ExtendedTextMessage.ContextInfo.DisappearingMode = &ContextInfoDisappearingMode{
-							Initiator:     qdm.GetInitiator().String(),
-							Trigger:       qdm.GetTrigger().String(),
-							InitiatedByMe: qdm.GetInitiatedByMe(),
-						}
-					}
+			if dm := ci.GetDisappearingMode(); dm != nil {
+				messageContext.DisappearingMode = &ContextInfoDisappearingMode{
+					Initiator:     dm.GetInitiator().String(),
+					Trigger:       dm.GetTrigger().String(),
+					InitiatedByMe: dm.GetInitiatedByMe(),
 				}
 			}
 
-			if lm := qm.GetListMessage(); lm != nil {
-				var sections []WookListSection
-				for _, s := range lm.GetSections() {
-					if s == nil {
-						continue
+			if ear := ci.GetExternalAdReply(); ear != nil {
+				messageContext.WookMessageContextInfoExternalAdReply = &WookMessageContextInfoExternalAdReply{
+					Title:                 ear.GetTitle(),
+					Body:                  ear.GetBody(),
+					MediaType:             ear.GetMediaType().String(),
+					ThumbnailUrl:          ear.GetThumbnailURL(),
+					Thumbnail:             b64(ear.GetThumbnail()),
+					SourceType:            ear.GetSourceType(),
+					SourceId:              ear.GetSourceID(),
+					SourceUrl:             ear.GetSourceURL(),
+					ContainsAutoReply:     ear.GetContainsAutoReply(),
+					RenderLargerThumbnail: ear.GetRenderLargerThumbnail(),
+					ShowAdAttribution:     ear.GetShowAdAttribution(),
+					CtwaClid:              ear.GetCtwaClid(),
+				}
+			}
+
+			if qm := ci.GetQuotedMessage(); qm != nil {
+				var q WookMessageContextInfoQuotedMessage
+
+				if qet := qm.GetExtendedTextMessage(); qet != nil {
+					q.ExtendedTextMessage = &WookMessageExtendedTextMessage{
+						Text: qet.GetText(),
 					}
-					ws := WookListSection{Title: s.GetTitle()}
-					for _, r := range s.GetRows() {
-						if r == nil {
+
+					if qci := qet.GetContextInfo(); qci != nil {
+						q.ExtendedTextMessage.ContextInfo = &WookMessageExtendedTextMessageContextInfo{
+							Expiration: int(qci.GetExpiration()),
+						}
+						if qdm := qci.GetDisappearingMode(); qdm != nil {
+							q.ExtendedTextMessage.ContextInfo.DisappearingMode = &ContextInfoDisappearingMode{
+								Initiator:     qdm.GetInitiator().String(),
+								Trigger:       qdm.GetTrigger().String(),
+								InitiatedByMe: qdm.GetInitiatedByMe(),
+							}
+						}
+					}
+				}
+
+				if lm := qm.GetListMessage(); lm != nil {
+					var sections []WookListSection
+					for _, s := range lm.GetSections() {
+						if s == nil {
 							continue
 						}
-						ws.Rows = append(ws.Rows, WookListRow{
-							Title:       r.GetTitle(),
-							Description: r.GetDescription(),
-							RowId:       r.GetRowID(),
-						})
+						ws := WookListSection{Title: s.GetTitle()}
+						for _, r := range s.GetRows() {
+							if r == nil {
+								continue
+							}
+							ws.Rows = append(ws.Rows, WookListRow{
+								Title:       r.GetTitle(),
+								Description: r.GetDescription(),
+								RowId:       r.GetRowID(),
+							})
+						}
+						sections = append(sections, ws)
 					}
-					sections = append(sections, ws)
+
+					q.ListMessage = &WookListMessageRawListContextInfoQuotedMessageList{
+						Title:       lm.GetTitle(),
+						Description: lm.GetDescription(),
+						ButtonText:  lm.GetButtonText(),
+						ListType:    lm.GetListType().String(),
+						Sections:    sections,
+						FooterText:  lm.GetFooterText(),
+					}
 				}
 
-				q.ListMessage = &WookListMessageRawListContextInfoQuotedMessageList{
-					Title:       lm.GetTitle(),
-					Description: lm.GetDescription(),
-					ButtonText:  lm.GetButtonText(),
-					ListType:    lm.GetListType().String(),
-					Sections:    sections,
-					FooterText:  lm.GetFooterText(),
-				}
+				messageContext.QuotedMessage = &q
 			}
-
-			messageContext.QuotedMessage = &q
 		}
 	}
 
@@ -653,7 +658,7 @@ func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMe
 func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 	}
@@ -684,7 +689,7 @@ func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact 
 func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 	}
@@ -708,7 +713,7 @@ func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookCont
 func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 	}
@@ -737,7 +742,7 @@ func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContac
 func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact {
 	url, b64, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 		return nil
@@ -758,7 +763,7 @@ func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact 
 func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *WookContact {
 	url, b64, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
 			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 		return nil

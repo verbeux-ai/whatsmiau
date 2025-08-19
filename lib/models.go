@@ -67,14 +67,18 @@ type WookMessageContextInfoExternalAdReply struct {
 }
 
 type WookMessageContextInfoQuotedMessage struct {
-	ExtendedTextMessage *struct {
-		Text        string `json:"text,omitempty"`
-		ContextInfo *struct {
-			Expiration       int                          `json:"expiration,omitempty"`
-			DisappearingMode *ContextInfoDisappearingMode `json:"disappearingMode,omitempty"`
-		} `json:"contextInfo,omitempty"`
-	} `json:"extendedTextMessage,omitempty"`
-	ListMessage *WookListMessageRawListContextInfoQuotedMessageList `json:"listMessage,omitempty"`
+	ExtendedTextMessage *WookMessageExtendedTextMessage                     `json:"extendedTextMessage,omitempty"`
+	ListMessage         *WookListMessageRawListContextInfoQuotedMessageList `json:"listMessage,omitempty"`
+}
+
+type WookMessageExtendedTextMessage struct {
+	Text        string                                     `json:"text,omitempty"`
+	ContextInfo *WookMessageExtendedTextMessageContextInfo `json:"contextInfo,omitempty"`
+}
+
+type WookMessageExtendedTextMessageContextInfo struct {
+	Expiration       int                          `json:"expiration,omitempty"`
+	DisappearingMode *ContextInfoDisappearingMode `json:"disappearingMode,omitempty"`
 }
 
 type WookKey struct {
