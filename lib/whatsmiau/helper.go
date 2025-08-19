@@ -1,4 +1,4 @@
-package lib
+package whatsmiau
 
 import (
 	"bytes"
@@ -15,8 +15,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"go.mau.fi/whatsmeow/types"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
 
@@ -223,4 +225,28 @@ func extractMimetype(decodedData []byte, fileName string) (string, error) {
 	}
 	detected := http.DetectContentType(dataSample)
 	return detected, nil
+}
+
+func extractExtFromFile(fileName, mimeType string, file *os.File) string {
+	ext := filepath.Ext(fileName)
+	if ext == "" {
+		if exts, _ := mime.ExtensionsByType(mimeType); len(exts) > 0 {
+			ext = exts[0]
+		} else {
+			buf := make([]byte, 512)
+			n, err := file.Read(buf)
+			if err != nil && err != io.EOF {
+				zap.L().Error("failed to read file", zap.Error(err))
+			}
+			detected := http.DetectContentType(buf[:n])
+			if exts, _ := mime.ExtensionsByType(detected); len(exts) > 0 {
+				ext = exts[0]
+			}
+			if _, err := file.Seek(0, io.SeekStart); err != nil {
+				zap.L().Error("failed to seek image", zap.Error(err))
+			}
+		}
+	}
+
+	return strings.TrimPrefix(ext, ".")
 }

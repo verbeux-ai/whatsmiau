@@ -1,4 +1,4 @@
-package lib
+package whatsmiau
 
 import (
 	"bytes"
@@ -12,8 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -125,7 +127,7 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			}
 
 			eventName = fmt.Sprintf("%T", evt)
-			messageData := s.convertEventMessage(id, e)
+			messageData := s.convertEventMessage(id, instance, e)
 			if messageData == nil {
 				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
 				return
@@ -341,9 +343,7 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 
 		url, _, err := s.getPic(id, jid)
 		if err != nil {
-			if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
-				zap.L().Error("failed to get pic", zap.Error(err))
-			}
+			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 
 		c.ProfilePicUrl = url
@@ -353,8 +353,8 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 	return result
 }
 
-func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMessageData {
-	ctx, c := context.WithTimeout(context.Background(), time.Second*20)
+func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, evt *events.Message) *WookMessageData {
+	ctx, c := context.WithTimeout(context.Background(), time.Second*60)
 	defer c()
 
 	client, ok := s.clients.Load(id)
@@ -393,6 +393,7 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 
 	var messageType string
 	raw := &WookMessageRaw{}
+	var ci *waE2E.ContextInfo
 
 	// === Prioritize action-like messages ===
 	if r := m.GetReactionMessage(); r != nil {
@@ -424,14 +425,8 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		}
 	} else if img := m.GetImageMessage(); img != nil {
 		messageType = "imageMessage"
+		ci = img.GetContextInfo()
 
-		fileData, err := client.Download(ctx, img)
-		if err != nil {
-			zap.L().Error("failed to download image", zap.Error(err))
-			return nil
-		}
-
-		raw.Base64 = base64.StdEncoding.EncodeToString(fileData)
 		raw.ImageMessage = &WookImageMessageRaw{
 			Url:               img.GetURL(),
 			Mimetype:          img.GetMimetype(),
@@ -447,26 +442,13 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 			JpegThumbnail:     b64(img.GetJPEGThumbnail()),
 			ViewOnce:          img.GetViewOnce(),
 		}
-		if c := img.GetContextInfo(); c != nil {
-			if dm := c.GetDisappearingMode(); dm != nil {
-				raw.ImageMessage.ContextInfo = &FileContextInfo{
-					DisappearingMode: &ContextInfoDisappearingMode{
-						Initiator:     dm.GetInitiator().String(),
-						Trigger:       dm.GetTrigger().String(),
-						InitiatedByMe: dm.GetInitiatedByMe(),
-					},
-				}
-			}
-		}
+
+		raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, img, img.GetMimetype(), "")
+
 	} else if aud := m.GetAudioMessage(); aud != nil {
 		messageType = "audioMessage"
-		fileData, err := client.Download(ctx, aud)
-		if err != nil {
-			zap.L().Error("failed to download audio", zap.Error(err))
-			return nil
-		}
-
-		raw.Base64 = base64.StdEncoding.EncodeToString(fileData)
+		ci = aud.GetContextInfo()
+		raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, aud, aud.GetMimetype(), "")
 		raw.AudioMessage = &WookAudioMessageRaw{
 			Url:               aud.GetURL(),
 			Mimetype:          aud.GetMimetype(),
@@ -483,13 +465,8 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		}
 	} else if doc := m.GetDocumentMessage(); doc != nil {
 		messageType = "documentMessage"
-		fileData, err := client.Download(ctx, doc)
-		if err != nil {
-			zap.L().Error("failed to download document", zap.Error(err))
-			return nil
-		}
-
-		raw.Base64 = base64.StdEncoding.EncodeToString(fileData)
+		ci = doc.GetContextInfo()
+		raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, doc, doc.GetMimetype(), doc.GetFileName())
 		raw.DocumentMessage = &WookDocumentMessageRaw{
 			Url:               doc.GetURL(),
 			Mimetype:          doc.GetMimetype(),
@@ -506,8 +483,25 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 			JpegThumbnail:     b64(doc.GetJPEGThumbnail()),
 			Caption:           doc.GetCaption(),
 		}
+	} else if video := m.GetVideoMessage(); video != nil {
+		messageType = "videoMessage"
+		ci = video.GetContextInfo()
+		raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, video, video.GetMimetype(), "")
+		raw.VideoMessage = &WookVideoMessageRaw{
+			Url:           video.GetURL(),
+			Mimetype:      video.GetMimetype(),
+			Caption:       video.GetCaption(),
+			FileSha256:    b64(video.GetFileSHA256()),
+			FileLength:    u64(video.GetFileLength()),
+			Seconds:       video.GetSeconds(),
+			MediaKey:      b64(video.GetMediaKey()),
+			FileEncSha256: b64(video.GetFileEncSHA256()),
+			JPEGThumbnail: b64(video.GetJPEGThumbnail()),
+			GIFPlayback:   video.GetGifPlayback(),
+		}
 	} else if et := m.GetExtendedTextMessage(); et != nil {
 		messageType = "extendedText"
+		ci = et.GetContextInfo()
 		raw.Conversation = strings.TrimSpace(et.GetText())
 	} else if conv := strings.TrimSpace(m.GetConversation()); conv != "" {
 		messageType = "conversation"
@@ -518,100 +512,98 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 
 	// Map MessageContextInfo (quoted, mentions, disappearing mode, external ad reply)
 	var messageContext WookMessageContextInfo
-	if extendedTextMessage := m.GetExtendedTextMessage(); extendedTextMessage != nil {
-		if ci := extendedTextMessage.GetContextInfo(); ci != nil {
-			messageContext.EphemeralSettingTimestamp = i64(ci.GetEphemeralSettingTimestamp())
-			messageContext.StanzaId = ci.GetStanzaID()
-			messageContext.Participant = ci.GetParticipant()
-			messageContext.Expiration = int(ci.GetExpiration())
-			messageContext.MentionedJid = ci.GetMentionedJID()
-			messageContext.ConversionSource = ci.GetConversionSource()
-			messageContext.ConversionData = b64(ci.GetConversionData())
-			messageContext.ConversionDelaySeconds = int(ci.GetConversionDelaySeconds())
-			messageContext.EntryPointConversionSource = ci.GetEntryPointConversionSource()
-			messageContext.EntryPointConversionApp = ci.GetEntryPointConversionApp()
-			messageContext.EntryPointConversionDelaySeconds = int(ci.GetEntryPointConversionDelaySeconds())
-			messageContext.TrustBannerAction = ci.GetTrustBannerAction()
+	if ci != nil {
+		messageContext.EphemeralSettingTimestamp = i64(ci.GetEphemeralSettingTimestamp())
+		messageContext.StanzaId = ci.GetStanzaID()
+		messageContext.Participant = ci.GetParticipant()
+		messageContext.Expiration = int(ci.GetExpiration())
+		messageContext.MentionedJid = ci.GetMentionedJID()
+		messageContext.ConversionSource = ci.GetConversionSource()
+		messageContext.ConversionData = b64(ci.GetConversionData())
+		messageContext.ConversionDelaySeconds = int(ci.GetConversionDelaySeconds())
+		messageContext.EntryPointConversionSource = ci.GetEntryPointConversionSource()
+		messageContext.EntryPointConversionApp = ci.GetEntryPointConversionApp()
+		messageContext.EntryPointConversionDelaySeconds = int(ci.GetEntryPointConversionDelaySeconds())
+		messageContext.TrustBannerAction = ci.GetTrustBannerAction()
 
-			if dm := ci.GetDisappearingMode(); dm != nil {
-				messageContext.DisappearingMode = &ContextInfoDisappearingMode{
-					Initiator:     dm.GetInitiator().String(),
-					Trigger:       dm.GetTrigger().String(),
-					InitiatedByMe: dm.GetInitiatedByMe(),
-				}
+		if dm := ci.GetDisappearingMode(); dm != nil {
+			messageContext.DisappearingMode = &ContextInfoDisappearingMode{
+				Initiator:     dm.GetInitiator().String(),
+				Trigger:       dm.GetTrigger().String(),
+				InitiatedByMe: dm.GetInitiatedByMe(),
 			}
+		}
 
-			if ear := ci.GetExternalAdReply(); ear != nil {
-				messageContext.WookMessageContextInfoExternalAdReply = &WookMessageContextInfoExternalAdReply{
-					Title:                 ear.GetTitle(),
-					Body:                  ear.GetBody(),
-					MediaType:             ear.GetMediaType().String(),
-					ThumbnailUrl:          ear.GetThumbnailURL(),
-					Thumbnail:             b64(ear.GetThumbnail()),
-					SourceType:            ear.GetSourceType(),
-					SourceId:              ear.GetSourceID(),
-					SourceUrl:             ear.GetSourceURL(),
-					ContainsAutoReply:     ear.GetContainsAutoReply(),
-					RenderLargerThumbnail: ear.GetRenderLargerThumbnail(),
-					ShowAdAttribution:     ear.GetShowAdAttribution(),
-					CtwaClid:              ear.GetCtwaClid(),
-				}
+		if ear := ci.GetExternalAdReply(); ear != nil {
+			messageContext.ExternalAdReply = &WookMessageContextInfoExternalAdReply{
+				Title:                 ear.GetTitle(),
+				Body:                  ear.GetBody(),
+				MediaType:             ear.GetMediaType().String(),
+				ThumbnailUrl:          ear.GetThumbnailURL(),
+				Thumbnail:             b64(ear.GetThumbnail()),
+				SourceType:            ear.GetSourceType(),
+				SourceId:              ear.GetSourceID(),
+				SourceUrl:             ear.GetSourceURL(),
+				ContainsAutoReply:     ear.GetContainsAutoReply(),
+				RenderLargerThumbnail: ear.GetRenderLargerThumbnail(),
+				ShowAdAttribution:     ear.GetShowAdAttribution(),
+				CtwaClid:              ear.GetCtwaClid(),
 			}
+		}
 
-			if qm := ci.GetQuotedMessage(); qm != nil {
-				var q WookMessageContextInfoQuotedMessage
+		if qm := ci.GetQuotedMessage(); qm != nil {
+			var q WookMessageContextInfoQuotedMessage
 
-				if qet := qm.GetExtendedTextMessage(); qet != nil {
-					q.ExtendedTextMessage = &WookMessageExtendedTextMessage{
-						Text: qet.GetText(),
+			if qet := qm.GetExtendedTextMessage(); qet != nil {
+				q.ExtendedTextMessage = &WookMessageExtendedTextMessage{
+					Text: qet.GetText(),
+				}
+
+				if qci := qet.GetContextInfo(); qci != nil {
+					q.ExtendedTextMessage.ContextInfo = &WookMessageExtendedTextMessageContextInfo{
+						Expiration: int(qci.GetExpiration()),
 					}
-
-					if qci := qet.GetContextInfo(); qci != nil {
-						q.ExtendedTextMessage.ContextInfo = &WookMessageExtendedTextMessageContextInfo{
-							Expiration: int(qci.GetExpiration()),
-						}
-						if qdm := qci.GetDisappearingMode(); qdm != nil {
-							q.ExtendedTextMessage.ContextInfo.DisappearingMode = &ContextInfoDisappearingMode{
-								Initiator:     qdm.GetInitiator().String(),
-								Trigger:       qdm.GetTrigger().String(),
-								InitiatedByMe: qdm.GetInitiatedByMe(),
-							}
+					if qdm := qci.GetDisappearingMode(); qdm != nil {
+						q.ExtendedTextMessage.ContextInfo.DisappearingMode = &ContextInfoDisappearingMode{
+							Initiator:     qdm.GetInitiator().String(),
+							Trigger:       qdm.GetTrigger().String(),
+							InitiatedByMe: qdm.GetInitiatedByMe(),
 						}
 					}
 				}
+			}
 
-				if lm := qm.GetListMessage(); lm != nil {
-					var sections []WookListSection
-					for _, s := range lm.GetSections() {
-						if s == nil {
+			if lm := qm.GetListMessage(); lm != nil {
+				var sections []WookListSection
+				for _, s := range lm.GetSections() {
+					if s == nil {
+						continue
+					}
+					ws := WookListSection{Title: s.GetTitle()}
+					for _, r := range s.GetRows() {
+						if r == nil {
 							continue
 						}
-						ws := WookListSection{Title: s.GetTitle()}
-						for _, r := range s.GetRows() {
-							if r == nil {
-								continue
-							}
-							ws.Rows = append(ws.Rows, WookListRow{
-								Title:       r.GetTitle(),
-								Description: r.GetDescription(),
-								RowId:       r.GetRowID(),
-							})
-						}
-						sections = append(sections, ws)
+						ws.Rows = append(ws.Rows, WookListRow{
+							Title:       r.GetTitle(),
+							Description: r.GetDescription(),
+							RowId:       r.GetRowID(),
+						})
 					}
-
-					q.ListMessage = &WookListMessageRawListContextInfoQuotedMessageList{
-						Title:       lm.GetTitle(),
-						Description: lm.GetDescription(),
-						ButtonText:  lm.GetButtonText(),
-						ListType:    lm.GetListType().String(),
-						Sections:    sections,
-						FooterText:  lm.GetFooterText(),
-					}
+					sections = append(sections, ws)
 				}
 
-				messageContext.QuotedMessage = &q
+				q.ListMessage = &WookListMessageRawListContextInfoQuotedMessageList{
+					Title:       lm.GetTitle(),
+					Description: lm.GetDescription(),
+					ButtonText:  lm.GetButtonText(),
+					ListType:    lm.GetListType().String(),
+					Sections:    sections,
+					FooterText:  lm.GetFooterText(),
+				}
 			}
+
+			messageContext.QuotedMessage = &q
 		}
 	}
 
@@ -655,12 +647,55 @@ func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMe
 	return result
 }
 
+func (s *Whatsmiau) uploadMessageFile(ctx context.Context, instance *models.Instance, client *whatsmeow.Client, fileMessage whatsmeow.DownloadableMessage, mimetype, fileName string) (string, string) {
+	var (
+		b64Result string
+		urlResult string
+		ext       string
+	)
+
+	tmpFile, err := os.CreateTemp("", "image-*.tmp")
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.Remove(tmpFile.Name())
+	if err := client.DownloadToFile(ctx, fileMessage, tmpFile); err != nil {
+		zap.L().Error("failed to download image", zap.Error(err))
+		return "", ""
+	}
+
+	if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
+		zap.L().Error("failed to seek image", zap.Error(err))
+	}
+
+	ext = extractExtFromFile(fileName, mimetype, tmpFile)
+	if instance.Webhook.Base64 {
+		data, err := io.ReadAll(tmpFile)
+		if err != nil {
+			zap.L().Error("failed to read image", zap.Error(err))
+		} else {
+			b64Result = base64.StdEncoding.EncodeToString(data)
+		}
+	}
+	if s.fileStorage != nil {
+		if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
+			zap.L().Error("failed to seek image", zap.Error(err))
+		}
+
+		urlResult, _, err = s.fileStorage.Upload(ctx, uuid.NewString()+"."+ext, mimetype, tmpFile)
+		if err != nil {
+			zap.L().Error("failed to upload image", zap.Error(err))
+		}
+	}
+
+	return urlResult, b64Result
+}
+
 func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	name := evt.Action.GetFirstName()
@@ -689,9 +724,7 @@ func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact 
 func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	if evt.Name == nil || len(evt.Name.Name) == 0 {
@@ -713,9 +746,7 @@ func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookCont
 func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	name := evt.NewPushName
@@ -742,10 +773,7 @@ func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContac
 func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact {
 	url, b64, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
-		return nil
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	if len(url) <= 0 {
@@ -763,10 +791,7 @@ func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact 
 func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *WookContact {
 	url, b64, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
-		return nil
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	if len(url) <= 0 {
@@ -809,7 +834,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 		IsCommunity: false,
 	})
 	if err != nil {
-		if errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
+		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
 			zap.L().Error("get profile picture error", zap.String("id", id), zap.Error(err))
 		}
 		return "", "", err

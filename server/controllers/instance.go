@@ -4,13 +4,13 @@ import (
 	"encoding/base64"
 	"net/http"
 
+	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/models"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/skip2/go-qrcode"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
-	"github.com/verbeux-ai/whatsmiau/lib"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
 	"go.uber.org/zap"
@@ -18,10 +18,10 @@ import (
 
 type Instance struct {
 	repo      interfaces.InstanceRepository
-	whatsmiau *lib.Whatsmiau
+	whatsmiau *whatsmiau.Whatsmiau
 }
 
-func NewInstances(repository interfaces.InstanceRepository, whatsmiau *lib.Whatsmiau) *Instance {
+func NewInstances(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.Whatsmiau) *Instance {
 	return &Instance{
 		repo:      repository,
 		whatsmiau: whatsmiau,

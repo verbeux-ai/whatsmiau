@@ -1,4 +1,4 @@
-package lib
+package whatsmiau
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/puzpuzpuz/xsync/v4"
 	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
+	"github.com/verbeux-ai/whatsmiau/lib/storage/gcs"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
 	"github.com/verbeux-ai/whatsmiau/services"
@@ -29,6 +30,7 @@ type Whatsmiau struct {
 	instanceCache *xsync.Map[string, models.Instance]
 	emitter       chan emitter
 	httpClient    *http.Client
+	fileStorage   interfaces.Storage
 }
 
 var instance *Whatsmiau
@@ -49,7 +51,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	}
 
 	level := "INFO"
-	if env.Env.DebugMode {
+	if env.Env.DebugWhatsmeow {
 		level = "DEBUG"
 	}
 
@@ -91,6 +93,14 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		}
 	}
 
+	var storage interfaces.Storage
+	if env.Env.GCSEnabled {
+		storage, err = gcs.New(env.Env.GCSBucket)
+		if err != nil {
+			zap.L().Panic("failed to create GCS storage", zap.Error(err))
+		}
+	}
+
 	instance = &Whatsmiau{
 		clients:       clients,
 		container:     container,
@@ -101,8 +111,9 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		lockConn:      &sync.Mutex{},
 		emitter:       make(chan emitter, 50), //TODO: add configurable semaphore
 		httpClient: &http.Client{
-			Timeout: time.Second * 10, // TODO: load from env
+			Timeout: time.Second * 30, // TODO: load from env
 		},
+		fileStorage: storage,
 	}
 
 	go instance.startEmitter()
@@ -203,6 +214,9 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 }
 
 func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *whatsmeow.Client) (string, error) {
+	ctx, c := context.WithTimeout(ctx, 15*time.Second)
+	defer c()
+
 	qrStringChan, err := s.observeConnection(client, id)
 	if err != nil {
 		zap.L().Error("failed to observe QR Code", zap.Error(err))
@@ -211,15 +225,13 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 
 	var qrCode string
 	select {
-	case <-time.After(15 * time.Second): // Timeout for getting the QR code
-		client.Disconnect()
-		return "", fmt.Errorf("timeout getting QR code")
 	case qr, ok := <-qrStringChan:
 		if !ok {
 			return "", fmt.Errorf("qr channel closed unexpectedly")
 		}
 		qrCode = qr
 	case <-ctx.Done():
+		client.Disconnect()
 		zap.L().Warn("context canceled", zap.String("id", id))
 		return "", ctx.Err()
 	}

@@ -8,7 +8,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
-	"github.com/verbeux-ai/whatsmiau/lib"
+	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
 	"go.mau.fi/whatsmeow/types"
@@ -17,10 +17,10 @@ import (
 
 type Message struct {
 	repo      interfaces.InstanceRepository
-	whatsmiau *lib.Whatsmiau
+	whatsmiau *whatsmiau.Whatsmiau
 }
 
-func NewMessages(repository interfaces.InstanceRepository, whatsmiau *lib.Whatsmiau) *Message {
+func NewMessages(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.Whatsmiau) *Message {
 	return &Message{
 		repo:      repository,
 		whatsmiau: whatsmiau,
@@ -57,7 +57,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid jid (number)")
 	}
 
-	sendText := &lib.SendText{
+	sendText := &whatsmiau.SendText{
 		Text:       request.Text,
 		InstanceID: request.InstanceID,
 		RemoteJID:  &jid,
@@ -69,7 +69,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 	}
 
 	c := ctx.Request().Context()
-	if err := s.whatsmiau.ChatPresence(&lib.ChatPresenceRequest{
+	if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
 		InstanceID: request.InstanceID,
 		RemoteJID:  &jid,
 		Presence:   types.ChatPresenceComposing,
@@ -131,7 +131,7 @@ func (s *Message) SendAudio(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid jid (number)")
 	}
 
-	sendText := &lib.SendAudio{
+	sendText := &whatsmiau.SendAudio{
 		AudioURL:   request.Audio,
 		InstanceID: request.InstanceID,
 		RemoteJID:  &jid,
@@ -143,7 +143,7 @@ func (s *Message) SendAudio(ctx echo.Context) error {
 	}
 
 	c := ctx.Request().Context()
-	if err := s.whatsmiau.ChatPresence(&lib.ChatPresenceRequest{
+	if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
 		InstanceID: request.InstanceID,
 		RemoteJID:  &jid,
 		Presence:   types.ChatPresenceComposing,
@@ -227,7 +227,7 @@ func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid jid (number)")
 	}
 
-	sendData := &lib.SendDocumentRequest{
+	sendData := &whatsmiau.SendDocumentRequest{
 		InstanceID: request.InstanceID,
 		MediaURL:   request.Media,
 		Caption:    request.Caption,
@@ -292,7 +292,7 @@ func (s *Message) sendImage(ctx echo.Context, request dto.SendDocumentRequest) e
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid jid (number)")
 	}
 
-	sendData := &lib.SendImageRequest{
+	sendData := &whatsmiau.SendImageRequest{
 		InstanceID: request.InstanceID,
 		MediaURL:   request.Media,
 		Caption:    request.Caption,
