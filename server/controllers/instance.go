@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/base64"
+	"github.com/verbeux-ai/whatsmiau/models"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
@@ -37,7 +38,9 @@ func (s *Instance) Create(ctx echo.Context) error {
 	}
 
 	request.ID = request.InstanceName
-	request.Instance.ID = request.ID
+	request.Instance = &models.Instance{
+		ID: request.InstanceName,
+	}
 	request.RemoteJID = ""
 
 	c := ctx.Request().Context()
