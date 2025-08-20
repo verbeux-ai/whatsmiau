@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -771,18 +770,14 @@ func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *Wo
 		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
-	if len(url) <= 0 {
-		return nil
-	}
-
 	name := evt.NewBusinessName
 	if name == "" {
 		name = evt.OldBusinessName
 	}
-	if name == "" {
+	if name == "" && evt.Message != nil {
 		name = evt.Message.PushName
 	}
-	if name == "" {
+	if name == "" && evt.Message != nil && evt.Message.VerifiedName != nil && evt.Message.VerifiedName.Details != nil {
 		name = evt.Message.VerifiedName.Details.GetVerifiedName()
 	}
 
@@ -803,7 +798,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 	client, ok := s.clients.Load(id)
 	if !ok {
 		zap.L().Warn("no client for event", zap.String("id", id))
-		return "", "", nil
+		return "", "", fmt.Errorf("no client for event %s", id)
 	}
 
 	pic, err := client.GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
@@ -811,7 +806,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 		IsCommunity: false,
 	})
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) && !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
+		if err.Error() == whatsmeow.ErrProfilePictureNotSet.Error() && err.Error() == whatsmeow.ErrProfilePictureUnauthorized.Error() {
 			zap.L().Error("get profile picture error", zap.String("id", id), zap.Error(err))
 		}
 		return "", "", err
