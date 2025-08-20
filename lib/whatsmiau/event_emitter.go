@@ -87,10 +87,7 @@ func (s *Whatsmiau) startEmitter() {
 				} else {
 					zap.L().Error("error doing request", zap.Any("response", string(res)), zap.String("url", event.url))
 				}
-			} else {
-				zap.L().Debug("successfully sent event", zap.String("event", event.url), zap.Any("data", string(data)))
 			}
-
 		}(event)
 	}
 }
@@ -131,6 +128,15 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				Data:     messageData,
 				DateTime: time.Now(),
 				Event:    WookMessagesUpsert,
+			}
+
+			if wookMessage.Data.Message != nil && len(wookMessage.Data.Message.Base64) > 0 {
+				b64Temp := wookMessage.Data.Message.Base64
+				wookMessage.Data.Message.Base64 = ""
+				zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
+				wookMessage.Data.Message.Base64 = b64Temp
+			} else if wookMessage.Data.Message != nil {
+				zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
 			}
 
 			go s.emit(wookMessage, instance.Webhook.Url)
