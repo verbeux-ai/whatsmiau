@@ -21,16 +21,16 @@ import (
 )
 
 type Whatsmiau struct {
-	clients       *xsync.Map[string, *whatsmeow.Client]
-	container     *sqlstore.Container
-	logger        waLog.Logger
-	repo          interfaces.InstanceRepository
-	qrCache       *xsync.Map[string, string]
-	lockConn      *sync.Mutex
-	instanceCache *xsync.Map[string, models.Instance]
-	emitter       chan emitter
-	httpClient    *http.Client
-	fileStorage   interfaces.Storage
+	clients         *xsync.Map[string, *whatsmeow.Client]
+	container       *sqlstore.Container
+	logger          waLog.Logger
+	repo            interfaces.InstanceRepository
+	qrCache         *xsync.Map[string, string]
+	observerRunning *xsync.Map[string, bool]
+	instanceCache   *xsync.Map[string, models.Instance]
+	emitter         chan emitter
+	httpClient      *http.Client
+	fileStorage     interfaces.Storage
 }
 
 var instance *Whatsmiau
@@ -102,14 +102,14 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	}
 
 	instance = &Whatsmiau{
-		clients:       clients,
-		container:     container,
-		logger:        clientLog,
-		repo:          repo,
-		qrCache:       xsync.NewMap[string, string](),
-		instanceCache: xsync.NewMap[string, models.Instance](),
-		lockConn:      &sync.Mutex{},
-		emitter:       make(chan emitter, 50), //TODO: add configurable semaphore
+		clients:         clients,
+		container:       container,
+		logger:          clientLog,
+		repo:            repo,
+		qrCache:         xsync.NewMap[string, string](),
+		instanceCache:   xsync.NewMap[string, models.Instance](),
+		observerRunning: xsync.NewMap[string, bool](),
+		emitter:         make(chan emitter, 50), //TODO: add configurable semaphore
 		httpClient: &http.Client{
 			Timeout: time.Second * 30, // TODO: load from env
 		},
@@ -155,8 +155,24 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 	qrStringChan := make(chan string)
 
 	go func() {
-		s.lockConn.Lock()
-		defer s.lockConn.Unlock()
+		if _, ok := s.observerRunning.Load(id); ok {
+			ticker := time.NewTicker(1 * time.Second)
+			select {
+			case <-ticker.C:
+				qrCode, ok := s.qrCache.Load(id)
+				if ok && len(qrCode) > 0 {
+					qrStringChan <- qrCode
+					break
+				}
+			case <-time.After(15 * time.Second):
+				qrStringChan <- ""
+				break
+			}
+			return
+		}
+
+		s.observerRunning.Store(id, true)
+		defer s.observerRunning.Delete(id)
 
 		qrChan, err := client.GetQRChannel(context.Background())
 		if err != nil {
@@ -236,6 +252,10 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 		client.Disconnect()
 		zap.L().Warn("context canceled", zap.String("id", id))
 		return "", ctx.Err()
+	}
+
+	if qrCode == "" {
+		return "", fmt.Errorf("qr code is empty")
 	}
 
 	s.qrCache.Store(id, qrCode)
