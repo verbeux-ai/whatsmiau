@@ -15,6 +15,8 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o whatsmiau main.go
 
 FROM alpine:latest
 
+RUN apk update && apk add --no-cache ffmpeg
+
 WORKDIR /app
 
 COPY --from=builder /app/whatsmiau /app/whatsmiau
