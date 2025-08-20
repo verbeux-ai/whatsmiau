@@ -100,11 +100,6 @@ func (s *Whatsmiau) emit(body any, url string) {
 }
 
 func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
-	logFile, err := os.OpenFile(fmt.Sprintf("./%s-%s.jsonl", id, time.Now().Format(time.RFC3339)), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		panic(err)
-	}
-
 	return func(evt any) {
 		instance := s.getInstanceCached(id)
 		if instance == nil {
@@ -117,19 +112,15 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			eventMap[event] = true
 		}
 
-		var eventName string
-		var eventData any
-
 		switch e := evt.(type) {
 		case *events.Message:
 			if !eventMap["MESSAGES_UPSERT"] {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			messageData := s.convertEventMessage(id, instance, e)
 			if messageData == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert event", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -148,7 +139,6 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertEventReceipt(id, e)
 			if data == nil {
 				return
@@ -169,10 +159,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertBusinessName(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert business name", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -189,10 +178,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertContact(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert contact", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -206,7 +194,6 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			go s.emit(wookData, instance.Webhook.Url)
 		case *events.Picture:
 			if eventMap["CONTACTS_UPSERT"] {
-				eventName = fmt.Sprintf("%T", evt)
 				data := s.convertPicture(id, e)
 				if data != nil {
 					wookData := &WookEvent[WookContactUpsertData]{
@@ -220,7 +207,6 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				}
 			}
 		case *events.HistorySync:
-			eventName = fmt.Sprintf("%T", evt)
 			if eventMap["CONTACTS_UPSERT"] {
 				data := s.convertContactHistorySync(id, e.Data.GetPushnames(), e.Data.Conversations)
 				if data != nil {
@@ -239,10 +225,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertGroupInfo(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert group info", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -259,10 +244,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertPushName(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert pushname", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -275,21 +259,8 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 
 			go s.emit(wookData, instance.Webhook.Url)
 		default:
-			eventName = fmt.Sprintf("%T", evt)
-			eventData = evt
+			zap.L().Debug("unknown event", zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 		}
-
-		// This structure is for logging. The actual webhook payload is `eventData`.
-		logEntry := map[string]interface{}{
-			"aEvent": eventName,
-			"data":   eventData,
-		}
-
-		dtBytes, _ := json.Marshal(logEntry)
-
-		logFile.WriteString(string(dtBytes) + "\n")
-
-		// Here you would typically send `eventData` to a webhook URL
 	}
 }
 
@@ -499,15 +470,15 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 			JPEGThumbnail: b64(video.GetJPEGThumbnail()),
 			GIFPlayback:   video.GetGifPlayback(),
 		}
-	} else if et := m.GetExtendedTextMessage(); et != nil {
-		messageType = "extendedText"
-		ci = et.GetContextInfo()
-		raw.Conversation = strings.TrimSpace(et.GetText())
 	} else if conv := strings.TrimSpace(m.GetConversation()); conv != "" {
 		messageType = "conversation"
 		raw.Conversation = conv
 	} else {
 		messageType = "unknown"
+	}
+
+	if et := m.GetExtendedTextMessage(); et != nil {
+		ci = et.GetContextInfo()
 	}
 
 	// Map MessageContextInfo (quoted, mentions, disappearing mode, external ad reply)
