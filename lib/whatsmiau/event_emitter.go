@@ -339,7 +339,7 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 		return nil
 	}
 
-	if evt == nil || evt.Message == nil || strings.Contains(evt.Info.ID, "status") {
+	if evt == nil || evt.Message == nil || strings.Contains(evt.Info.Chat.String(), "status") {
 		return nil
 	}
 
