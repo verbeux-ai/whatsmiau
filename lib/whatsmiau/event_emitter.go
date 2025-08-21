@@ -1,10 +1,9 @@
-package lib
+package whatsmiau
 
 import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,8 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -85,10 +86,7 @@ func (s *Whatsmiau) startEmitter() {
 				} else {
 					zap.L().Error("error doing request", zap.Any("response", string(res)), zap.String("url", event.url))
 				}
-			} else {
-				zap.L().Debug("successfully sent event", zap.String("event", event.url), zap.Any("data", string(data)))
 			}
-
 		}(event)
 	}
 }
@@ -98,11 +96,6 @@ func (s *Whatsmiau) emit(body any, url string) {
 }
 
 func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
-	logFile, err := os.OpenFile(fmt.Sprintf("./%s-%s.jsonl", id, time.Now().Format(time.RFC3339)), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		panic(err)
-	}
-
 	return func(evt any) {
 		instance := s.getInstanceCached(id)
 		if instance == nil {
@@ -115,19 +108,15 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			eventMap[event] = true
 		}
 
-		var eventName string
-		var eventData any
-
 		switch e := evt.(type) {
 		case *events.Message:
 			if !eventMap["MESSAGES_UPSERT"] {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
-			messageData := s.convertEventMessage(id, e)
+			messageData := s.convertEventMessage(id, instance, e)
 			if messageData == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert event", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -140,13 +129,21 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				Event:    WookMessagesUpsert,
 			}
 
+			if wookMessage.Data.Message != nil && len(wookMessage.Data.Message.Base64) > 0 {
+				b64Temp := wookMessage.Data.Message.Base64
+				wookMessage.Data.Message.Base64 = ""
+				zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
+				wookMessage.Data.Message.Base64 = b64Temp
+			} else if wookMessage.Data.Message != nil {
+				zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
+			}
+
 			go s.emit(wookMessage, instance.Webhook.Url)
 		case *events.Receipt:
 			if !eventMap["MESSAGES_UPDATE"] {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertEventReceipt(id, e)
 			if data == nil {
 				return
@@ -167,10 +164,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertBusinessName(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert business name", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -187,10 +183,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertContact(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert contact", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -204,7 +199,6 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			go s.emit(wookData, instance.Webhook.Url)
 		case *events.Picture:
 			if eventMap["CONTACTS_UPSERT"] {
-				eventName = fmt.Sprintf("%T", evt)
 				data := s.convertPicture(id, e)
 				if data != nil {
 					wookData := &WookEvent[WookContactUpsertData]{
@@ -218,7 +212,6 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				}
 			}
 		case *events.HistorySync:
-			eventName = fmt.Sprintf("%T", evt)
 			if eventMap["CONTACTS_UPSERT"] {
 				data := s.convertContactHistorySync(id, e.Data.GetPushnames(), e.Data.Conversations)
 				if data != nil {
@@ -237,10 +230,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertGroupInfo(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert group info", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -257,10 +249,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			eventName = fmt.Sprintf("%T", evt)
 			data := s.convertPushName(id, e)
 			if data == nil {
-				zap.L().Error("failed to convert event", zap.String("type", fmt.Sprintf("%T", evt)))
+				zap.L().Error("failed to convert pushname", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 				return
 			}
 
@@ -273,21 +264,8 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 
 			go s.emit(wookData, instance.Webhook.Url)
 		default:
-			eventName = fmt.Sprintf("%T", evt)
-			eventData = evt
+			zap.L().Debug("unknown event", zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 		}
-
-		// This structure is for logging. The actual webhook payload is `eventData`.
-		logEntry := map[string]interface{}{
-			"aEvent": eventName,
-			"data":   eventData,
-		}
-
-		dtBytes, _ := json.Marshal(logEntry)
-
-		logFile.WriteString(string(dtBytes) + "\n")
-
-		// Here you would typically send `eventData` to a webhook URL
 	}
 }
 
@@ -341,9 +319,7 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 
 		url, _, err := s.getPic(id, jid)
 		if err != nil {
-			if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
-				zap.L().Error("failed to get pic", zap.Error(err))
-			}
+			zap.L().Error("failed to get pic", zap.Error(err))
 		}
 
 		c.ProfilePicUrl = url
@@ -353,8 +329,8 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 	return result
 }
 
-func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMessageData {
-	ctx, c := context.WithTimeout(context.Background(), time.Second*20)
+func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, evt *events.Message) *WookMessageData {
+	ctx, c := context.WithTimeout(context.Background(), time.Second*60)
 	defer c()
 
 	client, ok := s.clients.Load(id)
@@ -363,7 +339,7 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		return nil
 	}
 
-	if evt == nil || evt.Message == nil || evt.Info.ID == "status@broadcast" {
+	if evt == nil || evt.Message == nil || strings.Contains(evt.Info.Chat.String(), "status") {
 		return nil
 	}
 
@@ -393,6 +369,7 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 
 	var messageType string
 	raw := &WookMessageRaw{}
+	var ci *waE2E.ContextInfo
 
 	// === Prioritize action-like messages ===
 	if r := m.GetReactionMessage(); r != nil {
@@ -424,14 +401,8 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		}
 	} else if img := m.GetImageMessage(); img != nil {
 		messageType = "imageMessage"
+		ci = img.GetContextInfo()
 
-		fileData, err := client.Download(ctx, img)
-		if err != nil {
-			zap.L().Error("failed to download image", zap.Error(err))
-			return nil
-		}
-
-		raw.Base64 = base64.StdEncoding.EncodeToString(fileData)
 		raw.ImageMessage = &WookImageMessageRaw{
 			Url:               img.GetURL(),
 			Mimetype:          img.GetMimetype(),
@@ -447,26 +418,13 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 			JpegThumbnail:     b64(img.GetJPEGThumbnail()),
 			ViewOnce:          img.GetViewOnce(),
 		}
-		if c := img.GetContextInfo(); c != nil {
-			if dm := c.GetDisappearingMode(); dm != nil {
-				raw.ImageMessage.ContextInfo = &FileContextInfo{
-					DisappearingMode: &ContextInfoDisappearingMode{
-						Initiator:     dm.GetInitiator().String(),
-						Trigger:       dm.GetTrigger().String(),
-						InitiatedByMe: dm.GetInitiatedByMe(),
-					},
-				}
-			}
-		}
+
+		raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, img, img.GetMimetype(), "")
+
 	} else if aud := m.GetAudioMessage(); aud != nil {
 		messageType = "audioMessage"
-		fileData, err := client.Download(ctx, aud)
-		if err != nil {
-			zap.L().Error("failed to download audio", zap.Error(err))
-			return nil
-		}
-
-		raw.Base64 = base64.StdEncoding.EncodeToString(fileData)
+		ci = aud.GetContextInfo()
+		raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, aud, aud.GetMimetype(), "")
 		raw.AudioMessage = &WookAudioMessageRaw{
 			Url:               aud.GetURL(),
 			Mimetype:          aud.GetMimetype(),
@@ -483,13 +441,8 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		}
 	} else if doc := m.GetDocumentMessage(); doc != nil {
 		messageType = "documentMessage"
-		fileData, err := client.Download(ctx, doc)
-		if err != nil {
-			zap.L().Error("failed to download document", zap.Error(err))
-			return nil
-		}
-
-		raw.Base64 = base64.StdEncoding.EncodeToString(fileData)
+		ci = doc.GetContextInfo()
+		raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, doc, doc.GetMimetype(), doc.GetFileName())
 		raw.DocumentMessage = &WookDocumentMessageRaw{
 			Url:               doc.GetURL(),
 			Mimetype:          doc.GetMimetype(),
@@ -506,9 +459,22 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 			JpegThumbnail:     b64(doc.GetJPEGThumbnail()),
 			Caption:           doc.GetCaption(),
 		}
-	} else if et := m.GetExtendedTextMessage(); et != nil {
-		messageType = "extendedText"
-		raw.Conversation = strings.TrimSpace(et.GetText())
+	} else if video := m.GetVideoMessage(); video != nil {
+		messageType = "videoMessage"
+		ci = video.GetContextInfo()
+		raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, video, video.GetMimetype(), "")
+		raw.VideoMessage = &WookVideoMessageRaw{
+			Url:           video.GetURL(),
+			Mimetype:      video.GetMimetype(),
+			Caption:       video.GetCaption(),
+			FileSha256:    b64(video.GetFileSHA256()),
+			FileLength:    u64(video.GetFileLength()),
+			Seconds:       video.GetSeconds(),
+			MediaKey:      b64(video.GetMediaKey()),
+			FileEncSha256: b64(video.GetFileEncSHA256()),
+			JPEGThumbnail: b64(video.GetJPEGThumbnail()),
+			GIFPlayback:   video.GetGifPlayback(),
+		}
 	} else if conv := strings.TrimSpace(m.GetConversation()); conv != "" {
 		messageType = "conversation"
 		raw.Conversation = conv
@@ -516,10 +482,12 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		messageType = "unknown"
 	}
 
+	if et := m.GetExtendedTextMessage(); et != nil {
+		ci = et.GetContextInfo()
+	}
+
 	// Map MessageContextInfo (quoted, mentions, disappearing mode, external ad reply)
 	var messageContext WookMessageContextInfo
-	ci := m.GetExtendedTextMessage().GetContextInfo()
-
 	if ci != nil {
 		messageContext.EphemeralSettingTimestamp = i64(ci.GetEphemeralSettingTimestamp())
 		messageContext.StanzaId = ci.GetStanzaID()
@@ -543,7 +511,8 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 		}
 
 		if ear := ci.GetExternalAdReply(); ear != nil {
-			messageContext.WookMessageContextInfoExternalAdReply = &WookMessageContextInfoExternalAdReply{
+			messageType = "conversation"
+			messageContext.ExternalAdReply = &WookMessageContextInfoExternalAdReply{
 				Title:                 ear.GetTitle(),
 				Body:                  ear.GetBody(),
 				MediaType:             ear.GetMediaType().String(),
@@ -563,9 +532,14 @@ func (s *Whatsmiau) convertEventMessage(id string, evt *events.Message) *WookMes
 			var q WookMessageContextInfoQuotedMessage
 
 			if qet := qm.GetExtendedTextMessage(); qet != nil {
-				q.ExtendedTextMessage.Text = qet.GetText()
+				q.ExtendedTextMessage = &WookMessageExtendedTextMessage{
+					Text: qet.GetText(),
+				}
+
 				if qci := qet.GetContextInfo(); qci != nil {
-					q.ExtendedTextMessage.ContextInfo.Expiration = int(qci.GetExpiration())
+					q.ExtendedTextMessage.ContextInfo = &WookMessageExtendedTextMessageContextInfo{
+						Expiration: int(qci.GetExpiration()),
+					}
 					if qdm := qci.GetDisappearingMode(); qdm != nil {
 						q.ExtendedTextMessage.ContextInfo.DisappearingMode = &ContextInfoDisappearingMode{
 							Initiator:     qdm.GetInitiator().String(),
@@ -650,12 +624,55 @@ func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMe
 	return result
 }
 
+func (s *Whatsmiau) uploadMessageFile(ctx context.Context, instance *models.Instance, client *whatsmeow.Client, fileMessage whatsmeow.DownloadableMessage, mimetype, fileName string) (string, string) {
+	var (
+		b64Result string
+		urlResult string
+		ext       string
+	)
+
+	tmpFile, err := os.CreateTemp("", "image-*.tmp")
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.Remove(tmpFile.Name())
+	if err := client.DownloadToFile(ctx, fileMessage, tmpFile); err != nil {
+		zap.L().Error("failed to download image", zap.Error(err))
+		return "", ""
+	}
+
+	if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
+		zap.L().Error("failed to seek image", zap.Error(err))
+	}
+
+	ext = extractExtFromFile(fileName, mimetype, tmpFile)
+	if instance.Webhook.Base64 {
+		data, err := io.ReadAll(tmpFile)
+		if err != nil {
+			zap.L().Error("failed to read image", zap.Error(err))
+		} else {
+			b64Result = base64.StdEncoding.EncodeToString(data)
+		}
+	}
+	if s.fileStorage != nil {
+		if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
+			zap.L().Error("failed to seek image", zap.Error(err))
+		}
+
+		urlResult, _, err = s.fileStorage.Upload(ctx, uuid.NewString()+"."+ext, mimetype, tmpFile)
+		if err != nil {
+			zap.L().Error("failed to upload image", zap.Error(err))
+		}
+	}
+
+	return urlResult, b64Result
+}
+
 func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	name := evt.Action.GetFirstName()
@@ -684,9 +701,7 @@ func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact 
 func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	if evt.Name == nil || len(evt.Name.Name) == 0 {
@@ -708,9 +723,7 @@ func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookCont
 func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContact {
 	url, _, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	name := evt.NewPushName
@@ -737,10 +750,7 @@ func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContac
 func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact {
 	url, b64, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
-		return nil
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	if len(url) <= 0 {
@@ -758,24 +768,17 @@ func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact 
 func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *WookContact {
 	url, b64, err := s.getPic(id, evt.JID)
 	if err != nil {
-		if !errors.Is(err, whatsmeow.ErrProfilePictureNotSet) && !errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
-			zap.L().Error("failed to get pic", zap.Error(err))
-		}
-		return nil
-	}
-
-	if len(url) <= 0 {
-		return nil
+		zap.L().Error("failed to get pic", zap.Error(err))
 	}
 
 	name := evt.NewBusinessName
 	if name == "" {
 		name = evt.OldBusinessName
 	}
-	if name == "" {
+	if name == "" && evt.Message != nil {
 		name = evt.Message.PushName
 	}
-	if name == "" {
+	if name == "" && evt.Message != nil && evt.Message.VerifiedName != nil && evt.Message.VerifiedName.Details != nil {
 		name = evt.Message.VerifiedName.Details.GetVerifiedName()
 	}
 
@@ -796,7 +799,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 	client, ok := s.clients.Load(id)
 	if !ok {
 		zap.L().Warn("no client for event", zap.String("id", id))
-		return "", "", nil
+		return "", "", fmt.Errorf("no client for event %s", id)
 	}
 
 	pic, err := client.GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
@@ -804,7 +807,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 		IsCommunity: false,
 	})
 	if err != nil {
-		if errors.Is(err, whatsmeow.ErrProfilePictureNotSet) {
+		if err.Error() == whatsmeow.ErrProfilePictureNotSet.Error() && err.Error() == whatsmeow.ErrProfilePictureUnauthorized.Error() {
 			zap.L().Error("get profile picture error", zap.String("id", id), zap.Error(err))
 		}
 		return "", "", err

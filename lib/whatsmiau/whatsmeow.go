@@ -1,4 +1,4 @@
-package lib
+package whatsmiau
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/puzpuzpuz/xsync/v4"
 	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
+	"github.com/verbeux-ai/whatsmiau/lib/storage/gcs"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
 	"github.com/verbeux-ai/whatsmiau/services"
@@ -20,15 +21,16 @@ import (
 )
 
 type Whatsmiau struct {
-	clients       *xsync.Map[string, *whatsmeow.Client]
-	container     *sqlstore.Container
-	logger        waLog.Logger
-	repo          interfaces.InstanceRepository
-	qrCache       *xsync.Map[string, string]
-	lockConn      *sync.Mutex
-	instanceCache *xsync.Map[string, models.Instance]
-	emitter       chan emitter
-	httpClient    *http.Client
+	clients         *xsync.Map[string, *whatsmeow.Client]
+	container       *sqlstore.Container
+	logger          waLog.Logger
+	repo            interfaces.InstanceRepository
+	qrCache         *xsync.Map[string, string]
+	observerRunning *xsync.Map[string, bool]
+	instanceCache   *xsync.Map[string, models.Instance]
+	emitter         chan emitter
+	httpClient      *http.Client
+	fileStorage     interfaces.Storage
 }
 
 var instance *Whatsmiau
@@ -49,7 +51,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	}
 
 	level := "INFO"
-	if env.Env.DebugMode {
+	if env.Env.DebugWhatsmeow {
 		level = "DEBUG"
 	}
 
@@ -91,18 +93,27 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		}
 	}
 
+	var storage interfaces.Storage
+	if env.Env.GCSEnabled {
+		storage, err = gcs.New(env.Env.GCSBucket)
+		if err != nil {
+			zap.L().Panic("failed to create GCS storage", zap.Error(err))
+		}
+	}
+
 	instance = &Whatsmiau{
-		clients:       clients,
-		container:     container,
-		logger:        clientLog,
-		repo:          repo,
-		qrCache:       xsync.NewMap[string, string](),
-		instanceCache: xsync.NewMap[string, models.Instance](),
-		lockConn:      &sync.Mutex{},
-		emitter:       make(chan emitter, 50), //TODO: add configurable semaphore
+		clients:         clients,
+		container:       container,
+		logger:          clientLog,
+		repo:            repo,
+		qrCache:         xsync.NewMap[string, string](),
+		instanceCache:   xsync.NewMap[string, models.Instance](),
+		observerRunning: xsync.NewMap[string, bool](),
+		emitter:         make(chan emitter, 50), //TODO: add configurable semaphore
 		httpClient: &http.Client{
-			Timeout: time.Second * 10, // TODO: load from env
+			Timeout: time.Second * 30, // TODO: load from env
 		},
+		fileStorage: storage,
 	}
 
 	go instance.startEmitter()
@@ -144,8 +155,24 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 	qrStringChan := make(chan string)
 
 	go func() {
-		s.lockConn.Lock()
-		defer s.lockConn.Unlock()
+		if _, ok := s.observerRunning.Load(id); ok {
+			ticker := time.NewTicker(1 * time.Second)
+			select {
+			case <-ticker.C:
+				qrCode, ok := s.qrCache.Load(id)
+				if ok && len(qrCode) > 0 {
+					qrStringChan <- qrCode
+					break
+				}
+			case <-time.After(15 * time.Second):
+				qrStringChan <- ""
+				break
+			}
+			return
+		}
+
+		s.observerRunning.Store(id, true)
+		defer s.observerRunning.Delete(id)
 
 		qrChan, err := client.GetQRChannel(context.Background())
 		if err != nil {
@@ -168,6 +195,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 			case <-time.After(2 * time.Minute): // QR code expiration
 				_ = client.Logout(context.Background())
 				client.Disconnect()
+				s.clients.Delete(id)
 				zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
 				canStop = true
 			case evt, ok := <-qrChan:
@@ -175,6 +203,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 					zap.L().Warn("QR channel closed while handling post-qr events", zap.String("id", id))
 					qrStringChan <- ""
 					canStop = true
+					s.clients.Delete(id)
 				}
 				if evt.Event == "code" {
 					qrStringChan <- evt.Code
@@ -183,7 +212,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 					canStop = true
 					zap.L().Info("device connected successfully", zap.String("id", id))
 					if client.Store.ID == nil {
-						//TODO: remove device
+						s.clients.Delete(id)
 						zap.L().Error("jid is nil after login", zap.String("id", id))
 					} else {
 						client.RemoveEventHandlers()
@@ -203,6 +232,9 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 }
 
 func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *whatsmeow.Client) (string, error) {
+	ctx, c := context.WithTimeout(ctx, 15*time.Second)
+	defer c()
+
 	qrStringChan, err := s.observeConnection(client, id)
 	if err != nil {
 		zap.L().Error("failed to observe QR Code", zap.Error(err))
@@ -211,9 +243,6 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 
 	var qrCode string
 	select {
-	case <-time.After(15 * time.Second): // Timeout for getting the QR code
-		client.Disconnect()
-		return "", fmt.Errorf("timeout getting QR code")
 	case qr, ok := <-qrStringChan:
 		if !ok {
 			return "", fmt.Errorf("qr channel closed unexpectedly")
@@ -222,6 +251,10 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 	case <-ctx.Done():
 		zap.L().Warn("context canceled", zap.String("id", id))
 		return "", ctx.Err()
+	}
+
+	if qrCode == "" {
+		return "", fmt.Errorf("qr code is empty")
 	}
 
 	s.qrCache.Store(id, qrCode)

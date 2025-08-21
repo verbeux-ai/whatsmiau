@@ -7,7 +7,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/verbeux-ai/whatsmiau/env"
-	"github.com/verbeux-ai/whatsmiau/lib"
+	log_connect "github.com/verbeux-ai/whatsmiau/lib/log-connect"
+	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/routes"
 	"github.com/verbeux-ai/whatsmiau/services"
 	"go.uber.org/zap"
@@ -39,20 +40,13 @@ func main() {
 		panic(err)
 	}
 
-	logger, err := zap.NewDevelopment()
-	if !env.Env.DebugMode {
-		logger, err = zap.NewProduction()
+	if err := log_connect.StartLogger(); err != nil {
+		log.Fatalln(err)
 	}
 
 	ctx, c := context.WithTimeout(context.Background(), 10*time.Second)
 	defer c()
-	lib.LoadMiau(ctx, services.SQLStore())
-
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	zap.ReplaceGlobals(logger)
+	whatsmiau.LoadMiau(ctx, services.SQLStore())
 
 	app := echo.New()
 	app.Pre(middleware.Recover())
@@ -66,7 +60,7 @@ func main() {
 	zap.L().Info("starting server...", zap.String("port", port))
 
 	s := &http2.Server{}
-	if err = app.StartH2CServer(port, s); err != nil {
+	if err := app.StartH2CServer(port, s); err != nil {
 		zap.L().Fatal("failed to start server", zap.Error(err))
 	}
 }

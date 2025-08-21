@@ -5,18 +5,18 @@ services:
     build: .
     container_name: whatsmiau
     ports:
-      - "8080:8080"
+      - "8081:8081"
     environment:
       - REDIS_URL=redis:6379
-      - DB_URL=data.db
+      - DB_URL=file:/app/data/data.db?_foreign_keys=on
     volumes:
-      - ./data.db:/app/data.db
+      - whatsmeow:/app/data
     depends_on:
       - redis
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:latest
     container_name: redis
     volumes:
       - redis-data:/data
@@ -24,4 +24,6 @@ services:
 
 volumes:
   redis-data:
+    driver: local
+  whatsmeow:
     driver: local

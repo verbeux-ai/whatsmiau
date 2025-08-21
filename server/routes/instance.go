@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/labstack/echo/v4"
-	"github.com/verbeux-ai/whatsmiau/lib"
+	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
 	"github.com/verbeux-ai/whatsmiau/server/controllers"
 	"github.com/verbeux-ai/whatsmiau/services"
@@ -11,7 +11,7 @@ import (
 func Instance(group *echo.Group) {
 	redisInstance := instances.NewRedis(services.Redis())
 
-	controller := controllers.NewInstances(redisInstance, lib.Get())
+	controller := controllers.NewInstances(redisInstance, whatsmiau.Get())
 	group.POST("", controller.Create)
 	group.GET("", controller.List)
 	group.POST(":id/connect", controller.Connect)

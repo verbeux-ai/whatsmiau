@@ -1,4 +1,4 @@
-package lib
+package whatsmiau
 
 import "time"
 
@@ -34,21 +34,21 @@ type WookMessageData struct {
 }
 
 type WookMessageContextInfo struct {
-	EphemeralSettingTimestamp             string                                 `json:"ephemeralSettingTimestamp,omitempty"`
-	DisappearingMode                      *ContextInfoDisappearingMode           `json:"disappearingMode,omitempty"`
-	StanzaId                              string                                 `json:"stanzaId,omitempty"`
-	Participant                           string                                 `json:"participant,omitempty"`
-	Expiration                            int                                    `json:"expiration,omitempty"`
-	QuotedMessage                         *WookMessageContextInfoQuotedMessage   `json:"quotedMessage,omitempty"`
-	MentionedJid                          []string                               `json:"mentionedJid,omitempty"`
-	ConversionSource                      string                                 `json:"conversionSource,omitempty"`
-	ConversionData                        string                                 `json:"conversionData,omitempty"`
-	ConversionDelaySeconds                int                                    `json:"conversionDelaySeconds,omitempty"`
-	WookMessageContextInfoExternalAdReply *WookMessageContextInfoExternalAdReply `json:"externalAdReply,omitempty"`
-	EntryPointConversionSource            string                                 `json:"entryPointConversionSource,omitempty"`
-	EntryPointConversionApp               string                                 `json:"entryPointConversionApp,omitempty"`
-	EntryPointConversionDelaySeconds      int                                    `json:"entryPointConversionDelaySeconds,omitempty"`
-	TrustBannerAction                     uint32                                 `json:"trustBannerAction,omitempty"`
+	EphemeralSettingTimestamp        string                                 `json:"ephemeralSettingTimestamp,omitempty"`
+	DisappearingMode                 *ContextInfoDisappearingMode           `json:"disappearingMode,omitempty"`
+	StanzaId                         string                                 `json:"stanzaId,omitempty"`
+	Participant                      string                                 `json:"participant,omitempty"`
+	Expiration                       int                                    `json:"expiration,omitempty"`
+	QuotedMessage                    *WookMessageContextInfoQuotedMessage   `json:"quotedMessage,omitempty"`
+	MentionedJid                     []string                               `json:"mentionedJid,omitempty"`
+	ConversionSource                 string                                 `json:"conversionSource,omitempty"`
+	ConversionData                   string                                 `json:"conversionData,omitempty"`
+	ConversionDelaySeconds           int                                    `json:"conversionDelaySeconds,omitempty"`
+	ExternalAdReply                  *WookMessageContextInfoExternalAdReply `json:"externalAdReply,omitempty"`
+	EntryPointConversionSource       string                                 `json:"entryPointConversionSource,omitempty"`
+	EntryPointConversionApp          string                                 `json:"entryPointConversionApp,omitempty"`
+	EntryPointConversionDelaySeconds int                                    `json:"entryPointConversionDelaySeconds,omitempty"`
+	TrustBannerAction                uint32                                 `json:"trustBannerAction,omitempty"`
 }
 
 type WookMessageContextInfoExternalAdReply struct {
@@ -67,14 +67,18 @@ type WookMessageContextInfoExternalAdReply struct {
 }
 
 type WookMessageContextInfoQuotedMessage struct {
-	ExtendedTextMessage *struct {
-		Text        string `json:"text,omitempty"`
-		ContextInfo *struct {
-			Expiration       int                          `json:"expiration,omitempty"`
-			DisappearingMode *ContextInfoDisappearingMode `json:"disappearingMode,omitempty"`
-		} `json:"contextInfo,omitempty"`
-	} `json:"extendedTextMessage,omitempty"`
-	ListMessage *WookListMessageRawListContextInfoQuotedMessageList `json:"listMessage,omitempty"`
+	ExtendedTextMessage *WookMessageExtendedTextMessage                     `json:"extendedTextMessage,omitempty"`
+	ListMessage         *WookListMessageRawListContextInfoQuotedMessageList `json:"listMessage,omitempty"`
+}
+
+type WookMessageExtendedTextMessage struct {
+	Text        string                                     `json:"text,omitempty"`
+	ContextInfo *WookMessageExtendedTextMessageContextInfo `json:"contextInfo,omitempty"`
+}
+
+type WookMessageExtendedTextMessageContextInfo struct {
+	Expiration       int                          `json:"expiration,omitempty"`
+	DisappearingMode *ContextInfoDisappearingMode `json:"disappearingMode,omitempty"`
 }
 
 type WookKey struct {
@@ -89,11 +93,13 @@ type WookMessageRaw struct {
 	Base64          string                  `json:"base64,omitempty"`
 	ImageMessage    *WookImageMessageRaw    `json:"imageMessage,omitempty"`
 	DocumentMessage *WookDocumentMessageRaw `json:"documentMessage,omitempty"`
+	VideoMessage    *WookVideoMessageRaw    `json:"videoMessage,omitempty"`
 	AudioMessage    *WookAudioMessageRaw    `json:"audioMessage,omitempty"`
 	ReactionMessage *ReactionMessageRaw     `json:"reactionMessage,omitempty"`
 	//MessageContextInfo  WookMessageContextInfo `json:"messageContextInfo,omitempty"`
 
 	ListResponseMessage *WookListMessageRaw `json:"listResponseMessage,omitempty"`
+	MediaURL            string              `json:"mediaUrl,omitempty"` // Sent when connect with some storage
 }
 
 type WookListMessageRaw struct {
@@ -179,6 +185,19 @@ type WookDocumentMessageRaw struct {
 	ContactVcard      bool   `json:"contactVcard,omitempty"`
 	JpegThumbnail     string `json:"jpegThumbnail,omitempty"`
 	Caption           string `json:"caption,omitempty"`
+}
+
+type WookVideoMessageRaw struct {
+	Url           string `json:"url,omitempty"`
+	Mimetype      string `json:"mimetype,omitempty"`
+	Caption       string `json:"caption,omitempty"`
+	FileSha256    string `json:"fileSha256,omitempty"`
+	FileLength    string `json:"fileLength,omitempty"`
+	Seconds       uint32 `json:"seconds,omitempty"`
+	MediaKey      string `json:"mediaKey,omitempty"`
+	FileEncSha256 string `json:"fileEncSha256,omitempty"`
+	JPEGThumbnail string `json:"jpegThumbnail,omitempty"`
+	GIFPlayback   bool   `json:"gifPlayback,omitempty"`
 }
 
 type WookImageMessageRaw struct {

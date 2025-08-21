@@ -2,13 +2,12 @@ package controllers
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
-	"github.com/verbeux-ai/whatsmiau/lib"
+	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
 	"go.mau.fi/whatsmeow/types"
@@ -17,10 +16,10 @@ import (
 
 type Message struct {
 	repo      interfaces.InstanceRepository
-	whatsmiau *lib.Whatsmiau
+	whatsmiau *whatsmiau.Whatsmiau
 }
 
-func NewMessages(repository interfaces.InstanceRepository, whatsmiau *lib.Whatsmiau) *Message {
+func NewMessages(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.Whatsmiau) *Message {
 	return &Message{
 		repo:      repository,
 		whatsmiau: whatsmiau,
@@ -37,30 +36,16 @@ func (s *Message) SendText(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
 	}
 
-	splitNumber := strings.Split(request.Number, "@")
-	if len(splitNumber) != 2 {
-		request.Number += "@s.whatsapp.net"
-	}
-
-	if len(splitNumber[0]) < 12 {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "invalid jid, put country prefix")
-	}
-
-	if len(splitNumber[0]) == 13 {
-		first4 := request.Number[:4]
-		last8 := request.Number[5:]
-		request.Number = first4 + last8
-	}
-
-	jid, err := types.ParseJID(request.Number)
+	jid, err := numberToJid(request.Number)
 	if err != nil {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid jid (number)")
+		zap.L().Error("error converting number to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
-	sendText := &lib.SendText{
+	sendText := &whatsmiau.SendText{
 		Text:       request.Text,
 		InstanceID: request.InstanceID,
-		RemoteJID:  &jid,
+		RemoteJID:  jid,
 	}
 
 	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 && len(request.Quoted.Message.Conversation) > 0 {
@@ -69,9 +54,9 @@ func (s *Message) SendText(ctx echo.Context) error {
 	}
 
 	c := ctx.Request().Context()
-	if err := s.whatsmiau.ChatPresence(&lib.ChatPresenceRequest{
+	if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
 		InstanceID: request.InstanceID,
-		RemoteJID:  &jid,
+		RemoteJID:  jid,
 		Presence:   types.ChatPresenceComposing,
 	}); err != nil {
 		zap.L().Error("Whatsmiau.ChatPresence", zap.Error(err))
@@ -111,30 +96,16 @@ func (s *Message) SendAudio(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
 	}
 
-	splitNumber := strings.Split(request.Number, "@")
-	if len(splitNumber) != 2 {
-		request.Number += "@s.whatsapp.net"
-	}
-
-	if len(splitNumber[0]) < 12 {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "invalid jid, put country prefix")
-	}
-
-	if len(splitNumber[0]) == 13 {
-		first4 := request.Number[:4]
-		last8 := request.Number[5:]
-		request.Number = first4 + last8
-	}
-
-	jid, err := types.ParseJID(request.Number)
+	jid, err := numberToJid(request.Number)
 	if err != nil {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid jid (number)")
+		zap.L().Error("error converting number to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
-	sendText := &lib.SendAudio{
+	sendText := &whatsmiau.SendAudio{
 		AudioURL:   request.Audio,
 		InstanceID: request.InstanceID,
-		RemoteJID:  &jid,
+		RemoteJID:  jid,
 	}
 
 	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 && len(request.Quoted.Message.Conversation) > 0 {
@@ -143,9 +114,9 @@ func (s *Message) SendAudio(ctx echo.Context) error {
 	}
 
 	c := ctx.Request().Context()
-	if err := s.whatsmiau.ChatPresence(&lib.ChatPresenceRequest{
+	if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
 		InstanceID: request.InstanceID,
-		RemoteJID:  &jid,
+		RemoteJID:  jid,
 		Presence:   types.ChatPresenceComposing,
 		Media:      types.ChatPresenceMediaAudio,
 	}); err != nil {
@@ -207,32 +178,18 @@ func (s *Message) SendDocument(ctx echo.Context) error {
 }
 
 func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest) error {
-	splitNumber := strings.Split(request.Number, "@")
-	if len(splitNumber) != 2 {
-		request.Number += "@s.whatsapp.net"
-	}
-
-	if len(splitNumber[0]) < 12 {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "invalid jid, put country prefix")
-	}
-
-	if len(splitNumber[0]) == 13 {
-		first4 := request.Number[:4]
-		last8 := request.Number[5:]
-		request.Number = first4 + last8
-	}
-
-	jid, err := types.ParseJID(request.Number)
+	jid, err := numberToJid(request.Number)
 	if err != nil {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid jid (number)")
+		zap.L().Error("error converting number to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
-	sendData := &lib.SendDocumentRequest{
+	sendData := &whatsmiau.SendDocumentRequest{
 		InstanceID: request.InstanceID,
 		MediaURL:   request.Media,
 		Caption:    request.Caption,
 		FileName:   request.FileName,
-		RemoteJID:  &jid,
+		RemoteJID:  jid,
 		Mimetype:   request.Mimetype,
 	}
 
@@ -272,31 +229,17 @@ func (s *Message) SendImage(ctx echo.Context) error {
 }
 
 func (s *Message) sendImage(ctx echo.Context, request dto.SendDocumentRequest) error {
-	splitNumber := strings.Split(request.Number, "@")
-	if len(splitNumber) != 2 {
-		request.Number += "@s.whatsapp.net"
-	}
-
-	if len(splitNumber[0]) < 12 {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "invalid jid, put country prefix")
-	}
-
-	if len(splitNumber[0]) == 13 {
-		first4 := request.Number[:4]
-		last8 := request.Number[5:]
-		request.Number = first4 + last8
-	}
-
-	jid, err := types.ParseJID(request.Number)
+	jid, err := numberToJid(request.Number)
 	if err != nil {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid jid (number)")
+		zap.L().Error("error converting number to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
-	sendData := &lib.SendImageRequest{
+	sendData := &whatsmiau.SendImageRequest{
 		InstanceID: request.InstanceID,
 		MediaURL:   request.Media,
 		Caption:    request.Caption,
-		RemoteJID:  &jid,
+		RemoteJID:  jid,
 		Mimetype:   request.Mimetype,
 	}
 

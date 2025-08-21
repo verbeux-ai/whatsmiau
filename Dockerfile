@@ -2,19 +2,27 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
+# Install gcc and SQLite dev libraries
+RUN apk add build-base sqlite-dev gcc musl-dev
+
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o whatsmiau main.go
+# Enable CGO
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o whatsmiau main.go
 
 FROM alpine:latest
 
+RUN apk update && apk add --no-cache ffmpeg
+
 WORKDIR /app
 
-COPY --from=builder /app/whatsmiau .
+COPY --from=builder /app/whatsmiau /app/whatsmiau
 
-EXPOSE 8080
+RUN mkdir /app/data && chmod 777 -R /app/data
 
-CMD ["./whatsmiau"]
+EXPOSE 8081
+
+ENTRYPOINT ["./whatsmiau"]

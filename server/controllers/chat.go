@@ -7,7 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
-	"github.com/verbeux-ai/whatsmiau/lib"
+	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
 	"go.mau.fi/whatsmeow/types"
@@ -16,10 +16,10 @@ import (
 
 type Chat struct {
 	repo      interfaces.InstanceRepository
-	whatsmiau *lib.Whatsmiau
+	whatsmiau *whatsmiau.Whatsmiau
 }
 
-func NewChats(repository interfaces.InstanceRepository, whatsmiau *lib.Whatsmiau) *Chat {
+func NewChats(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.Whatsmiau) *Chat {
 	return &Chat{
 		repo:      repository,
 		whatsmiau: whatsmiau,
@@ -48,7 +48,7 @@ func (s *Chat) ReadMessages(ctx echo.Context) error {
 			continue
 		}
 
-		if err := s.whatsmiau.ReadMessage(&lib.ReadMessageRequest{
+		if err := s.whatsmiau.ReadMessage(&whatsmiau.ReadMessageRequest{
 			MessageIDs: msgs,
 			InstanceID: request.InstanceID,
 			RemoteJID:  number,
@@ -93,7 +93,7 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 	if request.Delay > 0 {
 		go func() {
 			time.Sleep(time.Duration(request.Delay) * time.Millisecond)
-			if err := s.whatsmiau.ChatPresence(&lib.ChatPresenceRequest{
+			if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
 				InstanceID: request.InstanceID,
 				RemoteJID:  number,
 				Presence:   types.ChatPresencePaused,
@@ -104,7 +104,7 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 		}()
 	}
 
-	if err := s.whatsmiau.ChatPresence(&lib.ChatPresenceRequest{
+	if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
 		InstanceID: request.InstanceID,
 		RemoteJID:  number,
 		Presence:   presence,
@@ -115,4 +115,31 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, map[string]interface{}{})
+}
+
+func (s *Chat) NumberExists(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+
+	var request dto.NumberExistsRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	if err := validator.New().Struct(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
+	}
+
+	response, err := s.whatsmiau.NumberExists(&whatsmiau.NumberExistsRequest{
+		InstanceID: instanceID,
+		Numbers:    request.Numbers,
+	})
+	if err != nil {
+		zap.L().Error("Whatsmiau.NumberExists failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to check numbers")
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }

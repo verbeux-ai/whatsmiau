@@ -19,7 +19,7 @@ func SQLStore() *sqlstore.Container {
 	if sqlStoreInstance == nil {
 		container, err := sqlstore.New(ctx, env.Env.DBDialect, env.Env.DBURL, nil)
 		if err != nil {
-			zap.L().Fatal("failed to start sqlstore", zap.Error(err))
+			zap.L().Panic("failed to start sqlstore", zap.Error(err))
 		}
 
 		sqlStoreInstance = container
