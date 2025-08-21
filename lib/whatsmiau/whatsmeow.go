@@ -249,7 +249,6 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 		}
 		qrCode = qr
 	case <-ctx.Done():
-		client.Disconnect()
 		zap.L().Warn("context canceled", zap.String("id", id))
 		return "", ctx.Err()
 	}
