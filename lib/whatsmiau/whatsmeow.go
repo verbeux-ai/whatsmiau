@@ -196,6 +196,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 				_ = client.Logout(context.Background())
 				client.Disconnect()
 				s.clients.Delete(id)
+				s.qrCache.Delete(id)
 				zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
 				canStop = true
 			case evt, ok := <-qrChan:
@@ -204,6 +205,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 					qrStringChan <- ""
 					canStop = true
 					s.clients.Delete(id)
+					s.qrCache.Delete(id)
 				}
 				if evt.Event == "code" {
 					qrStringChan <- evt.Code
@@ -213,6 +215,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan
 					zap.L().Info("device connected successfully", zap.String("id", id))
 					if client.Store.ID == nil {
 						s.clients.Delete(id)
+						s.qrCache.Delete(id)
 						zap.L().Error("jid is nil after login", zap.String("id", id))
 					} else {
 						client.RemoveEventHandlers()
@@ -304,5 +307,6 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	client.Disconnect()
 
 	s.clients.Delete(id)
+	s.qrCache.Delete(id)
 	return nil
 }
