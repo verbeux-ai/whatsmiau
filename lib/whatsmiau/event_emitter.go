@@ -514,11 +514,7 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 
 		if ear := ci.GetExternalAdReply(); ear != nil {
 			messageType = "conversation"
-			if len(raw.Conversation) < 0 {
-				if raw.Conversation = et.GetMatchedText(); len(raw.Conversation) <= 0 {
-					raw.Conversation = et.String()
-				}
-			}
+			raw.Conversation = et.GetText()
 			messageContext.ExternalAdReply = &WookMessageContextInfoExternalAdReply{
 				Title:                 ear.GetTitle(),
 				Body:                  ear.GetBody(),
