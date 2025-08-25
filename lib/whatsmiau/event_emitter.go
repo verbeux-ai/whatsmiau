@@ -482,8 +482,10 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 		messageType = "unknown"
 	}
 
-	if et := m.GetExtendedTextMessage(); et != nil {
+	et := m.GetExtendedTextMessage()
+	if et != nil {
 		ci = et.GetContextInfo()
+		zap.L().Debug("extendedTextMessage", zap.Any("et", et))
 	}
 
 	// Map MessageContextInfo (quoted, mentions, disappearing mode, external ad reply)
@@ -512,6 +514,11 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 
 		if ear := ci.GetExternalAdReply(); ear != nil {
 			messageType = "conversation"
+			if len(raw.Conversation) < 0 {
+				if raw.Conversation = et.GetMatchedText(); len(raw.Conversation) <= 0 {
+					raw.Conversation = et.String()
+				}
+			}
 			messageContext.ExternalAdReply = &WookMessageContextInfoExternalAdReply{
 				Title:                 ear.GetTitle(),
 				Body:                  ear.GetBody(),
