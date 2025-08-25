@@ -485,7 +485,6 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 	et := m.GetExtendedTextMessage()
 	if et != nil {
 		ci = et.GetContextInfo()
-		zap.L().Debug("extendedTextMessage", zap.Any("et", et))
 	}
 
 	// Map MessageContextInfo (quoted, mentions, disappearing mode, external ad reply)
