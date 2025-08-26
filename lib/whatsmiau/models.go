@@ -39,7 +39,7 @@ type WookMessageContextInfo struct {
 	StanzaId                         string                                 `json:"stanzaId,omitempty"`
 	Participant                      string                                 `json:"participant,omitempty"`
 	Expiration                       int                                    `json:"expiration,omitempty"`
-	QuotedMessage                    *WookMessageContextInfoQuotedMessage   `json:"quotedMessage,omitempty"`
+	QuotedMessage                    *WookMessageRaw                        `json:"quotedMessage,omitempty"`
 	MentionedJid                     []string                               `json:"mentionedJid,omitempty"`
 	ConversionSource                 string                                 `json:"conversionSource,omitempty"`
 	ConversionData                   string                                 `json:"conversionData,omitempty"`
@@ -64,11 +64,6 @@ type WookMessageContextInfoExternalAdReply struct {
 	RenderLargerThumbnail bool   `json:"renderLargerThumbnail,omitempty"`
 	ShowAdAttribution     bool   `json:"showAdAttribution,omitempty"`
 	CtwaClid              string `json:"ctwaClid,omitempty"`
-}
-
-type WookMessageContextInfoQuotedMessage struct {
-	ExtendedTextMessage *WookMessageExtendedTextMessage                     `json:"extendedTextMessage,omitempty"`
-	ListMessage         *WookListMessageRawListContextInfoQuotedMessageList `json:"listMessage,omitempty"`
 }
 
 type WookMessageExtendedTextMessage struct {
@@ -118,17 +113,16 @@ type WookListMessageRawListSingleSelectReply struct {
 }
 
 type WookListMessageRawListContextInfo struct {
-	StanzaId      string                                          `json:"stanzaId,omitempty"`
-	Participant   string                                          `json:"participant,omitempty"`
-	QuotedMessage *WookListMessageRawListContextInfoQuotedMessage `json:"quotedMessage,omitempty"`
+	StanzaId      string                                    `json:"stanzaId,omitempty"`
+	Participant   string                                    `json:"participant,omitempty"`
+	QuotedMessage *WookListMessageRawListContextInfoMessage `json:"quotedMessage,omitempty"`
 }
 
-type WookListMessageRawListContextInfoQuotedMessage struct {
-	MessageContextInfo *struct{}                                           `json:"messageContextInfo,omitempty"`
-	ListMessage        *WookListMessageRawListContextInfoQuotedMessageList `json:"listMessage,omitempty"`
+type WookListMessageRawListContextInfoMessage struct {
+	ListMessage *WookListMessageRawListContextInfoMessageList `json:"listMessage,omitempty"`
 }
 
-type WookListMessageRawListContextInfoQuotedMessageList struct {
+type WookListMessageRawListContextInfoMessageList struct {
 	Title       string            `json:"title,omitempty"`
 	Description string            `json:"description,omitempty"`
 	ButtonText  string            `json:"buttonText,omitempty"`

@@ -21,16 +21,17 @@ import (
 )
 
 type Whatsmiau struct {
-	clients         *xsync.Map[string, *whatsmeow.Client]
-	container       *sqlstore.Container
-	logger          waLog.Logger
-	repo            interfaces.InstanceRepository
-	qrCache         *xsync.Map[string, string]
-	observerRunning *xsync.Map[string, bool]
-	instanceCache   *xsync.Map[string, models.Instance]
-	emitter         chan emitter
-	httpClient      *http.Client
-	fileStorage     interfaces.Storage
+	clients          *xsync.Map[string, *whatsmeow.Client]
+	container        *sqlstore.Container
+	logger           waLog.Logger
+	repo             interfaces.InstanceRepository
+	qrCache          *xsync.Map[string, string]
+	observerRunning  *xsync.Map[string, bool]
+	instanceCache    *xsync.Map[string, models.Instance]
+	emitter          chan emitter
+	httpClient       *http.Client
+	fileStorage      interfaces.Storage
+	handlerSemaphore chan struct{}
 }
 
 var instance *Whatsmiau
@@ -113,7 +114,8 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		httpClient: &http.Client{
 			Timeout: time.Second * 30, // TODO: load from env
 		},
-		fileStorage: storage,
+		fileStorage:      storage,
+		handlerSemaphore: make(chan struct{}, 200), // TODO: load from env
 	}
 
 	go instance.startEmitter()
