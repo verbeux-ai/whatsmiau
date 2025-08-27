@@ -108,6 +108,7 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			eventMap[event] = true
 		}
 
+		s.handlerSemaphore <- struct{}{}
 		switch e := evt.(type) {
 		case *events.Message:
 			go s.handleMessageEvent(id, instance, e, eventMap)
@@ -135,8 +136,6 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 	if !eventMap["MESSAGES_UPSERT"] {
 		return
 	}
-
-	s.handlerSemaphore <- struct{}{}
 	defer func() { <-s.handlerSemaphore }()
 
 	messageData := s.convertEventMessage(id, instance, e)
@@ -170,8 +169,6 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 	if !eventMap["MESSAGES_UPDATE"] {
 		return
 	}
-
-	s.handlerSemaphore <- struct{}{}
 	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertEventReceipt(id, e)
@@ -195,8 +192,6 @@ func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-
-	s.handlerSemaphore <- struct{}{}
 	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertBusinessName(id, e)
@@ -219,8 +214,6 @@ func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-
-	s.handlerSemaphore <- struct{}{}
 	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertContact(id, e)
@@ -243,8 +236,6 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-
-	s.handlerSemaphore <- struct{}{}
 	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertPicture(id, e)
@@ -266,8 +257,6 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-
-	s.handlerSemaphore <- struct{}{}
 	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertContactHistorySync(id, e.Data.GetPushnames(), e.Data.Conversations)
@@ -289,8 +278,6 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-
-	s.handlerSemaphore <- struct{}{}
 	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertGroupInfo(id, e)
@@ -313,8 +300,6 @@ func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e 
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-
-	s.handlerSemaphore <- struct{}{}
 	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertPushName(id, e)
@@ -845,7 +830,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 	})
 	if err != nil {
 		if err.Error() != whatsmeow.ErrProfilePictureNotSet.Error() &&
-			err.Error() != whatsmeow.ErrProfilePictureUnauthorized.Error() {
+			err.Error() != whatsmeow.ErrProfilePictureUnauthorized.Error() && err.Error() != "the user has hidden their profile picture from you" {
 			zap.L().Error("get profile picture error", zap.String("id", id), zap.Error(err))
 		}
 		return "", "", err

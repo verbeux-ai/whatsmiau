@@ -115,7 +115,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 			Timeout: time.Second * 30, // TODO: load from env
 		},
 		fileStorage:      storage,
-		handlerSemaphore: make(chan struct{}, 200), // TODO: load from env
+		handlerSemaphore: make(chan struct{}, 100), // TODO: load from env
 	}
 
 	go instance.startEmitter()
