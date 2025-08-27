@@ -95,37 +95,41 @@ func (s *Whatsmiau) emit(body any, url string) {
 
 func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 	return func(evt any) {
-		instance := s.getInstanceCached(id)
-		if instance == nil {
-			zap.L().Warn("no instance found for event", zap.String("instance", id))
-			return
-		}
+		s.handlerSemaphore <- struct{}{}
+		go func() {
+			defer func() { <-s.handlerSemaphore }()
+			instance := s.getInstanceCached(id)
+			if instance == nil {
+				zap.L().Warn("no instance found for event", zap.String("instance", id))
+				return
+			}
 
-		eventMap := make(map[string]bool)
-		for _, event := range instance.Webhook.Events {
-			eventMap[event] = true
-		}
+			eventMap := make(map[string]bool)
+			for _, event := range instance.Webhook.Events {
+				eventMap[event] = true
+			}
 
-		switch e := evt.(type) {
-		case *events.Message:
-			s.handleMessageEvent(id, instance, e, eventMap)
-		case *events.Receipt:
-			s.handleReceiptEvent(id, instance, e, eventMap)
-		case *events.BusinessName:
-			s.handleBusinessNameEvent(id, instance, e, eventMap)
-		case *events.Contact:
-			s.handleContactEvent(id, instance, e, eventMap)
-		case *events.Picture:
-			s.handlePictureEvent(id, instance, e, eventMap)
-		case *events.HistorySync:
-			s.handleHistorySyncEvent(id, instance, e, eventMap)
-		case *events.GroupInfo:
-			s.handleGroupInfoEvent(id, instance, e, eventMap)
-		case *events.PushName:
-			s.handlePushNameEvent(id, instance, e, eventMap)
-		default:
-			zap.L().Debug("unknown event", zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
-		}
+			switch e := evt.(type) {
+			case *events.Message:
+				s.handleMessageEvent(id, instance, e, eventMap)
+			case *events.Receipt:
+				s.handleReceiptEvent(id, instance, e, eventMap)
+			case *events.BusinessName:
+				s.handleBusinessNameEvent(id, instance, e, eventMap)
+			case *events.Contact:
+				s.handleContactEvent(id, instance, e, eventMap)
+			case *events.Picture:
+				s.handlePictureEvent(id, instance, e, eventMap)
+			case *events.HistorySync:
+				s.handleHistorySyncEvent(id, instance, e, eventMap)
+			case *events.GroupInfo:
+				s.handleGroupInfoEvent(id, instance, e, eventMap)
+			case *events.PushName:
+				s.handlePushNameEvent(id, instance, e, eventMap)
+			default:
+				zap.L().Debug("unknown event", zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
+			}
+		}()
 	}
 }
 
