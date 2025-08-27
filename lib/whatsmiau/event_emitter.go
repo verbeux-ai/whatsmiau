@@ -48,7 +48,7 @@ func (s *Whatsmiau) getInstanceCached(id string) *models.Instance {
 
 	s.instanceCache.Store(id, res[0])
 	go func() {
-		// expiry in 10sec
+		// expires in 10sec
 		time.Sleep(time.Second * 10)
 		s.instanceCache.Delete(id)
 	}()

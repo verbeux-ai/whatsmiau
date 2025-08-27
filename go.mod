@@ -86,4 +86,6 @@ require (
 	google.golang.org/grpc v1.74.2 // indirect
 )
 
-replace go.mau.fi/whatsmeow => github.com/tulir/whatsmeow v0.0.0-20250825151841-7b1a3f7e5746
+//replace go.mau.fi/whatsmeow => ../whatsmeow
+
+replace go.mau.fi/whatsmeow => github.com/verbeux-ai/whatsmeow v0.0.0-20250827234108-670149751dbc

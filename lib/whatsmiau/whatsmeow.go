@@ -1,7 +1,6 @@
 package whatsmiau
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -133,6 +132,9 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 	if !ok {
 		device := s.container.NewDevice()
 		device.Platform = "Verboo 👻"
+		if err := s.container.PutDevice(ctx, device); err != nil {
+			zap.L().Error("failed to put device into container", zap.Error(err))
+		}
 		client = whatsmeow.NewClient(device, s.logger)
 		s.clients.Store(id, client)
 	}
@@ -153,118 +155,85 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 	return qrCode, nil
 }
 
-func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan string, error) {
-	qrStringChan := make(chan string)
+func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
+	if _, ok := s.observerRunning.Load(id); ok {
+		return
+	}
+	s.observerRunning.Store(id, true)
+	defer func() {
+		s.observerRunning.Delete(id)
+		s.qrCache.Delete(id)
+	}()
 
-	go func() {
-		if _, ok := s.observerRunning.Load(id); ok {
-			ticker := time.NewTicker(1 * time.Second)
-			select {
-			case <-ticker.C:
-				qrCode, ok := s.qrCache.Load(id)
-				if ok && len(qrCode) > 0 {
-					qrStringChan <- qrCode
-					break
-				}
-			case <-time.After(15 * time.Second):
-				qrStringChan <- ""
-				break
+	qrChan, err := client.GetQRChannel(context.Background())
+	if err != nil {
+		zap.L().Error("failed to observe QR Code", zap.Error(err))
+		return
+	}
+
+	if !client.IsConnected() {
+		if err := client.Connect(); err != nil {
+			zap.L().Error("failed to connect", zap.Error(err))
+			return
+		}
+	}
+
+	for {
+		select {
+		case <-time.After(2 * time.Minute): // QR code expiration
+			_ = client.Logout(context.Background())
+			client.Disconnect()
+			s.clients.Delete(id)
+			zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
+			return
+		case evt, ok := <-qrChan:
+			if !ok { // closed qr chan
+				zap.L().Warn("QR channel closed while handling post-qr events", zap.String("id", id))
+				s.clients.Delete(id)
+				return
 			}
-			return
-		}
-
-		s.observerRunning.Store(id, true)
-		defer s.observerRunning.Delete(id)
-
-		qrChan, err := client.GetQRChannel(context.Background())
-		if err != nil {
-			zap.L().Error("failed to observe QR Code", zap.Error(err))
-			qrStringChan <- ""
-			return
-		}
-
-		if !client.IsConnected() {
-			if err := client.Connect(); err != nil {
-				zap.L().Error("failed to connect", zap.Error(err))
-				qrStringChan <- ""
+			if evt.Event == "code" {
+				s.qrCache.Store(id, evt.Code)
+			} else {
+				zap.L().Info("device connected successfully", zap.String("id", id))
+				if client.Store.ID == nil {
+					s.clients.Delete(id)
+					zap.L().Error("jid is nil after login", zap.String("id", id))
+				} else {
+					client.RemoveEventHandlers()
+					client.AddEventHandler(s.Handle(id))
+					if err := s.repo.Update(context.Background(), id, &models.Instance{
+						RemoteJID: client.Store.ID.String(),
+					}); err != nil {
+						zap.L().Error("failed to update instance after login", zap.Error(err))
+					}
+				}
 				return
 			}
 		}
-
-		canStop := false
-		for !canStop {
-			select {
-			case <-time.After(2 * time.Minute): // QR code expiration
-				_ = client.Logout(context.Background())
-				client.Disconnect()
-				s.clients.Delete(id)
-				s.qrCache.Delete(id)
-				zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
-				canStop = true
-			case evt, ok := <-qrChan:
-				if !ok {
-					zap.L().Warn("QR channel closed while handling post-qr events", zap.String("id", id))
-					qrStringChan <- ""
-					canStop = true
-					s.clients.Delete(id)
-					s.qrCache.Delete(id)
-				}
-				if evt.Event == "code" {
-					qrStringChan <- evt.Code
-					s.qrCache.Store(id, evt.Code)
-				} else {
-					canStop = true
-					zap.L().Info("device connected successfully", zap.String("id", id))
-					if client.Store.ID == nil {
-						s.clients.Delete(id)
-						s.qrCache.Delete(id)
-						zap.L().Error("jid is nil after login", zap.String("id", id))
-					} else {
-						client.RemoveEventHandlers()
-						client.AddEventHandler(s.Handle(id))
-						if err := s.repo.Update(context.Background(), id, &models.Instance{
-							RemoteJID: client.Store.ID.String(),
-						}); err != nil {
-							zap.L().Error("failed to update instance after login", zap.Error(err))
-						}
-					}
-				}
-			}
-		}
-	}()
-
-	return qrStringChan, nil
+	}
 }
 
 func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *whatsmeow.Client) (string, error) {
 	ctx, c := context.WithTimeout(ctx, 15*time.Second)
 	defer c()
 
-	qrStringChan, err := s.observeConnection(client, id)
-	if err != nil {
-		zap.L().Error("failed to observe QR Code", zap.Error(err))
-		return "", err
-	}
+	go s.observeConnection(client, id)
 
-	var qrCode string
-	select {
-	case qr, ok := <-qrStringChan:
-		if !ok {
-			return "", fmt.Errorf("qr channel closed unexpectedly")
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			qrCode, ok := s.qrCache.Load(id)
+			if ok && len(qrCode) > 0 {
+				return qrCode, nil
+			}
+		case <-ctx.Done():
+			return "", ctx.Err()
 		}
-		qrCode = qr
-	case <-ctx.Done():
-		zap.L().Warn("context canceled", zap.String("id", id))
-		return "", ctx.Err()
 	}
-
-	if qrCode == "" {
-		return "", fmt.Errorf("qr code is empty")
-	}
-
-	s.qrCache.Store(id, qrCode)
-
-	return qrCode, nil
 }
 
 func (s *Whatsmiau) Status(id string) (Status, error) {
