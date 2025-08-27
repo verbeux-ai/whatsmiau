@@ -179,7 +179,7 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 			Event:    WookMessagesUpdate,
 		}
 
-		go s.emit(wookData, instance.Webhook.Url)
+		s.emit(wookData, instance.Webhook.Url)
 	}
 }
 
@@ -201,7 +201,7 @@ func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance
 		Event:    WookContactsUpsert,
 	}
 
-	go s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook.Url)
 }
 
 func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *events.Contact, eventMap map[string]bool) {
@@ -222,7 +222,7 @@ func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *
 		Event:    WookContactsUpsert,
 	}
 
-	go s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook.Url)
 }
 
 func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *events.Picture, eventMap map[string]bool) {
@@ -242,7 +242,7 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 		Event:    WookContactsUpsert,
 	}
 
-	go s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook.Url)
 }
 
 func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance, e *events.HistorySync, eventMap map[string]bool) {
@@ -262,7 +262,7 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 		Event:    WookContactsUpsert,
 	}
 
-	go s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook.Url)
 }
 
 func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e *events.GroupInfo, eventMap map[string]bool) {
@@ -283,7 +283,7 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 		Event:    WookContactsUpsert,
 	}
 
-	go s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook.Url)
 }
 
 func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e *events.PushName, eventMap map[string]bool) {
@@ -304,7 +304,7 @@ func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e 
 		Event:    WookContactsUpsert,
 	}
 
-	go s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook.Url)
 }
 
 // parseWAMessage converts a raw waE2E.Message into our internal representation.
