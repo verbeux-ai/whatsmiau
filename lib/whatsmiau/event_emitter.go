@@ -133,10 +133,10 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 }
 
 func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *events.Message, eventMap map[string]bool) {
+	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["MESSAGES_UPSERT"] {
 		return
 	}
-	defer func() { <-s.handlerSemaphore }()
 
 	messageData := s.convertEventMessage(id, instance, e)
 	if messageData == nil {
@@ -166,10 +166,10 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *events.Receipt, eventMap map[string]bool) {
+	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["MESSAGES_UPDATE"] {
 		return
 	}
-	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertEventReceipt(id, e)
 	if data == nil {
@@ -189,10 +189,10 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance, e *events.BusinessName, eventMap map[string]bool) {
+	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertBusinessName(id, e)
 	if data == nil {
@@ -211,10 +211,10 @@ func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance
 }
 
 func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *events.Contact, eventMap map[string]bool) {
+	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertContact(id, e)
 	if data == nil {
@@ -233,10 +233,10 @@ func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *events.Picture, eventMap map[string]bool) {
+	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertPicture(id, e)
 	if data == nil {
@@ -254,10 +254,10 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance, e *events.HistorySync, eventMap map[string]bool) {
+	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertContactHistorySync(id, e.Data.GetPushnames(), e.Data.Conversations)
 	if data == nil {
@@ -275,10 +275,10 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 }
 
 func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e *events.GroupInfo, eventMap map[string]bool) {
+	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertGroupInfo(id, e)
 	if data == nil {
@@ -297,10 +297,10 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 }
 
 func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e *events.PushName, eventMap map[string]bool) {
+	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
-	defer func() { <-s.handlerSemaphore }()
 
 	data := s.convertPushName(id, e)
 	if data == nil {
