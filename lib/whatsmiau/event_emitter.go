@@ -57,8 +57,11 @@ func (s *Whatsmiau) getInstanceCached(id string) *models.Instance {
 }
 
 func (s *Whatsmiau) startEmitter() {
+	sem := make(chan struct{}, 20)
 	for event := range s.emitter {
+		sem <- struct{}{}
 		go func(event emitter) {
+			defer func() { <-sem }()
 			data, err := json.Marshal(event.data)
 			if err != nil {
 				zap.L().Error("failed to marshal event", zap.Error(err))
