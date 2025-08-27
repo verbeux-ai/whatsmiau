@@ -127,6 +127,7 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 		case *events.PushName:
 			go s.handlePushNameEvent(id, instance, e, eventMap)
 		default:
+			defer func() { <-s.handlerSemaphore }()
 			zap.L().Debug("unknown event", zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 		}
 	}
