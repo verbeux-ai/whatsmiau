@@ -110,12 +110,12 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		qrCache:         xsync.NewMap[string, string](),
 		instanceCache:   xsync.NewMap[string, models.Instance](),
 		observerRunning: xsync.NewMap[string, bool](),
-		emitter:         make(chan emitter, 50), //TODO: add configurable semaphore
+		emitter:         make(chan emitter, env.Env.EmitterBufferSize),
 		httpClient: &http.Client{
 			Timeout: time.Second * 30, // TODO: load from env
 		},
 		fileStorage:      storage,
-		handlerSemaphore: make(chan struct{}, 100), // TODO: load from env
+		handlerSemaphore: make(chan struct{}, env.Env.HandlerSemaphoreSize),
 	}
 
 	go instance.startEmitter()

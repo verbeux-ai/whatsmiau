@@ -57,40 +57,35 @@ func (s *Whatsmiau) getInstanceCached(id string) *models.Instance {
 }
 
 func (s *Whatsmiau) startEmitter() {
-	sem := make(chan struct{}, 20)
 	for event := range s.emitter {
-		sem <- struct{}{}
-		go func(event emitter) {
-			defer func() { <-sem }()
-			data, err := json.Marshal(event.data)
-			if err != nil {
-				zap.L().Error("failed to marshal event", zap.Error(err))
-				return
-			}
+		data, err := json.Marshal(event.data)
+		if err != nil {
+			zap.L().Error("failed to marshal event", zap.Error(err))
+			return
+		}
 
-			req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, event.url, bytes.NewReader(data))
-			if err != nil {
-				zap.L().Error("failed to create request", zap.Error(err))
-				return
-			}
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, event.url, bytes.NewReader(data))
+		if err != nil {
+			zap.L().Error("failed to create request", zap.Error(err))
+			return
+		}
 
-			req.Header.Set("Content-Type", "application/json")
-			resp, err := s.httpClient.Do(req)
-			if err != nil {
-				zap.L().Error("failed to send request", zap.Error(err))
-				return
-			}
-			defer resp.Body.Close()
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			zap.L().Error("failed to send request", zap.Error(err))
+			return
+		}
+		defer resp.Body.Close()
 
-			if resp.StatusCode != http.StatusOK {
-				res, err := io.ReadAll(resp.Body)
-				if err != nil {
-					zap.L().Error("failed to read response body", zap.Error(err))
-				} else {
-					zap.L().Error("error doing request", zap.Any("response", string(res)), zap.String("url", event.url))
-				}
+		if resp.StatusCode != http.StatusOK {
+			res, err := io.ReadAll(resp.Body)
+			if err != nil {
+				zap.L().Error("failed to read response body", zap.Error(err))
+			} else {
+				zap.L().Error("error doing request", zap.Any("response", string(res)), zap.String("url", event.url))
 			}
-		}(event)
+		}
 	}
 }
 
@@ -111,33 +106,30 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			eventMap[event] = true
 		}
 
-		s.handlerSemaphore <- struct{}{}
 		switch e := evt.(type) {
 		case *events.Message:
-			go s.handleMessageEvent(id, instance, e, eventMap)
+			s.handleMessageEvent(id, instance, e, eventMap)
 		case *events.Receipt:
-			go s.handleReceiptEvent(id, instance, e, eventMap)
+			s.handleReceiptEvent(id, instance, e, eventMap)
 		case *events.BusinessName:
-			go s.handleBusinessNameEvent(id, instance, e, eventMap)
+			s.handleBusinessNameEvent(id, instance, e, eventMap)
 		case *events.Contact:
-			go s.handleContactEvent(id, instance, e, eventMap)
+			s.handleContactEvent(id, instance, e, eventMap)
 		case *events.Picture:
-			go s.handlePictureEvent(id, instance, e, eventMap)
+			s.handlePictureEvent(id, instance, e, eventMap)
 		case *events.HistorySync:
-			go s.handleHistorySyncEvent(id, instance, e, eventMap)
+			s.handleHistorySyncEvent(id, instance, e, eventMap)
 		case *events.GroupInfo:
-			go s.handleGroupInfoEvent(id, instance, e, eventMap)
+			s.handleGroupInfoEvent(id, instance, e, eventMap)
 		case *events.PushName:
-			go s.handlePushNameEvent(id, instance, e, eventMap)
+			s.handlePushNameEvent(id, instance, e, eventMap)
 		default:
-			defer func() { <-s.handlerSemaphore }()
 			zap.L().Debug("unknown event", zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 		}
 	}
 }
 
 func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *events.Message, eventMap map[string]bool) {
-	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["MESSAGES_UPSERT"] {
 		return
 	}
@@ -170,7 +162,6 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *events.Receipt, eventMap map[string]bool) {
-	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["MESSAGES_UPDATE"] {
 		return
 	}
@@ -193,7 +184,6 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance, e *events.BusinessName, eventMap map[string]bool) {
-	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
@@ -215,7 +205,6 @@ func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance
 }
 
 func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *events.Contact, eventMap map[string]bool) {
-	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
@@ -237,7 +226,6 @@ func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *events.Picture, eventMap map[string]bool) {
-	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
@@ -258,7 +246,6 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance, e *events.HistorySync, eventMap map[string]bool) {
-	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
@@ -279,7 +266,6 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 }
 
 func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e *events.GroupInfo, eventMap map[string]bool) {
-	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}
@@ -301,7 +287,6 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 }
 
 func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e *events.PushName, eventMap map[string]bool) {
-	defer func() { <-s.handlerSemaphore }()
 	if !eventMap["CONTACTS_UPSERT"] {
 		return
 	}

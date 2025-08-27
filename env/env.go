@@ -25,6 +25,9 @@ type E struct {
 	GCL          string `json:"GCL_APP_NAME" envDefault:"whatsmiau-br-1"`
 	GCLEnabled   bool   `json:"GCL_ENABLED" envDefault:"false"`
 	GCLProjectID string `json:"GCL_PROJECT_ID"`
+
+	EmitterBufferSize    int `env:"EMITTER_BUFFER_SIZE" envDefault:"2048"`
+	HandlerSemaphoreSize int `env:"HANDLER_SEMAPHORE_SIZE" envDefault:"512"`
 }
 
 var Env E
