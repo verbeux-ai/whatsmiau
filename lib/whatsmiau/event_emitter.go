@@ -675,7 +675,7 @@ func (s *Whatsmiau) uploadMessageFile(ctx context.Context, instance *models.Inst
 			zap.L().Error("failed to seek image", zap.Error(err))
 		}
 
-		urlResult, _, err = s.fileStorage.Upload(ctx, uuid.NewString()+ext, mimetype, tmpFile)
+		urlResult, _, err = s.fileStorage.Upload(ctx, uuid.NewString()+"."+ext, mimetype, tmpFile)
 		if err != nil {
 			zap.L().Error("failed to upload image", zap.Error(err))
 		}

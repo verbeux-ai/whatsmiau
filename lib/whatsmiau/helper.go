@@ -232,7 +232,7 @@ func extractExtFromFile(fileName, mimeType string, file *os.File) string {
 	if ext == "" {
 		if exts, _ := mime.ExtensionsByType(mimeType); len(exts) > 0 {
 			if len(exts) > 1 {
-				return exts[1]
+				ext = exts[1]
 			} else {
 				ext = exts[0]
 			}
