@@ -15,7 +15,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o whatsmiau main.go
 
 FROM alpine:latest
 
-RUN apk update && apk add --no-cache ffmpeg
+RUN apk update && apk add --no-cache ffmpeg mailcap
 
 WORKDIR /app
 
