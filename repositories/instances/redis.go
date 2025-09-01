@@ -52,29 +52,34 @@ func (s *RedisInstance) Create(ctx context.Context, instance *models.Instance) e
 	return s.db.Set(ctx, s.key(instance.ID), data, redis.KeepTTL).Err()
 }
 
-func (s *RedisInstance) Update(ctx context.Context, id string, instance *models.Instance) error {
+func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.Instance) (*models.Instance, error) {
 	if id == "" {
-		return ErrInstanceIDEmpty
+		return nil, ErrInstanceIDEmpty
 	}
 
 	result, err := s.List(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(result) <= 0 {
-		return ErrorNotFound
+		return nil, ErrorNotFound
 	}
 
 	oldInstance := result[0]
-	oldInstance.RemoteJID = instance.RemoteJID
+	if len(toUpdate.RemoteJID) > 0 {
+		oldInstance.RemoteJID = toUpdate.RemoteJID
+	}
+	if toUpdate.Webhook.Base64 != nil {
+		oldInstance.Webhook.Base64 = toUpdate.Webhook.Base64
+	}
 
 	data, err := json.Marshal(oldInstance)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return s.db.Set(ctx, s.key(id), data, redis.KeepTTL).Err()
+	return &oldInstance, s.db.Set(ctx, s.key(id), data, redis.KeepTTL).Err()
 }
 
 func (s *RedisInstance) List(ctx context.Context, id string) ([]models.Instance, error) {

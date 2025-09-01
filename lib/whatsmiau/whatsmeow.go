@@ -202,7 +202,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 				} else {
 					client.RemoveEventHandlers()
 					client.AddEventHandler(s.Handle(id))
-					if err := s.repo.Update(context.Background(), id, &models.Instance{
+					if _, err := s.repo.Update(context.Background(), id, &models.Instance{
 						RemoteJID: client.Store.ID.String(),
 					}); err != nil {
 						zap.L().Error("failed to update instance after login", zap.Error(err))

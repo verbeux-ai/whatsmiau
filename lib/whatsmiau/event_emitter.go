@@ -662,7 +662,7 @@ func (s *Whatsmiau) uploadMessageFile(ctx context.Context, instance *models.Inst
 	}
 
 	ext = extractExtFromFile(fileName, mimetype, tmpFile)
-	if instance.Webhook.Base64 {
+	if instance.Webhook.Base64 != nil && *instance.Webhook.Base64 {
 		data, err := io.ReadAll(tmpFile)
 		if err != nil {
 			zap.L().Error("failed to read image", zap.Error(err))
