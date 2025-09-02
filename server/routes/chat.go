@@ -12,8 +12,8 @@ func Chat(group *echo.Group) {
 	redisInstance := instances.NewRedis(services.Redis())
 	controller := controllers.NewChats(redisInstance, whatsmiau.Get())
 
-	group.POST("presence", controller.SendChatPresence)
-	group.POST("read-messages", controller.ReadMessages)
+	group.POST("/presence", controller.SendChatPresence)
+	group.POST("/read-messages", controller.ReadMessages)
 }
 
 func ChatEVO(group *echo.Group) {
