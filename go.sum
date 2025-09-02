@@ -138,8 +138,8 @@ github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6Kllzaw
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasttemplate v1.2.2 h1:lxLXG0uE3Qnshl9QyaK6XJxMXlQZELvChBOCmQD0Loo=
 github.com/valyala/fasttemplate v1.2.2/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=
-github.com/verbeux-ai/whatsmeow v0.0.0-20250827234108-670149751dbc h1:f5TJjpo6jg+HJm1rqQoWCSs9ck/8OlfRXBddaejJmf4=
-github.com/verbeux-ai/whatsmeow v0.0.0-20250827234108-670149751dbc/go.mod h1:xD0DR3s4T6PDd3BzgQG05AzLWxdKCmnvdCP3UuQvn9w=
+github.com/verbeux-ai/whatsmeow v0.0.0-20250902172221-926dd8a23899 h1:XxYTbI77JtdG7n40xYZglI4Rm1m7Gt6cyjjYWiXWH8o=
+github.com/verbeux-ai/whatsmeow v0.0.0-20250902172221-926dd8a23899/go.mod h1:xD0DR3s4T6PDd3BzgQG05AzLWxdKCmnvdCP3UuQvn9w=
 github.com/zeebo/errs v1.4.0 h1:XNdoD/RRMKP7HD0UhJnIzUy74ISdGGxURlYG8HSWSfM=
 github.com/zeebo/errs v1.4.0/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
 go.mau.fi/libsignal v0.2.0 h1:oRXj3OHhEJq51BFEM8/50UZblmWiTYH93hsNTPcbk90=

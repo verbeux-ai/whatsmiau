@@ -88,4 +88,4 @@ require (
 
 //replace go.mau.fi/whatsmeow => ../whatsmeow
 
-replace go.mau.fi/whatsmeow => github.com/verbeux-ai/whatsmeow v0.0.0-20250827234108-670149751dbc
+replace go.mau.fi/whatsmeow => github.com/verbeux-ai/whatsmeow v0.0.0-20250902172221-926dd8a23899
