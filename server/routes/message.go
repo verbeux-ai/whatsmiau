@@ -12,10 +12,10 @@ func Message(group *echo.Group) {
 	redisInstance := instances.NewRedis(services.Redis())
 	controller := controllers.NewMessages(redisInstance, whatsmiau.Get())
 
-	group.POST("text", controller.SendText)
-	group.POST("audio", controller.SendAudio)
-	group.POST("document", controller.SendDocument)
-	group.POST("image", controller.SendImage)
+	group.POST("/text", controller.SendText)
+	group.POST("/audio", controller.SendAudio)
+	group.POST("/document", controller.SendDocument)
+	group.POST("/image", controller.SendImage)
 }
 
 func MessageEVO(group *echo.Group) {
