@@ -14,6 +14,7 @@ import (
 	"github.com/verbeux-ai/whatsmiau/services"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -280,4 +281,32 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	s.clients.Delete(id)
 	s.qrCache.Delete(id)
 	return nil
+}
+
+func (s *Whatsmiau) GetJIDString(ctx context.Context, id string, jid types.JID) string {
+	if jid.Server == types.DefaultUserServer {
+		return jid.ToNonAD().String()
+	}
+
+	client, ok := s.clients.Load(id)
+	if !ok {
+		zap.L().Warn("client does not exist", zap.String("id", id))
+		return ""
+	}
+
+	if jid.Server == types.HiddenUserServer {
+		pnJID, err := client.Store.LIDs.GetPNForLID(ctx, jid)
+		if err != nil {
+			zap.L().Warn("failed to get pn for lid", zap.Stringer("lid", jid), zap.Error(err))
+			return jid.ToNonAD().String()
+		}
+
+		if !pnJID.IsEmpty() {
+			return pnJID.ToNonAD().String()
+		}
+
+		return jid.ToNonAD().String()
+	}
+
+	return jid.ToNonAD().String()
 }

@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"strings"
 
-	"go.mau.fi/whatsmeow/types"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
@@ -35,13 +34,6 @@ func u64(n uint64) string {
 
 func i64(n int64) string {
 	return strconv.FormatInt(n, 10)
-}
-
-func jids(j types.JID) string {
-	if j.User == "" && j.Server == "" {
-		return ""
-	}
-	return j.String()
 }
 
 func (s *Whatsmiau) getCtx(ctx context.Context, url string) (*http.Response, error) {

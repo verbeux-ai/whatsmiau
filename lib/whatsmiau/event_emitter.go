@@ -500,7 +500,7 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 		return nil
 	}
 
-	if evt == nil || evt.Message == nil || strings.Contains(evt.Info.Chat.String(), "status") {
+	if evt == nil || evt.Message == nil || strings.Contains(s.GetJIDString(ctx, id, evt.Info.Chat), "status") {
 		return nil
 	}
 
@@ -510,10 +510,10 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 
 	// Build the key
 	key := &WookKey{
-		RemoteJid:   e.Info.Chat.String(),
+		RemoteJid:   s.GetJIDString(ctx, id, e.Info.Chat),
 		FromMe:      e.Info.IsFromMe,
 		Id:          e.Info.ID,
-		Participant: jids(e.Info.Sender),
+		Participant: s.GetJIDString(ctx, id, e.Info.Sender),
 	}
 
 	// Determine status
@@ -628,9 +628,9 @@ func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMe
 		result = append(result, WookMessageUpdateData{
 			MessageId:   messageID,
 			KeyId:       messageID,
-			RemoteJid:   evt.Chat.String(),
+			RemoteJid:   s.GetJIDString(context.Background(), id, evt.Chat),
 			FromMe:      evt.IsFromMe,
-			Participant: evt.Sender.String(),
+			Participant: s.GetJIDString(context.Background(), id, evt.Sender),
 			Status:      status,
 			InstanceId:  id,
 		})
@@ -706,7 +706,7 @@ func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact 
 	}
 
 	return &WookContact{
-		RemoteJid:     evt.JID.String(),
+		RemoteJid:     s.GetJIDString(context.Background(), id, evt.JID),
 		PushName:      name,
 		ProfilePicUrl: url,
 		InstanceId:    id,
@@ -728,7 +728,7 @@ func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookCont
 	}
 
 	return &WookContact{
-		RemoteJid:     evt.JID.String(),
+		RemoteJid:     s.GetJIDString(context.Background(), id, evt.JID),
 		PushName:      evt.Name.Name,
 		ProfilePicUrl: url,
 		InstanceId:    id,
@@ -755,7 +755,7 @@ func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContac
 	}
 
 	return &WookContact{
-		RemoteJid:     evt.JID.String(),
+		RemoteJid:     s.GetJIDString(context.Background(), id, evt.JID),
 		PushName:      evt.NewPushName,
 		InstanceId:    id,
 		ProfilePicUrl: url,
@@ -773,7 +773,7 @@ func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact 
 	}
 
 	return &WookContact{
-		RemoteJid:     evt.JID.String(),
+		RemoteJid:     s.GetJIDString(context.Background(), id, evt.JID),
 		InstanceId:    id,
 		Base64Pic:     b64,
 		ProfilePicUrl: url,
@@ -802,7 +802,7 @@ func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *Wo
 	}
 
 	return &WookContact{
-		RemoteJid:     evt.JID.String(),
+		RemoteJid:     s.GetJIDString(context.Background(), id, evt.JID),
 		InstanceId:    id,
 		Base64Pic:     b64,
 		ProfilePicUrl: url,

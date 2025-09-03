@@ -5,6 +5,7 @@ import (
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
+	"golang.org/x/net/context"
 )
 
 type ReadMessageRequest struct {
@@ -57,7 +58,7 @@ type Exists struct {
 	Number string `json:"number"`
 }
 
-func (s *Whatsmiau) NumberExists(data *NumberExistsRequest) (NumberExistsResponse, error) {
+func (s *Whatsmiau) NumberExists(ctx context.Context, data *NumberExistsRequest) (NumberExistsResponse, error) {
 	client, ok := s.clients.Load(data.InstanceID)
 	if !ok {
 		return nil, whatsmeow.ErrClientIsNil
@@ -72,7 +73,7 @@ func (s *Whatsmiau) NumberExists(data *NumberExistsRequest) (NumberExistsRespons
 	for _, item := range resp {
 		results = append(results, Exists{
 			Exists: item.IsIn,
-			Jid:    item.JID.String(),
+			Jid:    s.GetJIDString(ctx, data.InstanceID, item.JID),
 			Number: item.Query,
 		})
 	}
