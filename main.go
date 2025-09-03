@@ -50,7 +50,6 @@ func main() {
 
 	app := echo.New()
 	app.Pre(middleware.Recover())
-	app.Pre(middleware.Logger())
 	app.Pre(middleware.RemoveTrailingSlash())
 	app.Pre(middleware.CORS())
 
