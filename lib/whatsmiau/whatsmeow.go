@@ -132,10 +132,6 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 	client, ok := s.clients.Load(id)
 	if !ok {
 		device := s.container.NewDevice()
-		device.Platform = "Verboo 👻"
-		if err := s.container.PutDevice(ctx, device); err != nil {
-			zap.L().Error("failed to put device into container", zap.Error(err))
-		}
 		client = whatsmeow.NewClient(device, s.logger)
 		s.clients.Store(id, client)
 	}
@@ -283,30 +279,35 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	return nil
 }
 
-func (s *Whatsmiau) GetJIDString(ctx context.Context, id string, jid types.JID) string {
-	if jid.Server == types.DefaultUserServer {
-		return jid.ToNonAD().String()
-	}
-
+func (s *Whatsmiau) GetJidLid(ctx context.Context, id string, jid types.JID) (string, string) {
 	client, ok := s.clients.Load(id)
 	if !ok {
-		zap.L().Warn("client does not exist", zap.String("id", id))
-		return ""
+		return jid.ToNonAD().String(), ""
+	}
+
+	lid, err := client.Store.LIDs.GetLIDForPN(ctx, jid)
+	if err != nil {
+		zap.L().Error("failed to get jid from store", zap.String("id", id), zap.Error(err))
+	}
+	lidString := lid.ToNonAD().String()
+
+	if jid.Server == types.DefaultUserServer {
+		return jid.ToNonAD().String(), lidString
 	}
 
 	if jid.Server == types.HiddenUserServer {
 		pnJID, err := client.Store.LIDs.GetPNForLID(ctx, jid)
 		if err != nil {
 			zap.L().Warn("failed to get pn for lid", zap.Stringer("lid", jid), zap.Error(err))
-			return jid.ToNonAD().String()
+			return jid.ToNonAD().String(), lidString
 		}
 
 		if !pnJID.IsEmpty() {
-			return pnJID.ToNonAD().String()
+			return pnJID.ToNonAD().String(), lidString
 		}
 
-		return jid.ToNonAD().String()
+		return jid.ToNonAD().String(), lidString
 	}
 
-	return jid.ToNonAD().String()
+	return jid.ToNonAD().String(), lidString
 }

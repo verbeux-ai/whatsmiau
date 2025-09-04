@@ -16,25 +16,6 @@ import (
 	"golang.org/x/net/http2"
 )
 
-//	@title			Whatsmiau API
-//	@version		1.0
-//	@description	Backend whatsapp
-
-//	@contact.name	Verbeux
-//	@contact.url	https://verbeux.com.br/support
-//	@contact.email	verbeux@verbeux.com.br
-
-//	@license.name	Apache 2.0
-//	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
-
-//	@host		localhost:8080
-//	@BasePath	/
-//	@schemes	http
-
-// @securityDefinitions.apikey	ApiKeyAuth
-// @in							header
-// @name						apikey
-// @description				Apikey gerada dentro da plataforma administrativa
 func main() {
 	if err := env.Load(); err != nil {
 		panic(err)

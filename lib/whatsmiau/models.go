@@ -77,10 +77,11 @@ type WookMessageExtendedTextMessageContextInfo struct {
 }
 
 type WookKey struct {
-	RemoteJid   string `json:"remoteJid,omitempty"`
-	FromMe      bool   `json:"fromMe,omitempty"`
-	Id          string `json:"id,omitempty"`
-	Participant string `json:"participant,omitempty"`
+	RemoteJid      string `json:"remoteJid,omitempty"`
+	FromMe         bool   `json:"fromMe,omitempty"`
+	Id             string `json:"id,omitempty"`
+	Participant    string `json:"participant,omitempty"`
+	ParticipantLid string `json:"participantLid,omitempty"`
 }
 
 type WookMessageRaw struct {
@@ -239,6 +240,7 @@ type WookMessageUpdateData struct {
 
 type WookContact struct {
 	RemoteJid     string `json:"remoteJid,omitempty"`
+	LID           string `json:"LID,omitempty"`
 	PushName      string `json:"pushName,omitempty"`
 	ProfilePicUrl string `json:"profilePicUrl,omitempty"`
 	InstanceId    string `json:"instanceId,omitempty"`

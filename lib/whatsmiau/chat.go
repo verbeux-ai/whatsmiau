@@ -55,6 +55,7 @@ type NumberExistsResponse []Exists
 type Exists struct {
 	Exists bool   `json:"exists"`
 	Jid    string `json:"jid"`
+	Lid    string `json:"lid"`
 	Number string `json:"number"`
 }
 
@@ -71,9 +72,12 @@ func (s *Whatsmiau) NumberExists(ctx context.Context, data *NumberExistsRequest)
 
 	var results []Exists
 	for _, item := range resp {
+		jid, lid := s.GetJidLid(ctx, data.InstanceID, item.JID)
+
 		results = append(results, Exists{
 			Exists: item.IsIn,
-			Jid:    s.GetJIDString(ctx, data.InstanceID, item.JID),
+			Jid:    jid,
+			Lid:    lid,
 			Number: item.Query,
 		})
 	}
