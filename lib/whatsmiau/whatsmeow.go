@@ -295,17 +295,17 @@ func (s *Whatsmiau) extractJidLid(ctx context.Context, id string, jid types.JID)
 		return jid.ToNonAD().String(), ""
 	}
 
-	lid, err := client.Store.LIDs.GetLIDForPN(ctx, jid)
-	if err != nil {
-		zap.L().Error("failed to get lid from store", zap.String("id", id), zap.Error(err))
-	}
-	lidString := lid.ToNonAD().String()
-
 	if jid.Server == types.DefaultUserServer {
-		return jid.ToNonAD().String(), lidString
+		lid, err := client.Store.LIDs.GetLIDForPN(ctx, jid)
+		if err != nil {
+			zap.L().Warn("failed to get lid from store", zap.String("id", id), zap.Error(err))
+		}
+
+		return jid.ToNonAD().String(), lid.ToNonAD().String()
 	}
 
 	if jid.Server == types.HiddenUserServer {
+		lidString := jid.ToNonAD().String()
 		pnJID, err := client.Store.LIDs.GetPNForLID(ctx, jid)
 		if err != nil {
 			zap.L().Warn("failed to get pn for lid", zap.Stringer("lid", jid), zap.Error(err))
@@ -319,5 +319,5 @@ func (s *Whatsmiau) extractJidLid(ctx context.Context, id string, jid types.JID)
 		return jid.ToNonAD().String(), lidString
 	}
 
-	return jid.ToNonAD().String(), lidString
+	return jid.ToNonAD().String(), ""
 }
