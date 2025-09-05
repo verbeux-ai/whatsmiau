@@ -77,11 +77,11 @@ type WookMessageExtendedTextMessageContextInfo struct {
 }
 
 type WookKey struct {
-	RemoteJid      string `json:"remoteJid,omitempty"`
-	FromMe         bool   `json:"fromMe,omitempty"`
-	Id             string `json:"id,omitempty"`
-	Participant    string `json:"participant,omitempty"`
-	ParticipantLid string `json:"participantLid,omitempty"`
+	RemoteJid   string `json:"remoteJid,omitempty"`
+	RemoteLid   string `json:"remoteLid,omitempty"`
+	FromMe      bool   `json:"fromMe,omitempty"`
+	Id          string `json:"id,omitempty"`
+	Participant string `json:"participant,omitempty"`
 }
 
 type WookMessageRaw struct {
@@ -229,18 +229,20 @@ const (
 )
 
 type WookMessageUpdateData struct {
-	MessageId   string                  `json:"messageId,omitempty"`
-	KeyId       string                  `json:"keyId,omitempty"`
-	RemoteJid   string                  `json:"remoteJid,omitempty"`
-	FromMe      bool                    `json:"fromMe,omitempty"`
-	Participant string                  `json:"participant,omitempty"`
-	Status      WookMessageUpdateStatus `json:"status,omitempty"`
-	InstanceId  string                  `json:"instanceId,omitempty"`
+	MessageId      string                  `json:"messageId,omitempty"`
+	KeyId          string                  `json:"keyId,omitempty"`
+	RemoteJid      string                  `json:"remoteJid,omitempty"`
+	RemoteLid      string                  `json:"remoteLid"`
+	FromMe         bool                    `json:"fromMe,omitempty"`
+	Participant    string                  `json:"participant,omitempty"`
+	ParticipantLid string                  `json:"participantLid,omitempty"`
+	Status         WookMessageUpdateStatus `json:"status,omitempty"`
+	InstanceId     string                  `json:"instanceId,omitempty"`
 }
 
 type WookContact struct {
 	RemoteJid     string `json:"remoteJid,omitempty"`
-	LID           string `json:"LID,omitempty"`
+	RemoteLid     string `json:"remoteLid"`
 	PushName      string `json:"pushName,omitempty"`
 	ProfilePicUrl string `json:"profilePicUrl,omitempty"`
 	InstanceId    string `json:"instanceId,omitempty"`

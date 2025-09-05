@@ -2,6 +2,7 @@ package whatsmiau
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -280,6 +281,15 @@ func (s *Whatsmiau) Disconnect(id string) error {
 }
 
 func (s *Whatsmiau) GetJidLid(ctx context.Context, id string, jid types.JID) (string, string) {
+	newJid, newLid := s.extractJidLid(ctx, id, jid)
+	if strings.HasSuffix(newJid, "@lid") {
+		newLid = newJid
+	}
+
+	return newJid, newLid
+}
+
+func (s *Whatsmiau) extractJidLid(ctx context.Context, id string, jid types.JID) (string, string) {
 	client, ok := s.clients.Load(id)
 	if !ok {
 		return jid.ToNonAD().String(), ""
@@ -287,7 +297,7 @@ func (s *Whatsmiau) GetJidLid(ctx context.Context, id string, jid types.JID) (st
 
 	lid, err := client.Store.LIDs.GetLIDForPN(ctx, jid)
 	if err != nil {
-		zap.L().Error("failed to get jid from store", zap.String("id", id), zap.Error(err))
+		zap.L().Error("failed to get lid from store", zap.String("id", id), zap.Error(err))
 	}
 	lidString := lid.ToNonAD().String()
 

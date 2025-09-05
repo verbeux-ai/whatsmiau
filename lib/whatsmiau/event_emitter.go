@@ -442,10 +442,19 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 			return nil
 		}
 
-		resultMap[pushName.GetID()] = WookContact{
-			RemoteJid:  pushName.GetID(),
+		jid, err := types.ParseJID(pushName.GetID())
+		if err != nil {
+			zap.L().Error("failed to parse jid", zap.String("pushname", pushName.GetPushname()))
+			return nil
+		}
+
+		jidParsed, lid := s.GetJidLid(context.Background(), id, jid)
+
+		resultMap[jidParsed] = WookContact{
+			RemoteJid:  jidParsed,
 			PushName:   pushName.GetPushname(),
 			InstanceId: id,
+			RemoteLid:  lid,
 		}
 	}
 
@@ -464,10 +473,18 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 			return nil
 		}
 
+		jid, err := types.ParseJID(conversation.GetID())
+		if err != nil {
+			zap.L().Error("failed to parse jid", zap.String("name", conversation.GetName()))
+			return nil
+		}
+		jidParsed, lid := s.GetJidLid(context.Background(), id, jid)
+
 		resultMap[conversation.GetID()] = WookContact{
-			RemoteJid:  conversation.GetID(),
+			RemoteJid:  jidParsed,
 			PushName:   name,
 			InstanceId: id,
+			RemoteLid:  lid,
 		}
 	}
 
@@ -504,12 +521,12 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 		return nil
 	}
 
-	jid, _ := s.GetJidLid(ctx, id, evt.Info.Chat)
-	if strings.Contains(jid, "status") {
+	if strings.Contains(evt.Info.Chat.String(), "status") {
 		return nil
 	}
 
-	senderJid, senderLid := s.GetJidLid(ctx, id, evt.Info.Sender)
+	jid, lid := s.GetJidLid(ctx, id, evt.Info.Chat)
+	senderJid, _ := s.GetJidLid(ctx, id, evt.Info.Sender)
 
 	// Always unwrap to work with the real content
 	e := evt.UnwrapRaw()
@@ -517,11 +534,11 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 
 	// Build the key
 	key := &WookKey{
-		RemoteJid:      jid,
-		FromMe:         e.Info.IsFromMe,
-		Id:             e.Info.ID,
-		Participant:    senderJid,
-		ParticipantLid: senderLid,
+		RemoteJid:   jid,
+		RemoteLid:   lid,
+		FromMe:      e.Info.IsFromMe,
+		Id:          e.Info.ID,
+		Participant: senderJid,
 	}
 
 	// Determine status
@@ -631,7 +648,7 @@ func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMe
 		return nil
 	}
 
-	chatJid, _ := s.GetJidLid(context.Background(), id, evt.Chat)
+	chatJid, chatLid := s.GetJidLid(context.Background(), id, evt.Chat)
 	participantJid, _ := s.GetJidLid(context.Background(), id, evt.Sender)
 
 	var result []WookMessageUpdateData
@@ -640,6 +657,7 @@ func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMe
 			MessageId:   messageID,
 			KeyId:       messageID,
 			RemoteJid:   chatJid,
+			RemoteLid:   chatLid,
 			FromMe:      evt.IsFromMe,
 			Participant: participantJid,
 			Status:      status,
@@ -719,7 +737,7 @@ func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact 
 	jid, lid := s.GetJidLid(context.Background(), id, evt.JID)
 	return &WookContact{
 		RemoteJid:     jid,
-		LID:           lid,
+		RemoteLid:     lid,
 		PushName:      name,
 		ProfilePicUrl: url,
 		InstanceId:    id,
@@ -747,7 +765,7 @@ func (s *Whatsmiau) convertGroupInfo(id string, evt *events.GroupInfo) *WookCont
 		PushName:      evt.Name.Name,
 		ProfilePicUrl: url,
 		InstanceId:    id,
-		LID:           lid,
+		RemoteLid:     lid,
 	}
 }
 
@@ -777,7 +795,7 @@ func (s *Whatsmiau) convertPushName(id string, evt *events.PushName) *WookContac
 		PushName:      evt.NewPushName,
 		InstanceId:    id,
 		ProfilePicUrl: url,
-		LID:           lid,
+		RemoteLid:     lid,
 	}
 }
 
@@ -798,7 +816,7 @@ func (s *Whatsmiau) convertPicture(id string, evt *events.Picture) *WookContact 
 		InstanceId:    id,
 		Base64Pic:     b64,
 		ProfilePicUrl: url,
-		LID:           lid,
+		RemoteLid:     lid,
 	}
 }
 
@@ -831,7 +849,7 @@ func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *Wo
 		Base64Pic:     b64,
 		ProfilePicUrl: url,
 		PushName:      name,
-		LID:           lid,
+		RemoteLid:     lid,
 	}
 }
 
