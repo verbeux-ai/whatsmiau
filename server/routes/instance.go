@@ -12,6 +12,13 @@ func Instance(group *echo.Group) {
 	redisInstance := instances.NewRedis(services.Redis())
 
 	controller := controllers.NewInstances(redisInstance, whatsmiau.Get())
+	group.POST("", controller.Create)
+	group.GET("", controller.List)
+	group.POST("/:id/connect", controller.Connect)
+	group.POST("/:id/logout", controller.Logout)
+	group.DELETE("/:id", controller.Delete)
+	group.GET("/:id/status", controller.Status)
+
 	// Evolution API Compatibility (partially REST)
 	group.POST("/create", controller.Create)
 	group.GET("/fetchInstances", controller.List)
@@ -21,12 +28,4 @@ func Instance(group *echo.Group) {
 	group.DELETE("/delete/:id", controller.Delete)
 	group.PUT("/update/:id", controller.Update)
 
-	// RESTFull pattern
-	//group.POST("", controller.Create)
-	//group.PUT(":id", controller.Update)
-	//group.GET("", controller.List)
-	//group.POST(":id/connect", controller.Connect)
-	//group.POST(":id/logout", controller.Logout)
-	//group.DELETE(":id", controller.Delete)
-	//group.GET(":id/status", controller.Status)
 }
