@@ -316,7 +316,7 @@ func (s *Whatsmiau) extractJidLid(ctx context.Context, id string, jid types.JID)
 			return pnJID.ToNonAD().String(), lidString
 		}
 
-		return jid.ToNonAD().String(), lidString
+		return lidString, lidString
 	}
 
 	return jid.ToNonAD().String(), ""
