@@ -26,4 +26,6 @@ func Instance(group *echo.Group) {
 	group.GET("/connectionState/:id", controller.Status)
 	group.DELETE("/logout/:id", controller.Logout)
 	group.DELETE("/delete/:id", controller.Delete)
+	group.PUT("/update/:id", controller.Update)
+
 }

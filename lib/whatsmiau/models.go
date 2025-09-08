@@ -39,7 +39,7 @@ type WookMessageContextInfo struct {
 	StanzaId                         string                                 `json:"stanzaId,omitempty"`
 	Participant                      string                                 `json:"participant,omitempty"`
 	Expiration                       int                                    `json:"expiration,omitempty"`
-	QuotedMessage                    *WookMessageContextInfoQuotedMessage   `json:"quotedMessage,omitempty"`
+	QuotedMessage                    *WookMessageRaw                        `json:"quotedMessage,omitempty"`
 	MentionedJid                     []string                               `json:"mentionedJid,omitempty"`
 	ConversionSource                 string                                 `json:"conversionSource,omitempty"`
 	ConversionData                   string                                 `json:"conversionData,omitempty"`
@@ -66,11 +66,6 @@ type WookMessageContextInfoExternalAdReply struct {
 	CtwaClid              string `json:"ctwaClid,omitempty"`
 }
 
-type WookMessageContextInfoQuotedMessage struct {
-	ExtendedTextMessage *WookMessageExtendedTextMessage                     `json:"extendedTextMessage,omitempty"`
-	ListMessage         *WookListMessageRawListContextInfoQuotedMessageList `json:"listMessage,omitempty"`
-}
-
 type WookMessageExtendedTextMessage struct {
 	Text        string                                     `json:"text,omitempty"`
 	ContextInfo *WookMessageExtendedTextMessageContextInfo `json:"contextInfo,omitempty"`
@@ -83,6 +78,7 @@ type WookMessageExtendedTextMessageContextInfo struct {
 
 type WookKey struct {
 	RemoteJid   string `json:"remoteJid,omitempty"`
+	RemoteLid   string `json:"remoteLid,omitempty"`
 	FromMe      bool   `json:"fromMe,omitempty"`
 	Id          string `json:"id,omitempty"`
 	Participant string `json:"participant,omitempty"`
@@ -118,17 +114,16 @@ type WookListMessageRawListSingleSelectReply struct {
 }
 
 type WookListMessageRawListContextInfo struct {
-	StanzaId      string                                          `json:"stanzaId,omitempty"`
-	Participant   string                                          `json:"participant,omitempty"`
-	QuotedMessage *WookListMessageRawListContextInfoQuotedMessage `json:"quotedMessage,omitempty"`
+	StanzaId      string                                    `json:"stanzaId,omitempty"`
+	Participant   string                                    `json:"participant,omitempty"`
+	QuotedMessage *WookListMessageRawListContextInfoMessage `json:"quotedMessage,omitempty"`
 }
 
-type WookListMessageRawListContextInfoQuotedMessage struct {
-	MessageContextInfo *struct{}                                           `json:"messageContextInfo,omitempty"`
-	ListMessage        *WookListMessageRawListContextInfoQuotedMessageList `json:"listMessage,omitempty"`
+type WookListMessageRawListContextInfoMessage struct {
+	ListMessage *WookListMessageRawListContextInfoMessageList `json:"listMessage,omitempty"`
 }
 
-type WookListMessageRawListContextInfoQuotedMessageList struct {
+type WookListMessageRawListContextInfoMessageList struct {
 	Title       string            `json:"title,omitempty"`
 	Description string            `json:"description,omitempty"`
 	ButtonText  string            `json:"buttonText,omitempty"`
@@ -234,17 +229,20 @@ const (
 )
 
 type WookMessageUpdateData struct {
-	MessageId   string                  `json:"messageId,omitempty"`
-	KeyId       string                  `json:"keyId,omitempty"`
-	RemoteJid   string                  `json:"remoteJid,omitempty"`
-	FromMe      bool                    `json:"fromMe,omitempty"`
-	Participant string                  `json:"participant,omitempty"`
-	Status      WookMessageUpdateStatus `json:"status,omitempty"`
-	InstanceId  string                  `json:"instanceId,omitempty"`
+	MessageId      string                  `json:"messageId,omitempty"`
+	KeyId          string                  `json:"keyId,omitempty"`
+	RemoteJid      string                  `json:"remoteJid,omitempty"`
+	RemoteLid      string                  `json:"remoteLid"`
+	FromMe         bool                    `json:"fromMe,omitempty"`
+	Participant    string                  `json:"participant,omitempty"`
+	ParticipantLid string                  `json:"participantLid,omitempty"`
+	Status         WookMessageUpdateStatus `json:"status,omitempty"`
+	InstanceId     string                  `json:"instanceId,omitempty"`
 }
 
 type WookContact struct {
 	RemoteJid     string `json:"remoteJid,omitempty"`
+	RemoteLid     string `json:"remoteLid"`
 	PushName      string `json:"pushName,omitempty"`
 	ProfilePicUrl string `json:"profilePicUrl,omitempty"`
 	InstanceId    string `json:"instanceId,omitempty"`

@@ -12,6 +12,17 @@ type CreateInstanceResponse struct {
 	*models.Instance
 }
 
+type UpdateInstanceRequest struct {
+	ID      string `json:"id,omitempty" param:"id" validate:"required"`
+	Webhook struct {
+		Base64 bool `json:"base64,omitempty"`
+	} `json:"webhook,omitempty"`
+}
+
+type UpdateInstanceResponse struct {
+	*models.Instance
+}
+
 type ListInstancesRequest struct {
 	InstanceName string `query:"instanceName,omitempty"`
 	ID           string `query:"id,omitempty"`

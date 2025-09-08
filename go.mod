@@ -14,7 +14,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/puzpuzpuz/xsync/v4 v4.1.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	go.mau.fi/whatsmeow v0.0.0-20250811141640-b804d10c54c2
+	go.mau.fi/whatsmeow v0.0.0-20250825151841-7b1a3f7e5746
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.43.0
 	golang.org/x/oauth2 v0.30.0
@@ -85,3 +85,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250721164621-a45f3dfb1074 // indirect
 	google.golang.org/grpc v1.74.2 // indirect
 )
+
+//replace go.mau.fi/whatsmeow => ../whatsmeow
+
+replace go.mau.fi/whatsmeow => github.com/verbeux-ai/whatsmeow v0.0.0-20250902172221-926dd8a23899

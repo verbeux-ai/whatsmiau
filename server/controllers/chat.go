@@ -132,7 +132,7 @@ func (s *Chat) NumberExists(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
 	}
 
-	response, err := s.whatsmiau.NumberExists(&whatsmiau.NumberExistsRequest{
+	response, err := s.whatsmiau.NumberExists(ctx.Request().Context(), &whatsmiau.NumberExistsRequest{
 		InstanceID: instanceID,
 		Numbers:    request.Numbers,
 	})

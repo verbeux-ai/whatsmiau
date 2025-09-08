@@ -31,7 +31,7 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 		return nil, whatsmeow.ErrClientIsNil
 	}
 
-	//rJid := data.RemoteJID.String()
+	//rJid := data.RemoteJID.ToNonAD().String()
 	var extendedMessage *waE2E.ExtendedTextMessage
 	if len(data.QuoteMessage) > 0 && len(data.QuoteMessageID) > 0 {
 		extendedMessage = &waE2E.ExtendedTextMessage{

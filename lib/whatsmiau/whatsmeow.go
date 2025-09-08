@@ -1,8 +1,8 @@
 package whatsmiau
 
 import (
-	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,22 +15,24 @@ import (
 	"github.com/verbeux-ai/whatsmiau/services"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
 
 type Whatsmiau struct {
-	clients         *xsync.Map[string, *whatsmeow.Client]
-	container       *sqlstore.Container
-	logger          waLog.Logger
-	repo            interfaces.InstanceRepository
-	qrCache         *xsync.Map[string, string]
-	observerRunning *xsync.Map[string, bool]
-	instanceCache   *xsync.Map[string, models.Instance]
-	emitter         chan emitter
-	httpClient      *http.Client
-	fileStorage     interfaces.Storage
+	clients          *xsync.Map[string, *whatsmeow.Client]
+	container        *sqlstore.Container
+	logger           waLog.Logger
+	repo             interfaces.InstanceRepository
+	qrCache          *xsync.Map[string, string]
+	observerRunning  *xsync.Map[string, bool]
+	instanceCache    *xsync.Map[string, models.Instance]
+	emitter          chan emitter
+	httpClient       *http.Client
+	fileStorage      interfaces.Storage
+	handlerSemaphore chan struct{}
 }
 
 var instance *Whatsmiau
@@ -109,11 +111,12 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		qrCache:         xsync.NewMap[string, string](),
 		instanceCache:   xsync.NewMap[string, models.Instance](),
 		observerRunning: xsync.NewMap[string, bool](),
-		emitter:         make(chan emitter, 50), //TODO: add configurable semaphore
+		emitter:         make(chan emitter, env.Env.EmitterBufferSize),
 		httpClient: &http.Client{
 			Timeout: time.Second * 30, // TODO: load from env
 		},
-		fileStorage: storage,
+		fileStorage:      storage,
+		handlerSemaphore: make(chan struct{}, env.Env.HandlerSemaphoreSize),
 	}
 
 	go instance.startEmitter()
@@ -130,7 +133,6 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 	client, ok := s.clients.Load(id)
 	if !ok {
 		device := s.container.NewDevice()
-		device.Platform = "Verboo 👻"
 		client = whatsmeow.NewClient(device, s.logger)
 		s.clients.Store(id, client)
 	}
@@ -151,118 +153,85 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 	return qrCode, nil
 }
 
-func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) (chan string, error) {
-	qrStringChan := make(chan string)
+func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
+	if _, ok := s.observerRunning.Load(id); ok {
+		return
+	}
+	s.observerRunning.Store(id, true)
+	defer func() {
+		s.observerRunning.Delete(id)
+		s.qrCache.Delete(id)
+	}()
 
-	go func() {
-		if _, ok := s.observerRunning.Load(id); ok {
-			ticker := time.NewTicker(1 * time.Second)
-			select {
-			case <-ticker.C:
-				qrCode, ok := s.qrCache.Load(id)
-				if ok && len(qrCode) > 0 {
-					qrStringChan <- qrCode
-					break
-				}
-			case <-time.After(15 * time.Second):
-				qrStringChan <- ""
-				break
+	qrChan, err := client.GetQRChannel(context.Background())
+	if err != nil {
+		zap.L().Error("failed to observe QR Code", zap.Error(err))
+		return
+	}
+
+	if !client.IsConnected() {
+		if err := client.Connect(); err != nil {
+			zap.L().Error("failed to connect", zap.Error(err))
+			return
+		}
+	}
+
+	for {
+		select {
+		case <-time.After(2 * time.Minute): // QR code expiration
+			_ = client.Logout(context.Background())
+			client.Disconnect()
+			s.clients.Delete(id)
+			zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
+			return
+		case evt, ok := <-qrChan:
+			if !ok { // closed qr chan
+				zap.L().Warn("QR channel closed while handling post-qr events", zap.String("id", id))
+				s.clients.Delete(id)
+				return
 			}
-			return
-		}
-
-		s.observerRunning.Store(id, true)
-		defer s.observerRunning.Delete(id)
-
-		qrChan, err := client.GetQRChannel(context.Background())
-		if err != nil {
-			zap.L().Error("failed to observe QR Code", zap.Error(err))
-			qrStringChan <- ""
-			return
-		}
-
-		if !client.IsConnected() {
-			if err := client.Connect(); err != nil {
-				zap.L().Error("failed to connect", zap.Error(err))
-				qrStringChan <- ""
+			if evt.Event == "code" {
+				s.qrCache.Store(id, evt.Code)
+			} else {
+				zap.L().Info("device connected successfully", zap.String("id", id))
+				if client.Store.ID == nil {
+					s.clients.Delete(id)
+					zap.L().Error("jid is nil after login", zap.String("id", id))
+				} else {
+					client.RemoveEventHandlers()
+					client.AddEventHandler(s.Handle(id))
+					if _, err := s.repo.Update(context.Background(), id, &models.Instance{
+						RemoteJID: client.Store.ID.String(),
+					}); err != nil {
+						zap.L().Error("failed to update instance after login", zap.Error(err))
+					}
+				}
 				return
 			}
 		}
-
-		canStop := false
-		for !canStop {
-			select {
-			case <-time.After(2 * time.Minute): // QR code expiration
-				_ = client.Logout(context.Background())
-				client.Disconnect()
-				s.clients.Delete(id)
-				s.qrCache.Delete(id)
-				zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
-				canStop = true
-			case evt, ok := <-qrChan:
-				if !ok {
-					zap.L().Warn("QR channel closed while handling post-qr events", zap.String("id", id))
-					qrStringChan <- ""
-					canStop = true
-					s.clients.Delete(id)
-					s.qrCache.Delete(id)
-				}
-				if evt.Event == "code" {
-					qrStringChan <- evt.Code
-					s.qrCache.Store(id, evt.Code)
-				} else {
-					canStop = true
-					zap.L().Info("device connected successfully", zap.String("id", id))
-					if client.Store.ID == nil {
-						s.clients.Delete(id)
-						s.qrCache.Delete(id)
-						zap.L().Error("jid is nil after login", zap.String("id", id))
-					} else {
-						client.RemoveEventHandlers()
-						client.AddEventHandler(s.Handle(id))
-						if err := s.repo.Update(context.Background(), id, &models.Instance{
-							RemoteJID: client.Store.ID.String(),
-						}); err != nil {
-							zap.L().Error("failed to update instance after login", zap.Error(err))
-						}
-					}
-				}
-			}
-		}
-	}()
-
-	return qrStringChan, nil
+	}
 }
 
 func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *whatsmeow.Client) (string, error) {
 	ctx, c := context.WithTimeout(ctx, 15*time.Second)
 	defer c()
 
-	qrStringChan, err := s.observeConnection(client, id)
-	if err != nil {
-		zap.L().Error("failed to observe QR Code", zap.Error(err))
-		return "", err
-	}
+	go s.observeConnection(client, id)
 
-	var qrCode string
-	select {
-	case qr, ok := <-qrStringChan:
-		if !ok {
-			return "", fmt.Errorf("qr channel closed unexpectedly")
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			qrCode, ok := s.qrCache.Load(id)
+			if ok && len(qrCode) > 0 {
+				return qrCode, nil
+			}
+		case <-ctx.Done():
+			return "", ctx.Err()
 		}
-		qrCode = qr
-	case <-ctx.Done():
-		zap.L().Warn("context canceled", zap.String("id", id))
-		return "", ctx.Err()
 	}
-
-	if qrCode == "" {
-		return "", fmt.Errorf("qr code is empty")
-	}
-
-	s.qrCache.Store(id, qrCode)
-
-	return qrCode, nil
 }
 
 func (s *Whatsmiau) Status(id string) (Status, error) {
@@ -309,4 +278,46 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	s.clients.Delete(id)
 	s.qrCache.Delete(id)
 	return nil
+}
+
+func (s *Whatsmiau) GetJidLid(ctx context.Context, id string, jid types.JID) (string, string) {
+	newJid, newLid := s.extractJidLid(ctx, id, jid)
+	if strings.HasSuffix(newJid, "@lid") {
+		newLid = newJid
+	}
+
+	return newJid, newLid
+}
+
+func (s *Whatsmiau) extractJidLid(ctx context.Context, id string, jid types.JID) (string, string) {
+	client, ok := s.clients.Load(id)
+	if !ok {
+		return jid.ToNonAD().String(), ""
+	}
+
+	if jid.Server == types.DefaultUserServer {
+		lid, err := client.Store.LIDs.GetLIDForPN(ctx, jid)
+		if err != nil {
+			zap.L().Warn("failed to get lid from store", zap.String("id", id), zap.Error(err))
+		}
+
+		return jid.ToNonAD().String(), lid.ToNonAD().String()
+	}
+
+	if jid.Server == types.HiddenUserServer {
+		lidString := jid.ToNonAD().String()
+		pnJID, err := client.Store.LIDs.GetPNForLID(ctx, jid)
+		if err != nil {
+			zap.L().Warn("failed to get pn for lid", zap.Stringer("lid", jid), zap.Error(err))
+			return jid.ToNonAD().String(), lidString
+		}
+
+		if !pnJID.IsEmpty() {
+			return pnJID.ToNonAD().String(), lidString
+		}
+
+		return lidString, lidString
+	}
+
+	return jid.ToNonAD().String(), ""
 }
