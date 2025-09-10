@@ -19,7 +19,6 @@ import (
 
 	"github.com/verbeux-ai/whatsmiau/models"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
-	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
