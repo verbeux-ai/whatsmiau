@@ -1,16 +1,17 @@
 package models
 
 type Instance struct {
-	ID              string          `json:"id,omitempty"`
-	RejectCall      bool            `json:"rejectCall,omitempty"`
-	MsgCall         string          `json:"msgCall,omitempty"`
-	GroupsIgnore    bool            `json:"groupsIgnore,omitempty"`
-	AlwaysOnline    bool            `json:"alwaysOnline,omitempty"`
-	ReadMessages    bool            `json:"readMessages,omitempty"`
-	ReadStatus      bool            `json:"readStatus,omitempty"`
-	SyncFullHistory bool            `json:"syncFullHistory,omitempty"`
-	RemoteJID       string          `json:"remoteJID,omitempty"`
-	Webhook         InstanceWebhook `json:"webhook,omitempty"`
+	ID                string          `json:"id,omitempty"`
+	RejectCall        bool            `json:"rejectCall,omitempty"`
+	MsgCall           string          `json:"msgCall,omitempty"`
+	GroupsIgnore      bool            `json:"groupsIgnore,omitempty"`
+	AlwaysOnline      bool            `json:"alwaysOnline,omitempty"`
+	ReadMessages      bool            `json:"readMessages,omitempty"`
+	ReadStatus        bool            `json:"readStatus,omitempty"`
+	SyncFullHistory   bool            `json:"syncFullHistory,omitempty"`
+	SyncRecentHistory bool            `json:"syncRecentHistory,omitempty"`
+	RemoteJID         string          `json:"remoteJID,omitempty"`
+	Webhook           InstanceWebhook `json:"webhook,omitempty"`
 }
 
 type InstanceWebhook struct {
