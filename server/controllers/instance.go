@@ -8,6 +8,7 @@ import (
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
+	"go.mau.fi/whatsmeow/types"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -107,7 +108,20 @@ func (s *Instance) List(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to list instances")
 	}
 
-	return ctx.JSON(http.StatusOK, result)
+	var response []dto.ListInstancesResponse
+	for _, instance := range result {
+		jid, err := types.ParseJID(instance.RemoteJID)
+		if err != nil {
+			zap.L().Error("failed to parse jid", zap.Error(err))
+		}
+
+		response = append(response, dto.ListInstancesResponse{
+			Instance: &instance,
+			OwnerJID: jid.ToNonAD().String(),
+		})
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }
 
 func (s *Instance) Connect(ctx echo.Context) error {

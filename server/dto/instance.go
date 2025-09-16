@@ -28,6 +28,12 @@ type ListInstancesRequest struct {
 	ID           string `query:"id,omitempty"`
 }
 
+type ListInstancesResponse struct {
+	*models.Instance
+
+	OwnerJID string `json:"ownerJid,omitempty"`
+}
+
 type ConnectInstanceRequest struct {
 	ID string `param:"id" validate:"required"`
 }
