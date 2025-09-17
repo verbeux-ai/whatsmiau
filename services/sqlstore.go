@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/verbeux-ai/whatsmiau/env"
 	"go.mau.fi/whatsmeow/store/sqlstore"
