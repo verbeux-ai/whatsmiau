@@ -24,8 +24,8 @@ type UpdateInstanceResponse struct {
 }
 
 type ListInstancesRequest struct {
-	InstanceName string `query:"instanceName,omitempty"`
-	ID           string `query:"id,omitempty"`
+	InstanceName string `query:"instanceName"`
+	ID           string `query:"id"`
 }
 
 type ListInstancesResponse struct {
