@@ -138,6 +138,10 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		return
 	}
 
+	if canIgnoreGroup(e, instance) {
+		return
+	}
+
 	messageData := s.convertEventMessage(id, instance, e)
 	if messageData == nil {
 		zap.L().Error("failed to convert event", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", e)), zap.Any("raw", e))
@@ -167,6 +171,10 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 
 func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *events.Receipt, eventMap map[string]bool) {
 	if !eventMap["MESSAGES_UPDATE"] {
+		return
+	}
+
+	if canIgnoreGroup(e, instance) {
 		return
 	}
 
@@ -210,6 +218,10 @@ func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance
 
 func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *events.Contact, eventMap map[string]bool) {
 	if !eventMap["CONTACTS_UPSERT"] {
+		return
+	}
+
+	if canIgnoreGroup(e, instance) {
 		return
 	}
 
@@ -274,6 +286,10 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 		return
 	}
 
+	if instance.GroupsIgnore {
+		return
+	}
+
 	data := s.convertGroupInfo(id, e)
 	if data == nil {
 		zap.L().Error("failed to convert group info", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", e)), zap.Any("raw", e))
@@ -292,6 +308,10 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 
 func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e *events.PushName, eventMap map[string]bool) {
 	if !eventMap["CONTACTS_UPSERT"] {
+		return
+	}
+
+	if canIgnoreGroup(e, instance) {
 		return
 	}
 

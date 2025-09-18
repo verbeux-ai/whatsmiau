@@ -28,7 +28,7 @@ To get a local copy up and running follow these simple steps.
 
 ### Prerequisites
 
-- Go 1.18 or higher
+- Go 1.24 or higher
 - Redis
 - SQLite
 
@@ -68,19 +68,50 @@ You can also run the application using Docker and Docker Compose.
     docker-compose down
     ```
 
+## Docker Image
+
+Official Docker images are available on Docker Hub.
+
+- **Latest stable release:** `impedr029/whatsmiau:vX.Y.Z` [(see versions)](https://github.com/verbeux-ai/whatsmiau/tags)
+- **Development version:** `impedr029/whatsmiau:develop`
+
+You can pull the latest stable image with (example):
+```sh
+docker pull impedr029/whatsmiau:vX.Y.Z
+```
+
+Or the development image with:
+```sh
+docker pull impedr029/whatsmiau:develop
+```
+
 ## Configuration
 
 The application is configured using environment variables. The following variables are available:
 
-| Variable      | Description                               | Default     |
-|---------------|-------------------------------------------|-------------|
-| `PORT`        | The port the server will run on.          | `8080`      |
-| `DEBUG_MODE`  | Enable or disable debug mode.             | `false`     |
-| `REDIS_ADDR`  | The address of the Redis server.          | `localhost:6379` |
-| `REDIS_PASS`  | The password for the Redis server.        | ``          |
-| `REDIS_DB`    | The Redis database to use.                | `0`         |
-| `DATABASE_URL`| The path to the SQLite database file.     | `data.db`   |
+| Variable | Description | Default |
+| --- | --- | --- |
+| `PORT` | The port the server will run on. | `8080` |
+| `DEBUG_MODE` | Enable or disable debug mode. | `false` |
+| `DEBUG_WHATSMEOW` | Enable or disable debug mode for Whatsmeow. | `false` |
+| `REDIS_URL` | The URL of the Redis server. | `localhost:6379` |
+| `REDIS_PASSWORD` | The password for the Redis server. | `` |
+| `REDIS_TLS` | Enable or disable TLS for Redis. | `false` |
+| `API_KEY` | The API key to protect the service. | `` |
+| `DIALECT_DB` | The database dialect to use (`sqlite3` or `postgres`). | `sqlite3` |
+| `DB_URL` | The database connection URL. | `file:data.db?_foreign_keys=on` |
+| `GCS_ENABLED` | Enable or disable Google Cloud Storage. | `false` |
+| `GCS_BUCKET` | The GCS bucket name. | `whatsmiau` |
+| `GCS_URL` | The GCS URL. | `https://storage.googleapis.com` |
+| `GCL_APP_NAME` | The GCL application name. | `whatsmiau-br-1` |
+| `GCL_ENABLED` | Enable or disable Google Cloud Logging. | `false` |
+| `GCL_PROJECT_ID` | The GCL project ID. | `` |
+| `EMITTER_BUFFER_SIZE` | The emitter buffer size. | `2048` |
+| `HANDLER_SEMAPHORE_SIZE` | The handler semaphore size. | `512` |
 
+## Versioning
+
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/verbeux-ai/whatsmiau/tags).
 
 ## Compatibility
 
@@ -88,7 +119,36 @@ This API is designed to be compatible with the Evolution API. This means that yo
 
 It exclusively supports webhooks in the Evolution API format, offering two distinct approaches for their implementation, providing flexibility for different use cases.
 
+## Migration from Evolution API
+
+WhatsMiau is designed to be a lightweight, drop-in replacement for the Evolution API. If you are running WhatsMiau on the same host and port as your previous Evolution API instance, migration is seamless.
+
+Since WhatsMiau maintains compatibility with the Evolution API's routes, you only need to stop your Evolution API server and start the WhatsMiau server. No changes to your existing API calls are necessary.
+
+### Example
+
+For instance, if you were sending a text message using a `curl` command to an Evolution API server running on `localhost:8080`, the exact same command will work with WhatsMiau.
+
+**Before (Evolution API):**
+```bash
+curl -X POST 'http://localhost:8080/message/sendText/my-instance' \
+-H 'Content-Type: application/json' \
+-H 'apikey: YOUR_API_KEY' \
+-d ".{\"number\": \"1234567890\",\"textMessage\": {\"text\": \"Hello from Evolution API!\"}}"
+```
+
+**After (WhatsMiau):**
+
+Simply point your application to the WhatsMiau server URL. The same request will be handled by WhatsMiau:
+```bash
+curl -X POST 'http://localhost:8080/v1/message/sendText/my-instance' \
+-H 'Content-Type: application/json' \
+-H 'apikey: YOUR_API_KEY' \
+-d ".{\"number\": \"1234567890\",\"textMessage\": {\"text\": \"Hello from WhatsMiau!\"}}"
+```
+
 ## API Routes
+
 Same Pattern: https://www.postman.com/agenciadgcode/evolution-api/overview
 | Method | Path                                      | Description                 |
 |--------|-------------------------------------------|-----------------------------|
@@ -104,22 +164,25 @@ Same Pattern: https://www.postman.com/agenciadgcode/evolution-api/overview
 | POST   | /v1/instance/:instance/message/image    | Send an image message       |
 | POST   | /v1/instance/:instance/chat/presence    | Send chat presence          |
 | POST   | /v1/instance/:instance/chat/read-messages| Mark messages as read       |
+| POST   | /v1/instance/:instance/chat/whatsapp-numbers| Check if a number is on WhatsApp |
 
 ### Evolution API Compatibility Routes
 
 | Method | Path                               | Description                 |
-|--------|------------------------------------|-----------------------------|
+|--- |--- |--- |
 | POST   | /v1/instance/create                | Create a new instance       |
 | GET    | /v1/instance/fetchInstances        | List all instances          |
 | GET    | /v1/instance/connect/:id           | Connect to an instance      |
 | GET    | /v1/instance/connectionState/:id   | Get instance status         |
 | DELETE | /v1/instance/logout/:id            | Logout from an instance     |
 | DELETE | /v1/instance/delete/:id            | Delete an instance          |
+| PUT    | /v1/instance/update/:id            | Update an instance          |
 | POST   | /v1/message/sendText/:instance     | Send a text message         |
 | POST   | /v1/message/sendWhatsAppAudio/:instance | Send an audio message       |
 | POST   | /v1/message/sendMedia/:instance    | Send a media message        |
 | POST   | /v1/chat/markMessageAsRead/:instance | Mark messages as read       |
 | POST   | /v1/chat/sendPresence/:instance    | Send chat presence          |
+| POST   | /v1/chat/whatsappNumbers/:instance | Check if a number is on WhatsApp |
 
 ## Supported Events
 

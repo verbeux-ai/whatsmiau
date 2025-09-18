@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/verbeux-ai/whatsmiau/models"
+	"go.mau.fi/whatsmeow/types/events"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
@@ -245,4 +247,59 @@ func extractExtFromFile(fileName, mimeType string, file *os.File) string {
 	}
 
 	return strings.TrimPrefix(ext, ".")
+}
+
+// canIgnoreGroup returns true if group can be ignored
+func canIgnoreGroup(evt interface{}, instance *models.Instance) bool {
+	if !instance.GroupsIgnore {
+		return false
+	}
+
+	var jid string
+	switch evt.(type) {
+	case *events.Message:
+		msg, ok := evt.(*events.Message)
+		if !ok {
+			return false
+		}
+
+		jid = msg.Info.Chat.String()
+	case *events.GroupInfo:
+		gInfo, ok := evt.(*events.GroupInfo)
+		if !ok {
+			return false
+		}
+
+		jid = gInfo.JID.String()
+	case *events.Receipt:
+		rcp, ok := evt.(*events.Receipt)
+		if !ok {
+			return false
+		}
+
+		jid = rcp.Chat.String()
+	case *events.Contact:
+		ctc, ok := evt.(*events.Contact)
+		if !ok {
+			return false
+		}
+
+		jid = ctc.JID.String()
+	case *events.Picture:
+		pic, ok := evt.(*events.Picture)
+		if !ok {
+			return false
+		}
+
+		jid = pic.JID.String()
+	case *events.PushName:
+		pushName, ok := evt.(*events.PushName)
+		if !ok {
+			return false
+		}
+
+		jid = pushName.JID.String()
+	}
+
+	return strings.HasSuffix(jid, "@g.us")
 }
