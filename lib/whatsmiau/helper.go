@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/verbeux-ai/whatsmiau/models"
-	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/types/events"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -287,13 +286,6 @@ func canIgnoreGroup(evt interface{}, instance *models.Instance) bool {
 
 		jid = ctc.JID.String()
 	case *events.Picture:
-		pic, ok := evt.(*events.Picture)
-		if !ok {
-			return false
-		}
-
-		jid = pic.JID.String()
-	case *waHistorySync.Conversation:
 		pic, ok := evt.(*events.Picture)
 		if !ok {
 			return false
