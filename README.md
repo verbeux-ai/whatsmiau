@@ -193,3 +193,7 @@ The application can send webhook events for the following actions:
 | `MESSAGES_UPSERT` | Triggered when a new message is received.           |
 | `MESSAGES_UPDATE` | Triggered when a message status changes (e.g., read). |
 | `CONTACTS_UPSERT` | Triggered when a contact is created or updated.     |
+
+
+## Did you like project?
+Donate: https://buy.stripe.com/8x28wI5vKfPbe9b8ih1VK0f
