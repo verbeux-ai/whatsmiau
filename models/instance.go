@@ -15,14 +15,9 @@ type Instance struct {
 }
 
 type InstanceWebhook struct {
-	Url      string                 `json:"url,omitempty"`
-	ByEvents bool                   `json:"byEvents,omitempty"`
-	Base64   *bool                  `json:"base64,omitempty"`
-	Headers  InstanceWebhookHeaders `json:"headers,omitempty"`
-	Events   []string               `json:"events,omitempty"`
-}
-
-type InstanceWebhookHeaders struct {
-	Authorization string `json:"authorization,omitempty"`
-	ContentType   string `json:"Content-Type,omitempty"` // Following EvolutionAPI Pattern
+	Url      string            `json:"url,omitempty"`
+	ByEvents *bool             `json:"byEvents,omitempty"`
+	Base64   *bool             `json:"base64,omitempty"`
+	Headers  map[string]string `json:"headers,omitempty"`
+	Events   []string          `json:"events,omitempty"`
 }

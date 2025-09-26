@@ -70,8 +70,25 @@ func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.
 	if len(toUpdate.RemoteJID) > 0 {
 		oldInstance.RemoteJID = toUpdate.RemoteJID
 	}
+	if toUpdate.Webhook.Url != "" {
+		oldInstance.Webhook.Url = toUpdate.Webhook.Url
+	}
+	if toUpdate.Webhook.ByEvents != nil {
+		oldInstance.Webhook.ByEvents = toUpdate.Webhook.ByEvents
+	}
 	if toUpdate.Webhook.Base64 != nil {
 		oldInstance.Webhook.Base64 = toUpdate.Webhook.Base64
+	}
+	if toUpdate.Webhook.Headers != nil {
+		if oldInstance.Webhook.Headers == nil {
+			oldInstance.Webhook.Headers = map[string]string{}
+		}
+		for k, v := range toUpdate.Webhook.Headers {
+			oldInstance.Webhook.Headers[k] = v
+		}
+	}
+	if toUpdate.Webhook.Events != nil && len(toUpdate.Webhook.Events) > 0 {
+		oldInstance.Webhook.Events = toUpdate.Webhook.Events
 	}
 
 	data, err := json.Marshal(oldInstance)
