@@ -107,7 +107,10 @@ The application is configured using environment variables. The following variabl
 | `GCL_ENABLED` | Enable or disable Google Cloud Logging. | `false` |
 | `GCL_PROJECT_ID` | The GCL project ID. | `` |
 | `EMITTER_BUFFER_SIZE` | The emitter buffer size. | `2048` |
-| `HANDLER_SEMAPHORE_SIZE` | The handler semaphore size. | `512` |
+| `HANDLER_SEMAPH-ORE_SIZE` | The handler semaphore size. | `512` |
+| `PROXY_ADDRESSES` | A comma-separated list of proxy addresses. Example: `SOCKS5://user:pass@host:port,HTTP://host:port` | `` |
+| `PROXY_STRATEGY` | The strategy to use when selecting a proxy from the list (`RANDOM`). | `RANDOM` |
+| `PROXY_NO_MEDIA` | If set to `true`, media will not be sent through the proxy. | `false` |
 
 ## Versioning
 
