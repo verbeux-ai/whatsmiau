@@ -60,8 +60,9 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	repo := instances.NewRedis(services.Redis())
 	instanceList, err := repo.List(ctx, "")
 	if err != nil {
-		zap.L().Fatal("Failed to list instances", zap.Error(err))
+		zap.L().Fatal("failed to list instances", zap.Error(err))
 	}
+
 	instanceByRemoteJid := make(map[string]models.Instance)
 	for _, inst := range instanceList {
 		if len(inst.RemoteJID) <= 0 {
@@ -76,10 +77,6 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	clientLog := waLog.Stdout("Client", level, false)
 	for _, device := range deviceStore {
 		client := whatsmeow.NewClient(device, clientLog)
-		if err := client.Connect(); err != nil {
-			zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", client.Store.ID.String()))
-		}
-
 		if client.Store.ID == nil {
 			_ = client.Logout(context.Background())
 			client.Disconnect()
@@ -88,7 +85,11 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 
 		instanceFound, ok := instanceByRemoteJid[client.Store.ID.String()]
 		if ok {
+			configProxy(client, instanceFound.InstanceProxy)
 			clients.Store(instanceFound.ID, client)
+			if err := client.Connect(); err != nil {
+				zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", client.Store.ID.String()))
+			}
 		} else {
 			_ = client.Logout(context.Background())
 			client.Disconnect()
@@ -154,9 +155,11 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 }
 
 func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
+	instanceFound := s.getInstanceCached(id)
 	if _, ok := s.observerRunning.Load(id); ok {
 		return
 	}
+
 	s.observerRunning.Store(id, true)
 	defer func() {
 		s.observerRunning.Delete(id)
@@ -170,6 +173,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 	}
 
 	if !client.IsConnected() {
+		configProxy(client, instanceFound.InstanceProxy)
 		if err := client.Connect(); err != nil {
 			zap.L().Error("failed to connect", zap.Error(err))
 			return

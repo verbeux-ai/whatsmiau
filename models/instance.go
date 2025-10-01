@@ -12,6 +12,15 @@ type Instance struct {
 	SyncRecentHistory bool            `json:"syncRecentHistory,omitempty"`
 	RemoteJID         string          `json:"remoteJID,omitempty"`
 	Webhook           InstanceWebhook `json:"webhook,omitempty"`
+	InstanceProxy
+}
+
+type InstanceProxy struct {
+	ProxyHost     string `json:"proxyHost,omitempty"`
+	ProxyPort     string `json:"proxyPort,omitempty"`
+	ProxyProtocol string `json:"proxyProtocol,omitempty"`
+	ProxyUsername string `json:"proxyUsername,omitempty"`
+	ProxyPassword string `json:"proxyPassword,omitempty"`
 }
 
 type InstanceWebhook struct {
