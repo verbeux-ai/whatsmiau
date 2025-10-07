@@ -111,6 +111,14 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			}
 
 			switch e := evt.(type) {
+			case *events.Disconnected, *events.LoggedOut:
+				client, ok := s.clients.Load(instance.ID)
+				if ok {
+					if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
+						zap.L().Error("failed to delete device", zap.String("device", instance.ID), zap.Error(err))
+					}
+					s.clients.Delete(instance.ID)
+				}
 			case *events.Message:
 				s.handleMessageEvent(id, instance, e, eventMap)
 			case *events.Receipt:
@@ -919,11 +927,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 		IsCommunity: false,
 	})
 	if err != nil {
-		if err.Error() != whatsmeow.ErrProfilePictureNotSet.Error() &&
-			err.Error() != whatsmeow.ErrProfilePictureUnauthorized.Error() && strings.Contains("the user has hidden their profile picture from you", err.Error()) {
-			zap.L().Error("get profile picture error", zap.String("id", id), zap.Error(err))
-		}
-		return "", "", err
+		return "", "", nil
 	}
 
 	if pic == nil {
