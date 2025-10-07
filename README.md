@@ -183,6 +183,7 @@ Same Pattern: https://www.postman.com/agenciadgcode/evolution-api/overview
 | POST   | /v1/message/sendText/:instance     | Send a text message         |
 | POST   | /v1/message/sendWhatsAppAudio/:instance | Send an audio message       |
 | POST   | /v1/message/sendMedia/:instance    | Send a media message        |
+| POST   | /v1/message/sendReaction/:instance | Send a reaction to a message |
 | POST   | /v1/chat/markMessageAsRead/:instance | Mark messages as read       |
 | POST   | /v1/chat/sendPresence/:instance    | Send chat presence          |
 | POST   | /v1/chat/whatsappNumbers/:instance | Check if a number is on WhatsApp |
