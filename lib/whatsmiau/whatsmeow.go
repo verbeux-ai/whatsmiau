@@ -155,7 +155,6 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 }
 
 func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
-	instanceFound := s.getInstanceCached(id)
 	if _, ok := s.observerRunning.Load(id); ok {
 		return
 	}
@@ -173,6 +172,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 	}
 
 	if !client.IsConnected() {
+		instanceFound := s.getInstanceCached(id)
 		configProxy(client, instanceFound.InstanceProxy)
 		if err := client.Connect(); err != nil {
 			zap.L().Error("failed to connect", zap.Error(err))
