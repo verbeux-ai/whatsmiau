@@ -80,6 +80,9 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		if client.Store.ID == nil {
 			_ = client.Logout(context.Background())
 			client.Disconnect()
+			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
+				zap.L().Error("failed to delete device", zap.Error(err))
+			}
 			continue
 		}
 
@@ -93,6 +96,9 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		} else {
 			_ = client.Logout(context.Background())
 			client.Disconnect()
+			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
+				zap.L().Error("failed to delete device", zap.Error(err))
+			}
 		}
 	}
 
@@ -185,6 +191,9 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		case <-time.After(2 * time.Minute): // QR code expiration
 			_ = client.Logout(context.Background())
 			client.Disconnect()
+			if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
+				zap.L().Error("failed to delete device", zap.Error(err))
+			}
 			s.clients.Delete(id)
 			zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
 			return
@@ -200,7 +209,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 				zap.L().Info("device connected successfully", zap.String("id", id))
 				if client.Store.ID == nil {
 					s.clients.Delete(id)
-					zap.L().Error("jid is nil after login", zap.String("id", id))
+					zap.L().Error("jid is nil after login", zap.String("id", id), zap.Any("evt", evt))
 				} else {
 					client.RemoveEventHandlers()
 					client.AddEventHandler(s.Handle(id))
@@ -278,6 +287,9 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	}
 
 	client.Disconnect()
+	if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
+		zap.L().Error("failed to delete device", zap.Error(err))
+	}
 
 	s.clients.Delete(id)
 	s.qrCache.Delete(id)
