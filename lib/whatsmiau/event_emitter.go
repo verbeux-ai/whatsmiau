@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/emersion/go-vcard"
 	"github.com/google/uuid"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"go.mau.fi/whatsmeow"
@@ -436,6 +437,39 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 			GIFPlayback:   video.GetGifPlayback(),
 		}
 		ci = video.GetContextInfo()
+	} else if contact := m.GetContactMessage(); contact != nil {
+		card, err := vcard.NewDecoder(strings.NewReader(contact.GetVcard())).Decode()
+		if err != nil {
+			zap.L().Error("decode card error", zap.Error(err))
+		}
+
+		messageType = "contactMessage"
+		raw.ContactMessage = &ContactMessageRaw{
+			VCard:        contact.GetVcard(),
+			DisplayName:  contact.GetDisplayName(),
+			DecodedVcard: card,
+		}
+		ci = contact.GetContextInfo()
+	} else if contactArray := m.GetContactsArrayMessage(); contactArray != nil {
+		messageType = "contactsArrayMessage"
+		var contacts []ContactMessageRaw
+		for _, contact := range contactArray.Contacts {
+			card, err := vcard.NewDecoder(strings.NewReader(contact.GetVcard())).Decode()
+			if err != nil {
+				zap.L().Error("decode card error", zap.Error(err))
+			}
+
+			contacts = append(contacts, ContactMessageRaw{
+				VCard:        contact.GetVcard(),
+				DisplayName:  contact.GetDisplayName(),
+				DecodedVcard: card,
+			})
+		}
+		raw.ContactsArrayMessage = &ContactsArrayMessageRaw{
+			DisplayName: contactArray.GetDisplayName(),
+			Contacts:    contacts,
+		}
+		ci = contactArray.GetContextInfo()
 	} else if conv := strings.TrimSpace(m.GetConversation()); conv != "" {
 		messageType = "conversation"
 		raw.Conversation = conv
@@ -886,7 +920,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 	})
 	if err != nil {
 		if err.Error() != whatsmeow.ErrProfilePictureNotSet.Error() &&
-			err.Error() != whatsmeow.ErrProfilePictureUnauthorized.Error() && err.Error() != "the user has hidden their profile picture from you" {
+			err.Error() != whatsmeow.ErrProfilePictureUnauthorized.Error() && strings.Contains("the user has hidden their profile picture from you", err.Error()) {
 			zap.L().Error("get profile picture error", zap.String("id", id), zap.Error(err))
 		}
 		return "", "", err

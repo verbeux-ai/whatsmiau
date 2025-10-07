@@ -15,7 +15,8 @@ type CreateInstanceResponse struct {
 type UpdateInstanceRequest struct {
 	ID      string `json:"id,omitempty" param:"id" validate:"required"`
 	Webhook struct {
-		Base64 bool `json:"base64,omitempty"`
+		Base64 bool   `json:"base64,omitempty"`
+		URL    string `json:"url,omitempty"`
 	} `json:"webhook,omitempty"`
 }
 

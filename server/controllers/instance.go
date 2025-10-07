@@ -89,6 +89,7 @@ func (s *Instance) Update(ctx echo.Context) error {
 	instance, err := s.repo.Update(c, request.ID, &models.Instance{
 		ID: request.ID,
 		Webhook: models.InstanceWebhook{
+			Url:    request.Webhook.URL,
 			Base64: &[]bool{request.Webhook.Base64}[0],
 		},
 	})

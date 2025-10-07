@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/logging v1.13.0
 	cloud.google.com/go/storage v1.56.0
 	github.com/caarlos0/env/v11 v11.3.1
+	github.com/emersion/go-vcard v0.0.0-20241024213814-c9703dde27ff
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.6.0
@@ -20,7 +21,7 @@ require (
 	golang.org/x/net v0.44.0
 	golang.org/x/oauth2 v0.30.0
 	google.golang.org/api v0.243.0
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
@@ -66,8 +67,8 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.27 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
-	go.mau.fi/libsignal v0.2.0 // indirect
-	go.mau.fi/util v0.9.1 // indirect
+	go.mau.fi/libsignal v0.2.1-0.20251004173110-6e0a3f2435ed // indirect
+	go.mau.fi/util v0.9.2-0.20251005111801-c13b66219cee // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.36.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect
@@ -92,4 +93,4 @@ require (
 
 //replace go.mau.fi/whatsmeow => ../whatsmeow
 
-replace go.mau.fi/whatsmeow => github.com/verbeux-ai/whatsmeow v0.0.0-20250923132825-9a7cc18abe62
+replace go.mau.fi/whatsmeow => github.com/verbeux-ai/whatsmeow v0.0.0-20251007165120-ef9f73a8487c
