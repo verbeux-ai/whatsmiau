@@ -2,6 +2,7 @@ package whatsmiau
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -67,7 +68,7 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 	}, nil
 }
 
-type SendAudio struct {
+type SendAudioRequest struct {
 	AudioURL       string     `json:"text"`
 	InstanceID     string     `json:"instance_id"`
 	RemoteJID      *types.JID `json:"remote_jid"`
@@ -81,7 +82,7 @@ type SendAudioResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudio) (*SendAudioResponse, error) {
+func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*SendAudioResponse, error) {
 	client, ok := s.clients.Load(data.InstanceID)
 	if !ok {
 		return nil, whatsmeow.ErrClientIsNil
@@ -200,7 +201,6 @@ type SendImageRequest struct {
 	RemoteJID  *types.JID `json:"remote_jid"`
 	Mimetype   string     `json:"mimetype"`
 }
-
 type SendImageResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
@@ -250,6 +250,54 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 	}
 
 	return &SendImageResponse{
+		ID:        res.ID,
+		CreatedAt: res.Timestamp,
+	}, nil
+}
+
+type SendReactionRequest struct {
+	InstanceID string     `json:"instance_id"`
+	Reaction   string     `json:"reaction"`
+	RemoteJID  *types.JID `json:"remote_jid"`
+	MessageID  string     `json:"message_id"`
+	FromMe     bool       `json:"from_me"`
+}
+
+type SendReactionResponse struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *Whatsmiau) SendReaction(ctx context.Context, data *SendReactionRequest) (*SendReactionResponse, error) {
+	client, ok := s.clients.Load(data.InstanceID)
+	if !ok {
+		return nil, whatsmeow.ErrClientIsNil
+	}
+
+	if len(data.Reaction) <= 0 {
+		return nil, fmt.Errorf("empty reaction, len: %d", len(data.Reaction))
+	}
+
+	if len(data.MessageID) <= 0 {
+		return nil, fmt.Errorf("invalid message_id")
+	}
+
+	if client.Store == nil || client.Store.ID == nil {
+		return nil, fmt.Errorf("device is not connected")
+	}
+
+	sender := data.RemoteJID
+	if data.FromMe {
+		sender = client.Store.ID
+	}
+
+	doc := client.BuildReaction(*data.RemoteJID, *sender, data.MessageID, data.Reaction)
+	res, err := client.SendMessage(ctx, *data.RemoteJID, doc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SendReactionResponse{
 		ID:        res.ID,
 		CreatedAt: res.Timestamp,
 	}, nil

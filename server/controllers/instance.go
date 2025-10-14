@@ -3,8 +3,10 @@ package controllers
 import (
 	"encoding/base64"
 	"errors"
+	"math/rand/v2"
 	"net/http"
 
+	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
@@ -51,6 +53,17 @@ func (s *Instance) Create(ctx echo.Context) error {
 	}
 	request.RemoteJID = ""
 
+	if len(request.ProxyHost) <= 0 && len(env.Env.ProxyAddresses) > 0 {
+		rd := rand.IntN(len(env.Env.ProxyAddresses))
+		proxyUrl := env.Env.ProxyAddresses[rd]
+
+		proxy, err := parseProxyURL(proxyUrl)
+		if err != nil {
+			return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "invalid proxy url on env")
+		}
+		request.InstanceProxy = *proxy
+	}
+
 	c := ctx.Request().Context()
 	if err := s.repo.Create(c, request.Instance); err != nil {
 		zap.L().Error("failed to create instance", zap.Error(err))
@@ -76,6 +89,7 @@ func (s *Instance) Update(ctx echo.Context) error {
 	instance, err := s.repo.Update(c, request.ID, &models.Instance{
 		ID: request.ID,
 		Webhook: models.InstanceWebhook{
+			Url:    request.Webhook.URL,
 			Base64: &[]bool{request.Webhook.Base64}[0],
 		},
 	})
@@ -119,6 +133,10 @@ func (s *Instance) List(ctx echo.Context) error {
 			Instance: &instance,
 			OwnerJID: jid.ToNonAD().String(),
 		})
+	}
+
+	if len(response) == 0 {
+		return ctx.JSON(http.StatusOK, []string{})
 	}
 
 	return ctx.JSON(http.StatusOK, response)

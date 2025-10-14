@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/emersion/go-vcard"
 	"github.com/google/uuid"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"go.mau.fi/whatsmeow"
@@ -110,6 +111,14 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			}
 
 			switch e := evt.(type) {
+			case *events.Disconnected, *events.LoggedOut:
+				client, ok := s.clients.Load(instance.ID)
+				if ok {
+					if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
+						zap.L().Error("failed to delete device", zap.String("device", instance.ID), zap.Error(err))
+					}
+					s.clients.Delete(instance.ID)
+				}
 			case *events.Message:
 				s.handleMessageEvent(id, instance, e, eventMap)
 			case *events.Receipt:
@@ -436,6 +445,39 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 			GIFPlayback:   video.GetGifPlayback(),
 		}
 		ci = video.GetContextInfo()
+	} else if contact := m.GetContactMessage(); contact != nil {
+		card, err := vcard.NewDecoder(strings.NewReader(contact.GetVcard())).Decode()
+		if err != nil {
+			zap.L().Error("decode card error", zap.Error(err))
+		}
+
+		messageType = "contactMessage"
+		raw.ContactMessage = &ContactMessageRaw{
+			VCard:        contact.GetVcard(),
+			DisplayName:  contact.GetDisplayName(),
+			DecodedVcard: card,
+		}
+		ci = contact.GetContextInfo()
+	} else if contactArray := m.GetContactsArrayMessage(); contactArray != nil {
+		messageType = "contactsArrayMessage"
+		var contacts []ContactMessageRaw
+		for _, contact := range contactArray.Contacts {
+			card, err := vcard.NewDecoder(strings.NewReader(contact.GetVcard())).Decode()
+			if err != nil {
+				zap.L().Error("decode card error", zap.Error(err))
+			}
+
+			contacts = append(contacts, ContactMessageRaw{
+				VCard:        contact.GetVcard(),
+				DisplayName:  contact.GetDisplayName(),
+				DecodedVcard: card,
+			})
+		}
+		raw.ContactsArrayMessage = &ContactsArrayMessageRaw{
+			DisplayName: contactArray.GetDisplayName(),
+			Contacts:    contacts,
+		}
+		ci = contactArray.GetContextInfo()
 	} else if conv := strings.TrimSpace(m.GetConversation()); conv != "" {
 		messageType = "conversation"
 		raw.Conversation = conv
@@ -885,11 +927,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 		IsCommunity: false,
 	})
 	if err != nil {
-		if err.Error() != whatsmeow.ErrProfilePictureNotSet.Error() &&
-			err.Error() != whatsmeow.ErrProfilePictureUnauthorized.Error() && err.Error() != "the user has hidden their profile picture from you" {
-			zap.L().Error("get profile picture error", zap.String("id", id), zap.Error(err))
-		}
-		return "", "", err
+		return "", "", nil
 	}
 
 	if pic == nil {

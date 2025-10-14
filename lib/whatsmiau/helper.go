@@ -17,7 +17,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/models"
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -302,4 +304,29 @@ func canIgnoreGroup(evt interface{}, instance *models.Instance) bool {
 	}
 
 	return strings.HasSuffix(jid, "@g.us")
+}
+
+func configProxy(client *whatsmeow.Client, instanceProxy models.InstanceProxy) {
+	if len(instanceProxy.ProxyHost) <= 0 {
+		return
+	}
+
+	var jid string
+	if client.Store.ID != nil {
+		jid = client.Store.ID.String()
+	}
+
+	opts := whatsmeow.SetProxyOptions{
+		NoMedia: env.Env.ProxyNoMedia,
+	}
+
+	proxyUrl := mountProxyUrl(instanceProxy)
+
+	if err := client.SetProxyAddress(proxyUrl, opts); err != nil {
+		zap.L().Error("failed to set proxy address", zap.Error(err), zap.Any("instanceProxy", instanceProxy), zap.Any("jid", jid))
+	}
+}
+
+func mountProxyUrl(proxy models.InstanceProxy) string {
+	return fmt.Sprintf("%s://%s:%s@%s:%s", proxy.ProxyProtocol, proxy.ProxyUsername, proxy.ProxyPassword, proxy.ProxyHost, proxy.ProxyPort)
 }

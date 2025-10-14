@@ -60,8 +60,9 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	repo := instances.NewRedis(services.Redis())
 	instanceList, err := repo.List(ctx, "")
 	if err != nil {
-		zap.L().Fatal("Failed to list instances", zap.Error(err))
+		zap.L().Fatal("failed to list instances", zap.Error(err))
 	}
+
 	instanceByRemoteJid := make(map[string]models.Instance)
 	for _, inst := range instanceList {
 		if len(inst.RemoteJID) <= 0 {
@@ -76,22 +77,28 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	clientLog := waLog.Stdout("Client", level, false)
 	for _, device := range deviceStore {
 		client := whatsmeow.NewClient(device, clientLog)
-		if err := client.Connect(); err != nil {
-			zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", client.Store.ID.String()))
-		}
-
 		if client.Store.ID == nil {
 			_ = client.Logout(context.Background())
 			client.Disconnect()
+			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
+				zap.L().Error("failed to delete device", zap.Error(err))
+			}
 			continue
 		}
 
 		instanceFound, ok := instanceByRemoteJid[client.Store.ID.String()]
 		if ok {
+			configProxy(client, instanceFound.InstanceProxy)
 			clients.Store(instanceFound.ID, client)
+			if err := client.Connect(); err != nil {
+				zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", client.Store.ID.String()))
+			}
 		} else {
 			_ = client.Logout(context.Background())
 			client.Disconnect()
+			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
+				zap.L().Error("failed to delete device", zap.Error(err))
+			}
 		}
 	}
 
@@ -157,6 +164,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 	if _, ok := s.observerRunning.Load(id); ok {
 		return
 	}
+
 	s.observerRunning.Store(id, true)
 	defer func() {
 		s.observerRunning.Delete(id)
@@ -170,6 +178,8 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 	}
 
 	if !client.IsConnected() {
+		instanceFound := s.getInstanceCached(id)
+		configProxy(client, instanceFound.InstanceProxy)
 		if err := client.Connect(); err != nil {
 			zap.L().Error("failed to connect", zap.Error(err))
 			return
@@ -181,6 +191,9 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		case <-time.After(2 * time.Minute): // QR code expiration
 			_ = client.Logout(context.Background())
 			client.Disconnect()
+			if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
+				zap.L().Error("failed to delete device", zap.Error(err))
+			}
 			s.clients.Delete(id)
 			zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
 			return
@@ -196,7 +209,10 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 				zap.L().Info("device connected successfully", zap.String("id", id))
 				if client.Store.ID == nil {
 					s.clients.Delete(id)
-					zap.L().Error("jid is nil after login", zap.String("id", id))
+					if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
+						zap.L().Error("failed to delete device", zap.String("device", id), zap.Error(err))
+					}
+					zap.L().Error("jid is nil after login", zap.String("id", id), zap.Any("evt", evt))
 				} else {
 					client.RemoveEventHandlers()
 					client.AddEventHandler(s.Handle(id))
@@ -274,6 +290,9 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	}
 
 	client.Disconnect()
+	if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
+		zap.L().Error("failed to delete device", zap.Error(err))
+	}
 
 	s.clients.Delete(id)
 	s.qrCache.Delete(id)

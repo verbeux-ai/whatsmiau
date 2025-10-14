@@ -107,7 +107,10 @@ The application is configured using environment variables. The following variabl
 | `GCL_ENABLED` | Enable or disable Google Cloud Logging. | `false` |
 | `GCL_PROJECT_ID` | The GCL project ID. | `` |
 | `EMITTER_BUFFER_SIZE` | The emitter buffer size. | `2048` |
-| `HANDLER_SEMAPHORE_SIZE` | The handler semaphore size. | `512` |
+| `HANDLER_SEMAPH-ORE_SIZE` | The handler semaphore size. | `512` |
+| `PROXY_ADDRESSES` | A comma-separated list of proxy addresses. Example: `SOCKS5://user:pass@host:port,HTTP://host:port` | `` |
+| `PROXY_STRATEGY` | The strategy to use when selecting a proxy from the list (`RANDOM`). | `RANDOM` |
+| `PROXY_NO_MEDIA` | If set to `true`, media will not be sent through the proxy. | `false` |
 
 ## Versioning
 
@@ -180,6 +183,7 @@ Same Pattern: https://www.postman.com/agenciadgcode/evolution-api/overview
 | POST   | /v1/message/sendText/:instance     | Send a text message         |
 | POST   | /v1/message/sendWhatsAppAudio/:instance | Send an audio message       |
 | POST   | /v1/message/sendMedia/:instance    | Send a media message        |
+| POST   | /v1/message/sendReaction/:instance | Send a reaction to a message |
 | POST   | /v1/chat/markMessageAsRead/:instance | Mark messages as read       |
 | POST   | /v1/chat/sendPresence/:instance    | Send chat presence          |
 | POST   | /v1/chat/whatsappNumbers/:instance | Check if a number is on WhatsApp |
@@ -193,3 +197,7 @@ The application can send webhook events for the following actions:
 | `MESSAGES_UPSERT` | Triggered when a new message is received.           |
 | `MESSAGES_UPDATE` | Triggered when a message status changes (e.g., read). |
 | `CONTACTS_UPSERT` | Triggered when a contact is created or updated.     |
+
+
+## Did you like project?
+Donate: https://buy.stripe.com/8x28wI5vKfPbe9b8ih1VK0f

@@ -1,6 +1,10 @@
 package whatsmiau
 
-import "time"
+import (
+	"time"
+
+	"github.com/emersion/go-vcard"
+)
 
 type Wook string
 
@@ -85,17 +89,30 @@ type WookKey struct {
 }
 
 type WookMessageRaw struct {
-	Conversation    string                  `json:"conversation,omitempty"`
-	Base64          string                  `json:"base64,omitempty"`
-	ImageMessage    *WookImageMessageRaw    `json:"imageMessage,omitempty"`
-	DocumentMessage *WookDocumentMessageRaw `json:"documentMessage,omitempty"`
-	VideoMessage    *WookVideoMessageRaw    `json:"videoMessage,omitempty"`
-	AudioMessage    *WookAudioMessageRaw    `json:"audioMessage,omitempty"`
-	ReactionMessage *ReactionMessageRaw     `json:"reactionMessage,omitempty"`
+	Conversation         string                   `json:"conversation,omitempty"`
+	Base64               string                   `json:"base64,omitempty"`
+	ImageMessage         *WookImageMessageRaw     `json:"imageMessage,omitempty"`
+	DocumentMessage      *WookDocumentMessageRaw  `json:"documentMessage,omitempty"`
+	VideoMessage         *WookVideoMessageRaw     `json:"videoMessage,omitempty"`
+	AudioMessage         *WookAudioMessageRaw     `json:"audioMessage,omitempty"`
+	ReactionMessage      *ReactionMessageRaw      `json:"reactionMessage,omitempty"`
+	ContactMessage       *ContactMessageRaw       `json:"contactMessage,omitempty"`
+	ContactsArrayMessage *ContactsArrayMessageRaw `json:"contactsArrayMessage,omitempty"`
 	//MessageContextInfo  WookMessageContextInfo `json:"messageContextInfo,omitempty"`
 
 	ListResponseMessage *WookListMessageRaw `json:"listResponseMessage,omitempty"`
 	MediaURL            string              `json:"mediaUrl,omitempty"` // Sent when connect with some storage
+}
+
+type ContactsArrayMessageRaw struct {
+	DisplayName string              `json:"displayName,omitempty"`
+	Contacts    []ContactMessageRaw `json:"contacts,omitempty"`
+}
+
+type ContactMessageRaw struct {
+	VCard        string     `json:"vcard,omitempty"`
+	DisplayName  string     `json:"displayName,omitempty"`
+	DecodedVcard vcard.Card `json:"decodedVcard,omitempty"`
 }
 
 type WookListMessageRaw struct {

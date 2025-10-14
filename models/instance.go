@@ -12,17 +12,21 @@ type Instance struct {
 	SyncRecentHistory bool            `json:"syncRecentHistory,omitempty"`
 	RemoteJID         string          `json:"remoteJID,omitempty"`
 	Webhook           InstanceWebhook `json:"webhook,omitempty"`
+	InstanceProxy
+}
+
+type InstanceProxy struct {
+	ProxyHost     string `json:"proxyHost,omitempty"`
+	ProxyPort     string `json:"proxyPort,omitempty"`
+	ProxyProtocol string `json:"proxyProtocol,omitempty"`
+	ProxyUsername string `json:"proxyUsername,omitempty"`
+	ProxyPassword string `json:"proxyPassword,omitempty"`
 }
 
 type InstanceWebhook struct {
-	Url      string                 `json:"url,omitempty"`
-	ByEvents bool                   `json:"byEvents,omitempty"`
-	Base64   *bool                  `json:"base64,omitempty"`
-	Headers  InstanceWebhookHeaders `json:"headers,omitempty"`
-	Events   []string               `json:"events,omitempty"`
-}
-
-type InstanceWebhookHeaders struct {
-	Authorization string `json:"authorization,omitempty"`
-	ContentType   string `json:"Content-Type,omitempty"` // Following EvolutionAPI Pattern
+	Url      string            `json:"url,omitempty"`
+	ByEvents *bool             `json:"byEvents,omitempty"`
+	Base64   *bool             `json:"base64,omitempty"`
+	Headers  map[string]string `json:"headers,omitempty"`
+	Events   []string          `json:"events,omitempty"`
 }
