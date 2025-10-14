@@ -154,8 +154,8 @@ github.com/valyala/fasttemplate v1.2.2 h1:lxLXG0uE3Qnshl9QyaK6XJxMXlQZELvChBOCmQ
 github.com/valyala/fasttemplate v1.2.2/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=
 github.com/vektah/gqlparser/v2 v2.5.27 h1:RHPD3JOplpk5mP5JGX8RKZkt2/Vwj/PZv0HxTdwFp0s=
 github.com/vektah/gqlparser/v2 v2.5.27/go.mod h1:D1/VCZtV3LPnQrcPBeR/q5jkSQIPti0uYCP/RI0gIeo=
-github.com/verbeux-ai/whatsmeow v0.0.0-20251007165120-ef9f73a8487c h1:AW940TZ3QFAO/aWKF0G7DZ3C0woWND4y5vOKaR86uu8=
-github.com/verbeux-ai/whatsmeow v0.0.0-20251007165120-ef9f73a8487c/go.mod h1:CSdGU471Ss7bWunGomSe9RObY0MRxQDvxFH8i5Ndfk4=
+github.com/verbeux-ai/whatsmeow v0.0.0-20251013224823-492104eeaad7 h1:VlPWBUETrfRlz0fXzAwF/qM2jt2ZpzrHaMa6ojB1OZA=
+github.com/verbeux-ai/whatsmeow v0.0.0-20251013224823-492104eeaad7/go.mod h1:CSdGU471Ss7bWunGomSe9RObY0MRxQDvxFH8i5Ndfk4=
 github.com/zeebo/errs v1.4.0 h1:XNdoD/RRMKP7HD0UhJnIzUy74ISdGGxURlYG8HSWSfM=
 github.com/zeebo/errs v1.4.0/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
 go.mau.fi/libsignal v0.2.1-0.20251004173110-6e0a3f2435ed h1:f44xyYgZBCEic3OiKY4eYfDA2b3kBB/LlgVha4NpjRs=
