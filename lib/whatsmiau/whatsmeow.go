@@ -209,6 +209,9 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 				zap.L().Info("device connected successfully", zap.String("id", id))
 				if client.Store.ID == nil {
 					s.clients.Delete(id)
+					if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
+						zap.L().Error("failed to delete device", zap.String("device", id), zap.Error(err))
+					}
 					zap.L().Error("jid is nil after login", zap.String("id", id), zap.Any("evt", evt))
 				} else {
 					client.RemoveEventHandlers()
