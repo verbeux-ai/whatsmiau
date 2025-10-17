@@ -111,14 +111,6 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			}
 
 			switch e := evt.(type) {
-			case *events.Disconnected, *events.LoggedOut:
-				client, ok := s.clients.Load(instance.ID)
-				if ok {
-					if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
-						zap.L().Error("failed to delete device", zap.String("device", instance.ID), zap.Error(err))
-					}
-					s.clients.Delete(instance.ID)
-				}
 			case *events.Message:
 				s.handleMessageEvent(id, instance, e, eventMap)
 			case *events.Receipt:

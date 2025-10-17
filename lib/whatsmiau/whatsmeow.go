@@ -155,10 +155,6 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 			zap.L().Debug("failed to logout", zap.String("jid", client.Store.ID.String()))
 		}
 		client.Disconnect()
-		if err := s.container.DeleteDevice(ctx, client.Store); err != nil {
-			zap.L().Debug("failed to delete device", zap.String("jid", client.Store.ID.String()))
-		}
-
 		device := s.container.NewDevice()
 		client = whatsmeow.NewClient(device, s.logger)
 		s.clients.Store(id, client)
@@ -213,9 +209,6 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 			zap.L().Debug("QR code context is done", zap.String("id", id), zap.Error(ctx.Err()))
 			_ = client.Logout(context.Background())
 			client.Disconnect()
-			if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
-				zap.L().Error("failed to delete device", zap.Error(err))
-			}
 			s.clients.Delete(id)
 			zap.L().Info("QR code context is done", zap.String("id", id), zap.Error(ctx.Err()))
 			return
@@ -313,10 +306,6 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	}
 
 	client.Disconnect()
-	if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
-		zap.L().Error("failed to delete device", zap.Error(err))
-	}
-
 	s.clients.Delete(id)
 	s.qrCache.Delete(id)
 	return nil
