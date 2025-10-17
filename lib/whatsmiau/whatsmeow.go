@@ -154,9 +154,14 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 		if err := client.Logout(ctx); err != nil {
 			zap.L().Debug("failed to logout", zap.String("jid", client.Store.ID.String()))
 		}
+		client.Disconnect()
 		if err := s.container.DeleteDevice(ctx, client.Store); err != nil {
 			zap.L().Debug("failed to delete device", zap.String("jid", client.Store.ID.String()))
 		}
+
+		device := s.container.NewDevice()
+		client = whatsmeow.NewClient(device, s.logger)
+		s.clients.Store(id, client)
 	}
 
 	if qr, ok := s.qrCache.Load(id); ok {
