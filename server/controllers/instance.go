@@ -130,8 +130,9 @@ func (s *Instance) List(ctx echo.Context) error {
 		}
 
 		response = append(response, dto.ListInstancesResponse{
-			Instance: &instance,
-			OwnerJID: jid.ToNonAD().String(),
+			Instance:     &instance,
+			OwnerJID:     jid.ToNonAD().String(),
+			InstanceName: instance.ID,
 		})
 	}
 
@@ -181,6 +182,40 @@ func (s *Instance) Connect(ctx echo.Context) error {
 		Message:   "instance already connected",
 		Connected: true,
 	})
+}
+
+func (s *Instance) ConnectQRBuffer(ctx echo.Context) error {
+	c := ctx.Request().Context()
+	var request dto.ConnectInstanceRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	result, err := s.repo.List(c, request.ID)
+	if err != nil {
+		zap.L().Error("failed to list instances", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to list instances")
+	}
+
+	if len(result) == 0 {
+		return utils.HTTPFail(ctx, http.StatusNotFound, err, "instance not found")
+	}
+
+	qrCode, err := s.whatsmiau.Connect(c, request.ID)
+	if err != nil {
+		zap.L().Error("failed to connect instance", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to connect instance")
+	}
+	if qrCode != "" {
+		png, err := qrcode.Encode(qrCode, qrcode.Medium, 256)
+		if err != nil {
+			zap.L().Error("failed to encode qrcode", zap.Error(err))
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to encode qrcode")
+		}
+		return ctx.Blob(http.StatusOK, "image/png", png)
+	}
+
+	return ctx.NoContent(http.StatusOK)
 }
 
 func (s *Instance) Status(ctx echo.Context) error {

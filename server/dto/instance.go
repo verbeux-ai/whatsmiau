@@ -32,7 +32,8 @@ type ListInstancesRequest struct {
 type ListInstancesResponse struct {
 	*models.Instance
 
-	OwnerJID string `json:"ownerJid,omitempty"`
+	OwnerJID     string `json:"ownerJid,omitempty"`
+	InstanceName string `json:"instanceName,omitempty"`
 }
 
 type ConnectInstanceRequest struct {

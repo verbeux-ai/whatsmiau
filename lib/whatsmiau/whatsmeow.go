@@ -170,8 +170,8 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		s.observerRunning.Delete(id)
 		s.qrCache.Delete(id)
 	}()
-
-	qrChan, err := client.GetQRChannel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*2)
+	qrChan, err := client.GetQRChannel(ctx)
 	if err != nil {
 		zap.L().Error("failed to observe QR Code", zap.Error(err))
 		return
@@ -188,19 +188,18 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 
 	for {
 		select {
-		case <-time.After(2 * time.Minute): // QR code expiration
+		case <-ctx.Done(): // QR code expiration
 			_ = client.Logout(context.Background())
 			client.Disconnect()
 			if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
 				zap.L().Error("failed to delete device", zap.Error(err))
 			}
 			s.clients.Delete(id)
-			zap.L().Info("QR code expired, disconnected client", zap.String("id", id))
+			zap.L().Info("QR code context is done", zap.String("id", id), zap.Error(ctx.Err()))
 			return
 		case evt, ok := <-qrChan:
 			if !ok { // closed qr chan
-				zap.L().Warn("QR channel closed while handling post-qr events", zap.String("id", id))
-				s.clients.Delete(id)
+				cancel()
 				return
 			}
 			if evt.Event == "code" {
@@ -208,10 +207,6 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 			} else {
 				zap.L().Info("device connected successfully", zap.String("id", id))
 				if client.Store.ID == nil {
-					s.clients.Delete(id)
-					if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
-						zap.L().Error("failed to delete device", zap.String("device", id), zap.Error(err))
-					}
 					zap.L().Error("jid is nil after login", zap.String("id", id), zap.Any("evt", evt))
 				} else {
 					client.RemoveEventHandlers()
@@ -222,6 +217,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 						zap.L().Error("failed to update instance after login", zap.Error(err))
 					}
 				}
+				cancel()
 				return
 			}
 		}
