@@ -151,6 +151,10 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		return
 	}
 
+	if canIgnoreMessage(e) {
+		return
+	}
+
 	messageData := s.convertEventMessage(id, instance, e)
 	if messageData == nil {
 		zap.L().Error("failed to convert event", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", e)), zap.Any("raw", e))
@@ -580,10 +584,6 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 	}
 
 	if evt == nil || evt.Message == nil {
-		return nil
-	}
-
-	if strings.Contains(evt.Info.Chat.String(), "status") {
 		return nil
 	}
 
