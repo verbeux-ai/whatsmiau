@@ -8,7 +8,7 @@ services:
       - "8081:8081"
     environment:
       - REDIS_URL=redis:6379
-      - DB_URL=file:/app/data/data.db?_foreign_keys=on
+      - DB_URL=postgres://whatsmiau:123123123@localhost:5432/whatsmiau?sslmode=disable
     volumes:
       - whatsmeow:/app/data
     depends_on:
@@ -21,6 +21,17 @@ services:
     volumes:
       - redis-data:/data
     restart: unless-stopped
+
+  db:
+    image: postgres:latest
+    container_name: postgres
+    volumes:
+      - pg-data:/pg-data
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: whatsmiau
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: whatsmiau
 
 volumes:
   redis-data:
