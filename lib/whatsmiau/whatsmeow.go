@@ -150,9 +150,12 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 		return "", nil
 	}
 
-	if client.Store != nil && client.Store.ID != nil {
+	if client.Store != nil && client.Store.ID == nil {
 		if err := client.Logout(ctx); err != nil {
 			zap.L().Debug("failed to logout", zap.String("jid", client.Store.ID.String()))
+		}
+		if err := s.container.DeleteDevice(ctx, client.Store); err != nil {
+			zap.L().Debug("failed to delete device", zap.String("jid", client.Store.ID.String()))
 		}
 	}
 
