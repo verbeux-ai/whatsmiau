@@ -150,6 +150,12 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 		return "", nil
 	}
 
+	if client.Store != nil && client.Store.ID == nil {
+		if err := client.Logout(ctx); err != nil {
+			zap.L().Debug("failed to logout", zap.String("jid", client.Store.ID.String()))
+		}
+	}
+
 	if qr, ok := s.qrCache.Load(id); ok {
 		return qr, nil
 	}
