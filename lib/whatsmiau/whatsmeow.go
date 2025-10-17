@@ -178,11 +178,14 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 
 func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 	if _, ok := s.observerRunning.Load(id); ok {
+		zap.L().Debug("observer connection already running", zap.String("id", id))
 		return
 	}
 
+	zap.L().Debug("starting observer connection", zap.String("id", id))
 	s.observerRunning.Store(id, true)
 	defer func() {
+		zap.L().Debug("stopping observer connection", zap.String("id", id))
 		s.observerRunning.Delete(id)
 		s.qrCache.Delete(id)
 	}()
@@ -194,6 +197,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 	}
 
 	if !client.IsConnected() {
+		zap.L().Debug("client is not connected, connecting", zap.String("id", id))
 		instanceFound := s.getInstanceCached(id)
 		configProxy(client, instanceFound.InstanceProxy)
 		if err := client.Connect(); err != nil {
@@ -202,9 +206,11 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		}
 	}
 
+	zap.L().Debug("waiting for QR channel event", zap.String("id", id))
 	for {
 		select {
 		case <-ctx.Done(): // QR code expiration
+			zap.L().Debug("QR code context is done", zap.String("id", id), zap.Error(ctx.Err()))
 			_ = client.Logout(context.Background())
 			client.Disconnect()
 			if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
@@ -215,9 +221,11 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 			return
 		case evt, ok := <-qrChan:
 			if !ok { // closed qr chan
+				zap.L().Debug("QR channel closed", zap.String("id", id))
 				cancel()
 				return
 			}
+			zap.L().Debug("received QR channel event", zap.String("id", id), zap.Any("evt", evt))
 			if evt.Event == "code" {
 				s.qrCache.Store(id, evt.Code)
 			} else {
@@ -244,6 +252,7 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 	ctx, c := context.WithTimeout(ctx, 15*time.Second)
 	defer c()
 
+	zap.L().Debug("starting observe and qr code", zap.String("id", id))
 	go s.observeConnection(client, id)
 
 	ticker := time.NewTicker(200 * time.Millisecond)
@@ -254,9 +263,11 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 		case <-ticker.C:
 			qrCode, ok := s.qrCache.Load(id)
 			if ok && len(qrCode) > 0 {
+				zap.L().Debug("got qr code from cache", zap.String("id", id))
 				return qrCode, nil
 			}
 		case <-ctx.Done():
+			zap.L().Debug("observe and qr code context done", zap.String("id", id), zap.Error(ctx.Err()))
 			return "", nil
 		}
 	}
