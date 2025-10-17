@@ -150,7 +150,7 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 		return "", nil
 	}
 
-	if client.Store != nil && client.Store.ID == nil {
+	if client.Store != nil && client.Store.ID != nil {
 		if err := client.Logout(ctx); err != nil {
 			zap.L().Debug("failed to logout", zap.String("jid", client.Store.ID.String()))
 		}
