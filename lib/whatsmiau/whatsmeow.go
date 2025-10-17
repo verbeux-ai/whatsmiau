@@ -210,6 +210,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 			_ = client.Logout(context.Background())
 			client.Disconnect()
 			s.clients.Delete(id)
+			s.qrCache.Delete(id)
 			zap.L().Info("QR code context is done", zap.String("id", id), zap.Error(ctx.Err()))
 			return
 		case evt, ok := <-qrChan:
@@ -221,11 +222,11 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 			zap.L().Debug("received QR channel event", zap.String("id", id), zap.Any("evt", evt))
 			if evt.Event == "code" {
 				s.qrCache.Store(id, evt.Code)
-				return
 			} else {
 				zap.L().Info("device connected successfully", zap.String("id", id))
 				if client.Store.ID == nil {
 					zap.L().Error("jid is nil after login", zap.String("id", id), zap.Any("evt", evt))
+					cancel()
 				} else {
 					client.RemoveEventHandlers()
 					client.AddEventHandler(s.Handle(id))
@@ -234,8 +235,8 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 					}); err != nil {
 						zap.L().Error("failed to update instance after login", zap.Error(err))
 					}
+					s.qrCache.Delete(id)
 				}
-				cancel()
 				return
 			}
 		}
