@@ -221,6 +221,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 			zap.L().Debug("received QR channel event", zap.String("id", id), zap.Any("evt", evt))
 			if evt.Event == "code" {
 				s.qrCache.Store(id, evt.Code)
+				return
 			} else {
 				zap.L().Info("device connected successfully", zap.String("id", id))
 				if client.Store.ID == nil {
