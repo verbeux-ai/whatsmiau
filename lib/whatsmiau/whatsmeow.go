@@ -243,7 +243,7 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 				return qrCode, nil
 			}
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return "", nil
 		}
 	}
 }
