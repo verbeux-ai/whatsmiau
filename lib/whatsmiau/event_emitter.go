@@ -909,7 +909,7 @@ func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *Wo
 
 func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 	client, ok := s.clients.Load(id)
-	if !ok {
+	if !ok || client == nil {
 		zap.L().Warn("no client for event", zap.String("id", id))
 		return "", "", fmt.Errorf("no client for event %s", id)
 	}
