@@ -23,6 +23,7 @@ func Instance(group *echo.Group) {
 	group.POST("/create", controller.Create)
 	group.GET("/fetchInstances", controller.List)
 	group.GET("/connect/:id", controller.Connect)
+	group.GET("/connect/:id/image", controller.ConnectQRBuffer)
 	group.GET("/connectionState/:id", controller.Status)
 	group.DELETE("/logout/:id", controller.Logout)
 	group.DELETE("/delete/:id", controller.Delete)

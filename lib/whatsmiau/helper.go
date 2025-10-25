@@ -251,6 +251,10 @@ func extractExtFromFile(fileName, mimeType string, file *os.File) string {
 	return strings.TrimPrefix(ext, ".")
 }
 
+func canIgnoreMessage(msg *events.Message) bool {
+	return strings.Contains(msg.Info.Chat.String(), "status")
+}
+
 // canIgnoreGroup returns true if group can be ignored
 func canIgnoreGroup(evt interface{}, instance *models.Instance) bool {
 	if !instance.GroupsIgnore {

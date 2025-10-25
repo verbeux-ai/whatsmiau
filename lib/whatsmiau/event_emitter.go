@@ -111,14 +111,8 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			}
 
 			switch e := evt.(type) {
-			case *events.Disconnected, *events.LoggedOut:
-				client, ok := s.clients.Load(instance.ID)
-				if ok {
-					if err := s.container.DeleteDevice(context.Background(), client.Store); err != nil {
-						zap.L().Error("failed to delete device", zap.String("device", instance.ID), zap.Error(err))
-					}
-					s.clients.Delete(instance.ID)
-				}
+			case *events.LoggedOut:
+				s.handleLoggedOut(id)
 			case *events.Message:
 				s.handleMessageEvent(id, instance, e, eventMap)
 			case *events.Receipt:
@@ -142,12 +136,27 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 	}
 }
 
+func (s *Whatsmiau) handleLoggedOut(id string) {
+	client, ok := s.clients.Load(id)
+	if ok {
+		if err := s.deleteDeviceIfExists(context.Background(), client); err != nil {
+			zap.L().Error("failed to delete device for instance", zap.String("instance", id), zap.Error(err))
+			return
+		}
+	}
+
+	s.clients.Delete(id)
+}
 func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *events.Message, eventMap map[string]bool) {
 	if !eventMap["MESSAGES_UPSERT"] {
 		return
 	}
 
 	if canIgnoreGroup(e, instance) {
+		return
+	}
+
+	if canIgnoreMessage(e) {
 		return
 	}
 
@@ -159,10 +168,11 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 
 	messageData.InstanceId = instance.ID
 
+	dateTime := time.Unix(int64(messageData.MessageTimestamp), 0)
 	wookMessage := &WookEvent[WookMessageData]{
 		Instance: instance.ID,
 		Data:     messageData,
-		DateTime: time.Now(),
+		DateTime: dateTime,
 		Event:    WookMessagesUpsert,
 	}
 
@@ -196,7 +206,7 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 		wookData := &WookEvent[WookMessageUpdateData]{
 			Instance: instance.ID,
 			Data:     &event,
-			DateTime: time.Now(),
+			DateTime: e.Timestamp,
 			Event:    WookMessagesUpdate,
 		}
 
@@ -263,7 +273,7 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 	wookData := &WookEvent[WookContactUpsertData]{
 		Instance: instance.ID,
 		Data:     &WookContactUpsertData{*data},
-		DateTime: time.Now(),
+		DateTime: e.Timestamp,
 		Event:    WookContactsUpsert,
 	}
 
@@ -301,7 +311,7 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 
 	data := s.convertGroupInfo(id, e)
 	if data == nil {
-		zap.L().Error("failed to convert group info", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", e)), zap.Any("raw", e))
+		zap.L().Debug("failed to convert group info", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", e)), zap.Any("raw", e))
 		return
 	}
 
@@ -580,10 +590,6 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 	}
 
 	if evt == nil || evt.Message == nil {
-		return nil
-	}
-
-	if strings.Contains(evt.Info.Chat.String(), "status") {
 		return nil
 	}
 
@@ -917,7 +923,7 @@ func (s *Whatsmiau) convertBusinessName(id string, evt *events.BusinessName) *Wo
 
 func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 	client, ok := s.clients.Load(id)
-	if !ok {
+	if !ok || client == nil {
 		zap.L().Warn("no client for event", zap.String("id", id))
 		return "", "", fmt.Errorf("no client for event %s", id)
 	}
