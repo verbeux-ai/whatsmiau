@@ -316,7 +316,6 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 }
 
 func (s *Whatsmiau) deleteDeviceIfExists(ctx context.Context, client *whatsmeow.Client) error {
-	client.Disconnect()
 	if client.IsLoggedIn() {
 		if err := client.Logout(ctx); err != nil {
 			zap.L().Error("failed to logout", zap.Error(err))
@@ -363,7 +362,7 @@ func (s *Whatsmiau) Logout(ctx context.Context, id string) error {
 		return nil
 	}
 
-	return client.Logout(ctx)
+	return s.deleteDeviceIfExists(ctx, client)
 }
 
 func (s *Whatsmiau) Disconnect(id string) error {
@@ -374,7 +373,6 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	}
 
 	client.Disconnect()
-	s.clients.Delete(id)
 	s.qrCache.Delete(id)
 	return nil
 }
