@@ -168,10 +168,11 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 
 	messageData.InstanceId = instance.ID
 
+	dateTime := time.Unix(int64(messageData.MessageTimestamp), 0)
 	wookMessage := &WookEvent[WookMessageData]{
 		Instance: instance.ID,
 		Data:     messageData,
-		DateTime: time.Now(),
+		DateTime: dateTime,
 		Event:    WookMessagesUpsert,
 	}
 
@@ -205,7 +206,7 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 		wookData := &WookEvent[WookMessageUpdateData]{
 			Instance: instance.ID,
 			Data:     &event,
-			DateTime: time.Now(),
+			DateTime: e.Timestamp,
 			Event:    WookMessagesUpdate,
 		}
 
@@ -272,7 +273,7 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 	wookData := &WookEvent[WookContactUpsertData]{
 		Instance: instance.ID,
 		Data:     &WookContactUpsertData{*data},
-		DateTime: time.Now(),
+		DateTime: e.Timestamp,
 		Event:    WookContactsUpsert,
 	}
 
