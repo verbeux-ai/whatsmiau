@@ -29,6 +29,7 @@ type Whatsmiau struct {
 	qrCache          *xsync.Map[string, string]
 	observerRunning  *xsync.Map[string, bool]
 	instanceCache    *xsync.Map[string, models.Instance]
+	lockConnection   *xsync.Map[string, *sync.Mutex]
 	emitter          chan emitter
 	httpClient       *http.Client
 	fileStorage      interfaces.Storage
@@ -78,11 +79,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	for _, device := range deviceStore {
 		client := whatsmeow.NewClient(device, clientLog)
 		if client.Store.ID == nil {
-			_ = client.Logout(context.Background())
-			client.Disconnect()
-			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
-				zap.L().Error("failed to delete device", zap.Error(err))
-			}
+			zap.L().Error("device without id on db", zap.Any("device", device))
 			continue
 		}
 
@@ -90,14 +87,16 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		if ok {
 			configProxy(client, instanceFound.InstanceProxy)
 			clients.Store(instanceFound.ID, client)
-			if client.IsLoggedIn() {
-				if err := client.Connect(); err != nil {
-					zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", client.Store.ID.String()))
-				}
+			if err := client.Connect(); err != nil {
+				zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", client.Store.ID.String()))
 			}
-		} else {
-			_ = client.Logout(context.Background())
-			client.Disconnect()
+			continue
+		}
+
+		if err := client.Logout(context.TODO()); err != nil {
+			zap.L().Error("failed to logout", zap.Error(err), zap.String("jid", client.Store.ID.String()))
+		}
+		if client.Store != nil && client.Store.ID != nil {
 			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
 				zap.L().Error("failed to delete device", zap.Error(err))
 			}
@@ -120,6 +119,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		qrCache:         xsync.NewMap[string, string](),
 		instanceCache:   xsync.NewMap[string, models.Instance](),
 		observerRunning: xsync.NewMap[string, bool](),
+		lockConnection:  xsync.NewMap[string, *sync.Mutex](),
 		emitter:         make(chan emitter, env.Env.EmitterBufferSize),
 		httpClient: &http.Client{
 			Timeout: time.Second * 30, // TODO: load from env
@@ -139,25 +139,12 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 }
 
 func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
-	client, ok := s.clients.Load(id)
-	if !ok {
-		device := s.container.NewDevice()
-		client = whatsmeow.NewClient(device, s.logger)
-		s.clients.Store(id, client)
+	client, err := s.generateClient(ctx, id)
+	if err != nil {
+		return "", err
 	}
-
-	if client.IsLoggedIn() {
+	if client == nil {
 		return "", nil
-	}
-
-	if client.Store != nil && client.Store.ID != nil {
-		if err := client.Logout(ctx); err != nil {
-			zap.L().Debug("failed to logout", zap.String("jid", client.Store.ID.String()))
-		}
-		client.Disconnect()
-		device := s.container.NewDevice()
-		client = whatsmeow.NewClient(device, s.logger)
-		s.clients.Store(id, client)
 	}
 
 	if qr, ok := s.qrCache.Load(id); ok {
@@ -170,6 +157,65 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 	}
 
 	return qrCode, nil
+}
+
+func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.Client, error) {
+	lock, ok := s.lockConnection.Load(id)
+	if !ok {
+		lock = &sync.Mutex{}
+		s.lockConnection.Store(id, lock)
+	}
+	lock.Lock()
+	defer lock.Unlock()
+
+	client, ok := s.clients.Load(id)
+	if !ok {
+		device := s.container.NewDevice()
+		client = whatsmeow.NewClient(device, s.logger)
+		s.clients.Store(id, client)
+	}
+
+	// trying recover existent connection
+	if s.hasSomeDevice(client) {
+		if instanceFound := s.getInstanceCached(id); instanceFound != nil {
+			configProxy(client, instanceFound.InstanceProxy)
+		}
+
+		if client.IsLoggedIn() {
+			return nil, nil
+		}
+
+		if err := client.Connect(); err == nil {
+			if client.IsLoggedIn() {
+				return nil, nil
+			}
+		}
+
+		if err := s.deleteDeviceIfExists(ctx, client); err != nil {
+			zap.L().Error("failed to hard logout", zap.Error(err))
+			return nil, err
+		}
+
+		device := s.container.NewDevice()
+		client = whatsmeow.NewClient(device, s.logger)
+		s.clients.Store(id, client) // replaces old client
+	}
+
+	return client, nil
+}
+
+func (s *Whatsmiau) hasSomeDevice(client *whatsmeow.Client) bool {
+	noStore := client.Store == nil
+	if noStore {
+		return false
+	}
+
+	noDevice := client.Store.ID == nil
+	if noDevice {
+		return false
+	}
+
+	return true
 }
 
 func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
@@ -185,6 +231,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		s.observerRunning.Delete(id)
 		s.qrCache.Delete(id)
 	}()
+
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*2)
 	qrChan, err := client.GetQRChannel(ctx)
 	if err != nil {
@@ -192,53 +239,53 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		return
 	}
 
-	if !client.IsConnected() {
-		zap.L().Debug("client is not connected, connecting", zap.String("id", id))
-		instanceFound := s.getInstanceCached(id)
-		configProxy(client, instanceFound.InstanceProxy)
-		if err := client.Connect(); err != nil {
-			zap.L().Error("failed to connect", zap.Error(err))
-			return
-		}
+	if err := client.Connect(); err != nil {
+		zap.L().Error("failed to connect connected device", zap.Error(err))
+		return
 	}
 
 	zap.L().Debug("waiting for QR channel event", zap.String("id", id))
 	for {
 		select {
 		case <-ctx.Done(): // QR code expiration
-			zap.L().Debug("QR code context is done", zap.String("id", id), zap.Error(ctx.Err()))
-			_ = client.Logout(context.Background())
-			client.Disconnect()
+			zap.L().Debug("context ", zap.String("id", id), zap.Error(ctx.Err()))
+			if err := s.deleteDeviceIfExists(context.TODO(), client); err != nil {
+				zap.L().Error("failed to hard logout", zap.String("id", id), zap.Error(err))
+			}
 			s.clients.Delete(id)
-			s.qrCache.Delete(id)
-			zap.L().Info("QR code context is done", zap.String("id", id), zap.Error(ctx.Err()))
 			return
 		case evt, ok := <-qrChan:
-			if !ok { // closed qr chan
-				zap.L().Debug("QR channel closed", zap.String("id", id))
+			if !ok || evt.Event == "error" || evt.Event == "timeout" { // closed qr chan
+				zap.L().Debug("QR channel closed", zap.String("id", id), zap.Any("evt", evt))
 				cancel()
-				return
+				continue
 			}
 			zap.L().Debug("received QR channel event", zap.String("id", id), zap.Any("evt", evt))
 			if evt.Event == "code" {
 				s.qrCache.Store(id, evt.Code)
-			} else {
-				zap.L().Info("device connected successfully", zap.String("id", id))
+				continue
+			}
+
+			if evt.Event == "success" || evt.Event == "logged_in" {
 				if client.Store.ID == nil {
 					zap.L().Error("jid is nil after login", zap.String("id", id), zap.Any("evt", evt))
 					cancel()
-				} else {
-					client.RemoveEventHandlers()
-					client.AddEventHandler(s.Handle(id))
-					if _, err := s.repo.Update(context.Background(), id, &models.Instance{
-						RemoteJID: client.Store.ID.String(),
-					}); err != nil {
-						zap.L().Error("failed to update instance after login", zap.Error(err))
-					}
-					s.qrCache.Delete(id)
+					continue
 				}
+
+				zap.L().Info("device connected successfully", zap.String("id", id))
+				client.RemoveEventHandlers()
+				client.AddEventHandler(s.Handle(id))
+				if _, err := s.repo.Update(context.Background(), id, &models.Instance{
+					RemoteJID: client.Store.ID.String(),
+				}); err != nil {
+					zap.L().Error("failed to update instance after login", zap.Error(err))
+				}
+				s.qrCache.Delete(id)
 				return
 			}
+
+			zap.L().Error("unknown event", zap.String("id", id), zap.Any("evt", evt))
 		}
 	}
 }
@@ -266,6 +313,25 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 			return "", nil
 		}
 	}
+}
+
+func (s *Whatsmiau) deleteDeviceIfExists(ctx context.Context, client *whatsmeow.Client) error {
+	client.Disconnect()
+	if client.IsLoggedIn() {
+		if err := client.Logout(ctx); err != nil {
+			zap.L().Error("failed to logout", zap.Error(err))
+			return err
+		}
+	}
+
+	if client.Store != nil && client.Store.ID != nil {
+		if err := s.container.DeleteDevice(ctx, client.Store); err != nil {
+			zap.L().Error("failed to delete device", zap.Error(err))
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Whatsmiau) Status(id string) (Status, error) {

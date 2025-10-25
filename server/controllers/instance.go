@@ -166,7 +166,7 @@ func (s *Instance) Connect(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to connect instance")
 	}
 	if qrCode != "" {
-		png, err := qrcode.Encode(qrCode, qrcode.Medium, 256)
+		png, err := qrcode.Encode(qrCode, qrcode.Medium, 512)
 		if err != nil {
 			zap.L().Error("failed to encode qrcode", zap.Error(err))
 			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to encode qrcode")

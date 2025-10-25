@@ -111,6 +111,8 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			}
 
 			switch e := evt.(type) {
+			case *events.LoggedOut:
+				s.handleLoggedOut(id)
 			case *events.Message:
 				s.handleMessageEvent(id, instance, e, eventMap)
 			case *events.Receipt:
@@ -134,6 +136,17 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 	}
 }
 
+func (s *Whatsmiau) handleLoggedOut(id string) {
+	client, ok := s.clients.Load(id)
+	if ok {
+		if err := s.deleteDeviceIfExists(context.Background(), client); err != nil {
+			zap.L().Error("failed to delete device for instance", zap.String("instance", id), zap.Error(err))
+			return
+		}
+	}
+
+	s.clients.Delete(id)
+}
 func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *events.Message, eventMap map[string]bool) {
 	if !eventMap["MESSAGES_UPSERT"] {
 		return
@@ -297,7 +310,7 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 
 	data := s.convertGroupInfo(id, e)
 	if data == nil {
-		zap.L().Error("failed to convert group info", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", e)), zap.Any("raw", e))
+		zap.L().Debug("failed to convert group info", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", e)), zap.Any("raw", e))
 		return
 	}
 
