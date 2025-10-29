@@ -239,6 +239,9 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		return
 	}
 
+	if instanceFound := s.getInstanceCached(id); instanceFound != nil {
+		configProxy(client, instanceFound.InstanceProxy)
+	}
 	if err := client.Connect(); err != nil {
 		zap.L().Error("failed to connect connected device", zap.Error(err))
 		return
