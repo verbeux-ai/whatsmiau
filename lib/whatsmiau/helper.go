@@ -325,7 +325,6 @@ func configProxy(client *whatsmeow.Client, instanceProxy models.InstanceProxy) {
 	}
 
 	proxyUrl := mountProxyUrl(instanceProxy)
-
 	if err := client.SetProxyAddress(proxyUrl, opts); err != nil {
 		zap.L().Error("failed to set proxy address", zap.Error(err), zap.Any("instanceProxy", instanceProxy), zap.Any("jid", jid))
 	}

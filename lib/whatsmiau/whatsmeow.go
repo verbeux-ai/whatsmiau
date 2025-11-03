@@ -191,6 +191,7 @@ func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.C
 			}
 		}
 
+		s.clients.Delete(id)
 		if err := s.deleteDeviceIfExists(ctx, client); err != nil {
 			zap.L().Error("failed to hard logout", zap.Error(err))
 			return nil, err
@@ -239,7 +240,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		return
 	}
 
-	if instanceFound := s.getInstanceCached(id); instanceFound != nil {
+	if instanceFound := s.getInstance(id); instanceFound != nil {
 		configProxy(client, instanceFound.InstanceProxy)
 	}
 	if err := client.Connect(); err != nil {
@@ -313,7 +314,7 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 			}
 		case <-ctx.Done():
 			zap.L().Debug("observe and qr code context done", zap.String("id", id), zap.Error(ctx.Err()))
-			return "", nil
+			return "", ctx.Err()
 		}
 	}
 }
@@ -365,6 +366,7 @@ func (s *Whatsmiau) Logout(ctx context.Context, id string) error {
 		return nil
 	}
 
+	s.clients.Delete(id)
 	return s.deleteDeviceIfExists(ctx, client)
 }
 
