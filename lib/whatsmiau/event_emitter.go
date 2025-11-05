@@ -28,6 +28,25 @@ type emitter struct {
 	data any
 }
 
+func (s *Whatsmiau) getInstance(id string) *models.Instance {
+	ctx, c := context.WithTimeout(context.Background(), time.Second*5)
+	defer c()
+
+	res, err := s.repo.List(ctx, id)
+	if err != nil {
+		zap.L().Panic("failed to get instanceCached by instance", zap.Error(err))
+	}
+
+	if len(res) == 0 {
+		zap.L().Warn("no instanceCached found by instance", zap.String("instance", id))
+		return nil
+	}
+
+	s.instanceCache.Store(id, res[0])
+
+	return &res[0]
+}
+
 func (s *Whatsmiau) getInstanceCached(id string) *models.Instance {
 	instanceCached, ok := s.instanceCache.Load(id)
 	if ok {
@@ -928,7 +947,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 		return "", "", fmt.Errorf("no client for event %s", id)
 	}
 
-	pic, err := client.GetProfilePictureInfo(jid, &whatsmeow.GetProfilePictureParams{
+	pic, err := client.GetProfilePictureInfo(context.TODO(), jid, &whatsmeow.GetProfilePictureParams{
 		Preview:     true,
 		IsCommunity: false,
 	})

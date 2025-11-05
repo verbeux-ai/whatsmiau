@@ -26,7 +26,7 @@ func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
 		sender = *data.Sender
 	}
 
-	return client.MarkRead(data.MessageIDs, time.Now(), *data.RemoteJID, sender)
+	return client.MarkRead(context.TODO(), data.MessageIDs, time.Now(), *data.RemoteJID, sender)
 }
 
 type ChatPresenceRequest struct {
@@ -42,7 +42,7 @@ func (s *Whatsmiau) ChatPresence(data *ChatPresenceRequest) error {
 		return whatsmeow.ErrClientIsNil
 	}
 
-	return client.SendChatPresence(*data.RemoteJID, data.Presence, data.Media)
+	return client.SendChatPresence(context.TODO(), *data.RemoteJID, data.Presence, data.Media)
 }
 
 type NumberExistsRequest struct {
@@ -65,7 +65,7 @@ func (s *Whatsmiau) NumberExists(ctx context.Context, data *NumberExistsRequest)
 		return nil, whatsmeow.ErrClientIsNil
 	}
 
-	resp, err := client.IsOnWhatsApp(data.Numbers)
+	resp, err := client.IsOnWhatsApp(context.TODO(), data.Numbers)
 	if err != nil {
 		return nil, err
 	}
