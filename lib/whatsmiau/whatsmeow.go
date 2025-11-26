@@ -231,12 +231,17 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		zap.L().Debug("stopping observer connection", zap.String("id", id))
 		s.observerRunning.Delete(id)
 		s.qrCache.Delete(id)
+		s.lockConnection.Delete(id)
 	}()
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute*2)
 	qrChan, err := client.GetQRChannel(ctx)
 	if err != nil {
 		zap.L().Error("failed to observe QR Code", zap.Error(err))
+		s.clients.Delete(id)
+		if err := s.deleteDeviceIfExists(context.TODO(), client); err != nil {
+			zap.L().Error("failed to cleanup device after GetQRChannel error", zap.String("id", id), zap.Error(err))
+		}
 		return
 	}
 
@@ -245,6 +250,10 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 	}
 	if err := client.Connect(); err != nil {
 		zap.L().Error("failed to connect connected device", zap.Error(err))
+		s.clients.Delete(id)
+		if err := s.deleteDeviceIfExists(context.TODO(), client); err != nil {
+			zap.L().Error("failed to cleanup device after Connect error", zap.String("id", id), zap.Error(err))
+		}
 		return
 	}
 
