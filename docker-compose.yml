@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   whatsmiau:
     build: .
@@ -37,4 +35,6 @@ volumes:
   redis-data:
     driver: local
   whatsmeow:
+    driver: local
+  pg-data:
     driver: local
