@@ -14,11 +14,14 @@ import (
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
 	"github.com/verbeux-ai/whatsmiau/services"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waCompanionReg"
+	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
+	"google.golang.org/protobuf/proto"
 )
 
 type Whatsmiau struct {
@@ -38,6 +41,7 @@ type Whatsmiau struct {
 
 var instance *Whatsmiau
 var mu = &sync.Mutex{}
+var devicePropsMu sync.Mutex
 
 func Get() *Whatsmiau {
 	mu.Lock()
@@ -245,11 +249,57 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string) {
 		return
 	}
 
-	if instanceFound := s.getInstance(id); instanceFound != nil {
+	instanceFound := s.getInstance(id)
+	if instanceFound != nil {
 		configProxy(client, instanceFound.InstanceProxy)
 	}
-	if err := client.Connect(); err != nil {
-		zap.L().Error("failed to connect connected device", zap.Error(err))
+
+	// Configure history sync based on instance options before connecting.
+	// DeviceProps is a package-level variable, so we use a mutex to prevent
+	// race conditions when multiple instances connect concurrently.
+	devicePropsMu.Lock()
+	if instanceFound != nil && instanceFound.SyncFullHistory {
+		store.DeviceProps.RequireFullSync = proto.Bool(true)
+		store.DeviceProps.HistorySyncConfig = &waCompanionReg.DeviceProps_HistorySyncConfig{
+			FullSyncDaysLimit:                        proto.Uint32(3650),
+			FullSyncSizeMbLimit:                      proto.Uint32(10240),
+			StorageQuotaMb:                           proto.Uint32(10240),
+			InlineInitialPayloadInE2EeMsg:            proto.Bool(true),
+			SupportCallLogHistory:                    proto.Bool(true),
+			SupportBotUserAgentChatHistory:           proto.Bool(true),
+			SupportCagReactionsAndPolls:              proto.Bool(true),
+			SupportBizHostedMsg:                      proto.Bool(true),
+			SupportRecentSyncChunkMessageCountTuning: proto.Bool(true),
+			SupportHostedGroupMsg:                    proto.Bool(true),
+			SupportFbidBotChatHistory:                proto.Bool(true),
+			SupportMessageAssociation:                proto.Bool(true),
+			SupportGroupHistory:                      proto.Bool(true),
+		}
+	} else if instanceFound != nil && instanceFound.SyncRecentHistory {
+		store.DeviceProps.RequireFullSync = proto.Bool(false)
+		store.DeviceProps.HistorySyncConfig = &waCompanionReg.DeviceProps_HistorySyncConfig{
+			RecentSyncDaysLimit:                      proto.Uint32(30),
+			StorageQuotaMb:                           proto.Uint32(10240),
+			InlineInitialPayloadInE2EeMsg:            proto.Bool(true),
+			SupportCallLogHistory:                    proto.Bool(true),
+			SupportBotUserAgentChatHistory:           proto.Bool(true),
+			SupportCagReactionsAndPolls:              proto.Bool(true),
+			SupportBizHostedMsg:                      proto.Bool(true),
+			SupportRecentSyncChunkMessageCountTuning: proto.Bool(true),
+			SupportHostedGroupMsg:                    proto.Bool(true),
+			SupportFbidBotChatHistory:                proto.Bool(true),
+			SupportMessageAssociation:                proto.Bool(true),
+			SupportGroupHistory:                      proto.Bool(true),
+		}
+	} else {
+		store.DeviceProps.RequireFullSync = proto.Bool(false)
+	}
+
+	connectErr := client.Connect()
+	devicePropsMu.Unlock()
+
+	if connectErr != nil {
+		zap.L().Error("failed to connect connected device", zap.Error(connectErr))
 		s.clients.Delete(id)
 		if err := s.deleteDeviceIfExists(context.TODO(), client); err != nil {
 			zap.L().Error("failed to cleanup device after Connect error", zap.String("id", id), zap.Error(err))
