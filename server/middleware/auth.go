@@ -2,12 +2,19 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/env"
 )
 
 func Auth(ctx echo.Context, next echo.HandlerFunc) error {
+	path := ctx.Request().URL.Path
+	// Health endpoint must stay unauthenticated for container probes.
+	if path == "/health" || strings.HasSuffix(path, "/health") {
+		return next(ctx)
+	}
+
 	gotApikey := ctx.Request().Header.Get("apikey")
 	if len(env.Env.ApiKey) == 0 {
 		return next(ctx)

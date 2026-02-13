@@ -1,12 +1,12 @@
 package whatsmiau
 
 import (
+	"context"
 	"strings"
 	"time"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
-	"golang.org/x/net/context"
 )
 
 type ReadMessageRequest struct {
@@ -16,7 +16,7 @@ type ReadMessageRequest struct {
 	Sender     *types.JID `json:"sender"`
 }
 
-func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
+func (s *Whatsmiau) ReadMessage(ctx context.Context, data *ReadMessageRequest) error {
 	client, ok := s.clients.Load(data.InstanceID)
 	if !ok {
 		return whatsmeow.ErrClientIsNil
@@ -27,7 +27,22 @@ func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
 		sender = *data.Sender
 	}
 
-	return client.MarkRead(context.TODO(), data.MessageIDs, time.Now(), *data.RemoteJID, sender)
+	return client.MarkRead(ctx, data.MessageIDs, time.Now(), *data.RemoteJID, sender)
+}
+
+// MarkPlayed sends a "played" receipt for audio/voice messages.
+func (s *Whatsmiau) MarkPlayed(ctx context.Context, data *ReadMessageRequest) error {
+	client, ok := s.clients.Load(data.InstanceID)
+	if !ok {
+		return whatsmeow.ErrClientIsNil
+	}
+
+	sender := *data.RemoteJID
+	if data.Sender != nil {
+		sender = *data.Sender
+	}
+
+	return client.MarkRead(ctx, data.MessageIDs, time.Now(), *data.RemoteJID, sender, types.ReceiptTypePlayed)
 }
 
 type ChatPresenceRequest struct {
@@ -127,6 +142,22 @@ func (s *Whatsmiau) GetAllContacts(ctx context.Context, instanceID string) ([]Wo
 	}
 
 	return result, nil
+}
+
+func (s *Whatsmiau) GetContactProfilePic(ctx context.Context, instanceID string, contactJID types.JID) (string, error) {
+	client, ok := s.clients.Load(instanceID)
+	if !ok {
+		return "", whatsmeow.ErrClientIsNil
+	}
+
+	pic, err := client.GetProfilePictureInfo(ctx, contactJID, &whatsmeow.GetProfilePictureParams{
+		Preview:     true,
+		IsCommunity: false,
+	})
+	if err != nil || pic == nil {
+		return "", nil
+	}
+	return pic.URL, nil
 }
 
 func (s *Whatsmiau) NumberExists(ctx context.Context, data *NumberExistsRequest) (NumberExistsResponse, error) {

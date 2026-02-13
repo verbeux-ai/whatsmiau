@@ -17,7 +17,8 @@ type MessageRequestQuoted struct {
 }
 
 type QuotedKey struct {
-	Id string `json:"id,omitempty"`
+	Id          string `json:"id,omitempty"`
+	Participant string `json:"participant,omitempty"`
 }
 
 type QuotedMessage struct {

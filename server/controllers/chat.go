@@ -52,13 +52,48 @@ func (s *Chat) ReadMessages(ctx echo.Context) error {
 			continue
 		}
 
-		if err := s.whatsmiau.ReadMessage(&whatsmiau.ReadMessageRequest{
+		if err := s.whatsmiau.ReadMessage(ctx.Request().Context(), &whatsmiau.ReadMessageRequest{
 			MessageIDs: msgs,
 			InstanceID: request.InstanceID,
 			RemoteJID:  number,
 			Sender:     nil,
 		}); err != nil {
 			zap.L().Error("Whatsmiau.ReadMessages failed", zap.Error(err))
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]interface{}{})
+}
+
+func (s *Chat) MarkAudioPlayed(ctx echo.Context) error {
+	var request dto.ReadMessagesRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	if err := validator.New().Struct(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
+	}
+
+	result := make(map[string][]string)
+	for _, msg := range request.ReadMessages {
+		result[msg.RemoteJid] = append(result[msg.RemoteJid], msg.ID)
+	}
+
+	for remoteJid, msgs := range result {
+		number, err := numberToJid(remoteJid)
+		if err != nil {
+			zap.L().Error("error converting number to jid", zap.Error(err))
+			continue
+		}
+
+		if err := s.whatsmiau.MarkPlayed(ctx.Request().Context(), &whatsmiau.ReadMessageRequest{
+			MessageIDs: msgs,
+			InstanceID: request.InstanceID,
+			RemoteJID:  number,
+			Sender:     nil,
+		}); err != nil {
+			zap.L().Error("Whatsmiau.MarkAudioPlayed failed", zap.Error(err))
 		}
 	}
 
@@ -134,6 +169,36 @@ func (s *Chat) GetContacts(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, contacts)
+}
+
+func (s *Chat) GetContactProfilePic(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+	remoteJid := ctx.Param("remoteJid")
+	if remoteJid == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "remoteJid is required in the URL path")
+	}
+	if decoded, err := url.PathUnescape(remoteJid); err == nil && decoded != "" {
+		remoteJid = decoded
+	}
+
+	jid, err := numberToJid(remoteJid)
+	if err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid remoteJid format")
+	}
+
+	profilePicUrl, err := s.whatsmiau.GetContactProfilePic(ctx.Request().Context(), instanceID, *jid)
+	if err != nil {
+		zap.L().Error("Whatsmiau.GetContactProfilePic failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to get contact profile pic")
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]string{
+		"remoteJid":     jid.String(),
+		"profilePicUrl": profilePicUrl,
+	})
 }
 
 func (s *Chat) GetMessages(ctx echo.Context) error {

@@ -10,20 +10,23 @@ import (
 )
 
 func numberToJid(number string) (*types.JID, error) {
-	splitNumber := strings.Split(number, "@")
-	if len(splitNumber) != 2 {
-		number += "@s.whatsapp.net"
+	// If it already looks like a full JID (contains @), parse directly.
+	if strings.Contains(number, "@") {
+		jid, err := types.ParseJID(number)
+		if err != nil {
+			return nil, fmt.Errorf("invalid jid: %w", err)
+		}
+		return &jid, nil
 	}
 
-	if len(splitNumber[0]) < 12 {
-		return nil, fmt.Errorf("invalid jid, put country prefix")
+	// Otherwise, treat as a phone number and append @s.whatsapp.net.
+	if len(number) == 0 {
+		return nil, fmt.Errorf("empty number")
 	}
-
-	jid, err := types.ParseJID(number)
+	jid, err := types.ParseJID(number + "@s.whatsapp.net")
 	if err != nil {
-		return nil, fmt.Errorf("invalid jid (number)")
+		return nil, fmt.Errorf("invalid jid (number): %w", err)
 	}
-
 	return &jid, nil
 }
 

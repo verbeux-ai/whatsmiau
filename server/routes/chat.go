@@ -14,7 +14,9 @@ func Chat(group *echo.Group) {
 
 	group.POST("/presence", controller.SendChatPresence)
 	group.POST("/read-messages", controller.ReadMessages)
+	group.POST("/mark-audio-played", controller.MarkAudioPlayed)
 	group.GET("/contacts", controller.GetContacts)
+	group.GET("/contacts/:remoteJid/profile-pic", controller.GetContactProfilePic)
 	group.GET("/groups", controller.GetGroups)
 	group.GET("/groups/:groupJid", controller.GetGroupInfo)
 	group.GET("/messages/:remoteJid", controller.GetMessages)

@@ -201,12 +201,15 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string) (string, error) {
 	return qrCode, nil
 }
 
+func (s *Whatsmiau) getConnectionLock(id string) *sync.Mutex {
+	lock, _ := s.lockConnection.LoadOrCompute(id, func() (*sync.Mutex, bool) {
+		return &sync.Mutex{}, false
+	})
+	return lock
+}
+
 func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.Client, error) {
-	lock, ok := s.lockConnection.Load(id)
-	if !ok {
-		lock = &sync.Mutex{}
-		s.lockConnection.Store(id, lock)
-	}
+	lock := s.getConnectionLock(id)
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -457,6 +460,10 @@ func (s *Whatsmiau) Status(id string) (Status, error) {
 }
 
 func (s *Whatsmiau) Logout(ctx context.Context, id string) error {
+	lock := s.getConnectionLock(id)
+	lock.Lock()
+	defer lock.Unlock()
+
 	client, ok := s.clients.Load(id)
 	if !ok {
 		zap.L().Warn("logout: client does not exist", zap.String("id", id))
@@ -468,6 +475,10 @@ func (s *Whatsmiau) Logout(ctx context.Context, id string) error {
 }
 
 func (s *Whatsmiau) Disconnect(id string) error {
+	lock := s.getConnectionLock(id)
+	lock.Lock()
+	defer lock.Unlock()
+
 	client, ok := s.clients.Load(id)
 	if !ok {
 		zap.L().Warn("failed to disconnect (device not loaded)", zap.String("id", id))

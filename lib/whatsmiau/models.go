@@ -95,6 +95,7 @@ type WookMessageRaw struct {
 	DocumentMessage      *WookDocumentMessageRaw  `json:"documentMessage,omitempty"`
 	VideoMessage         *WookVideoMessageRaw     `json:"videoMessage,omitempty"`
 	AudioMessage         *WookAudioMessageRaw     `json:"audioMessage,omitempty"`
+	StickerMessage       *WookStickerMessageRaw   `json:"stickerMessage,omitempty"`
 	ReactionMessage      *ReactionMessageRaw      `json:"reactionMessage,omitempty"`
 	ContactMessage       *ContactMessageRaw       `json:"contactMessage,omitempty"`
 	ContactsArrayMessage *ContactsArrayMessageRaw `json:"contactsArrayMessage,omitempty"`
@@ -228,6 +229,18 @@ type WookImageMessageRaw struct {
 	JpegThumbnail     string           `json:"jpegThumbnail,omitempty"`
 	ContextInfo       *FileContextInfo `json:"contextInfo,omitempty"`
 	ViewOnce          bool             `json:"viewOnce,omitempty"`
+}
+
+type WookStickerMessageRaw struct {
+	Url               string `json:"url,omitempty"`
+	Mimetype          string `json:"mimetype,omitempty"`
+	FileSha256        string `json:"fileSha256,omitempty"`
+	FileLength        string `json:"fileLength,omitempty"`
+	MediaKey          string `json:"mediaKey,omitempty"`
+	FileEncSha256     string `json:"fileEncSha256,omitempty"`
+	DirectPath        string `json:"directPath,omitempty"`
+	MediaKeyTimestamp string `json:"mediaKeyTimestamp,omitempty"`
+	IsAnimated        bool   `json:"isAnimated,omitempty"`
 }
 type FileContextInfo struct {
 	DisappearingMode *ContextInfoDisappearingMode `json:"disappearingMode,omitempty"`

@@ -49,9 +49,10 @@ func (s *Message) SendText(ctx echo.Context) error {
 		RemoteJID:  jid,
 	}
 
-	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 && len(request.Quoted.Message.Conversation) > 0 {
-		sendText.QuoteMessage = request.Quoted.Message.Conversation
+	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 {
 		sendText.QuoteMessageID = request.Quoted.Key.Id
+		sendText.QuoteMessage = request.Quoted.Message.Conversation
+		sendText.Participant = request.Quoted.Key.Participant
 	}
 
 	c := ctx.Request().Context()
@@ -109,9 +110,10 @@ func (s *Message) SendAudio(ctx echo.Context) error {
 		RemoteJID:  jid,
 	}
 
-	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 && len(request.Quoted.Message.Conversation) > 0 {
-		sendText.QuoteMessage = request.Quoted.Message.Conversation
+	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 {
 		sendText.QuoteMessageID = request.Quoted.Key.Id
+		sendText.QuoteMessage = request.Quoted.Message.Conversation
+		sendText.Participant = request.Quoted.Key.Participant
 	}
 
 	c := ctx.Request().Context()
@@ -193,6 +195,10 @@ func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest
 		RemoteJID:  jid,
 		Mimetype:   request.Mimetype,
 	}
+	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 {
+		sendData.QuoteMessageID = request.Quoted.Key.Id
+		sendData.Participant = request.Quoted.Key.Participant
+	}
 
 	c := ctx.Request().Context()
 	time.Sleep(time.Millisecond * time.Duration(request.Delay)) // TODO: create a more robust solution
@@ -242,6 +248,10 @@ func (s *Message) sendImage(ctx echo.Context, request dto.SendDocumentRequest) e
 		Caption:    request.Caption,
 		RemoteJID:  jid,
 		Mimetype:   request.Mimetype,
+	}
+	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 {
+		sendData.QuoteMessageID = request.Quoted.Key.Id
+		sendData.Participant = request.Quoted.Key.Participant
 	}
 
 	c := ctx.Request().Context()

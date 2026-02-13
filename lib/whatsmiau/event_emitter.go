@@ -239,7 +239,19 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 	}
 
 	// Optional: persist directly to MongoDB (so the app doesn't depend on webhooks for storage).
-	s.persistMongoMessage(instance, wookMessage.Data, true)
+	s.persistMongoMessage(instance, wookMessage.Data)
+
+	// Always publish to Redis Stream regardless of MongoDB persistence result.
+	// The backend consumer can resolve tenantId from instanceName if we can't resolve it here.
+	if wookMessage.Data != nil && wookMessage.Data.Key != nil {
+		tenantID, connectionID := s.resolveTenantAndConnection(context.Background(), instance.ID)
+		s.publishStream(context.Background(), tenantID, "message:new", map[string]string{
+			"instanceName": instance.ID,
+			"connectionId": connectionID,
+			"messageId":    wookMessage.Data.Key.Id,
+			"remoteJid":    wookMessage.Data.Key.RemoteJid,
+		})
+	}
 
 	s.emit(wookMessage, instance.Webhook.Url)
 }
@@ -268,6 +280,28 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 
 		// Best-effort Mongo status update.
 		s.persistMongoStatus(instance, &event)
+
+		// Always publish status to Redis Stream regardless of MongoDB persistence result.
+		// Note: Receipt.IsFromMe is about who sent the receipt, not necessarily who authored
+		// the original message. Backend resolves direction from stored message metadata.
+		if event.Status == MessageStatusDeliveryAck || event.Status == MessageStatusRead {
+			status := ""
+			switch event.Status {
+			case MessageStatusDeliveryAck:
+				status = "delivered"
+			case MessageStatusRead:
+				status = "read"
+			}
+			if status != "" {
+				tenantID, connectionID := s.resolveTenantAndConnection(context.Background(), instance.ID)
+				s.publishStream(context.Background(), tenantID, "message:status", map[string]string{
+					"instanceName": instance.ID,
+					"connectionId": connectionID,
+					"messageId":    event.MessageId,
+					"status":       status,
+				})
+			}
+		}
 
 		s.emit(wookData, instance.Webhook.Url)
 	}
@@ -372,7 +406,7 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 					// Persist to Mongo so the app can load historical messages after connection recreation.
 					// Do NOT publish per-message events to Redis Streams here (would flood the UI on full sync).
 					if s.mongoMessages != nil {
-						s.persistMongoMessage(instance, msg, false)
+						s.persistMongoMessage(instance, msg)
 					}
 
 					raw, err := json.Marshal(msg)
@@ -403,6 +437,7 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 					if meta, err := s.mongoMessages.ResolveMeta(context.Background(), instance.ID); err == nil && meta != nil {
 						s.publishStream(context.Background(), meta.TenantID.Hex(), "history:sync", map[string]string{
 							"instanceName": instance.ID,
+							"connectionId": meta.ConnectionID.Hex(),
 							"count":        fmt.Sprintf("%d", stored),
 						})
 					}
@@ -432,16 +467,22 @@ func (s *Whatsmiau) convertHistorySyncWebMessage(id string, instance *models.Ins
 	}
 
 	key := wmi.GetKey()
-	jid := key.GetRemoteJID()
+	rawJid := key.GetRemoteJID()
+
+	// Resolve JID/LID mapping (same as real-time message handler)
+	resolvedJid, resolvedLid := rawJid, ""
+	if parsed, err := types.ParseJID(rawJid); err == nil {
+		resolvedJid, resolvedLid = s.GetJidLid(context.Background(), id, parsed)
+	}
 
 	participant := key.GetParticipant()
 	if participant == "" {
-		participant = jid
+		participant = resolvedJid
 	}
 
 	wookKey := &WookKey{
-		RemoteJid:   jid,
-		RemoteLid:   "",
+		RemoteJid:   resolvedJid,
+		RemoteLid:   resolvedLid,
 		FromMe:      key.GetFromMe(),
 		Id:          key.GetID(),
 		Participant: participant,
@@ -460,23 +501,41 @@ func (s *Whatsmiau) convertHistorySyncWebMessage(id string, instance *models.Ins
 	messageType, raw, ci := s.parseWAMessage(wmi.GetMessage())
 
 	// Upload media to configured storage (MinIO/S3/GCS) when possible.
+	isMediaMessage := false
 	switch messageType {
 	case "imageMessage":
+		isMediaMessage = true
 		if img := wmi.GetMessage().GetImageMessage(); img != nil {
 			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, img, img.GetMimetype(), "")
 		}
 	case "audioMessage":
+		isMediaMessage = true
 		if aud := wmi.GetMessage().GetAudioMessage(); aud != nil {
 			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, aud, aud.GetMimetype(), "")
 		}
 	case "documentMessage":
+		isMediaMessage = true
 		if doc := wmi.GetMessage().GetDocumentMessage(); doc != nil {
 			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, doc, doc.GetMimetype(), doc.GetFileName())
 		}
 	case "videoMessage":
+		isMediaMessage = true
 		if vid := wmi.GetMessage().GetVideoMessage(); vid != nil {
 			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, vid, vid.GetMimetype(), "")
 		}
+	case "stickerMessage":
+		isMediaMessage = true
+		if stk := wmi.GetMessage().GetStickerMessage(); stk != nil {
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, stk, stk.GetMimetype(), "")
+		}
+	}
+
+	if isMediaMessage && raw.MediaURL == "" && raw.Base64 == "" {
+		zap.L().Warn("media download failed during history sync, message saved without media",
+			zap.String("instance", id),
+			zap.String("messageId", key.GetID()),
+			zap.String("messageType", messageType),
+		)
 	}
 
 	// Minimal context info (enough for quoted/mentions later, if needed).
@@ -696,6 +755,17 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 		ci = contactArray.GetContextInfo()
 	} else if sticker := m.GetStickerMessage(); sticker != nil {
 		messageType = "stickerMessage"
+		raw.StickerMessage = &WookStickerMessageRaw{
+			Url:               sticker.GetURL(),
+			Mimetype:          sticker.GetMimetype(),
+			FileSha256:        b64(sticker.GetFileSHA256()),
+			FileLength:        u64(sticker.GetFileLength()),
+			MediaKey:          b64(sticker.GetMediaKey()),
+			FileEncSha256:     b64(sticker.GetFileEncSHA256()),
+			DirectPath:        sticker.GetDirectPath(),
+			MediaKeyTimestamp: i64(sticker.GetMediaKeyTimestamp()),
+			IsAnimated:        sticker.GetIsAnimated(),
+		}
 		raw.Conversation = "[Sticker]"
 	} else if loc := m.GetLocationMessage(); loc != nil {
 		messageType = "locationMessage"
@@ -916,6 +986,10 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 	case "videoMessage":
 		if vid := m.GetVideoMessage(); vid != nil {
 			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(ctx, instance, client, vid, vid.GetMimetype(), "")
+		}
+	case "stickerMessage":
+		if stk := m.GetStickerMessage(); stk != nil {
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(ctx, instance, client, stk, stk.GetMimetype(), "")
 		}
 	}
 
@@ -1238,7 +1312,7 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 	return pic.URL, base64.StdEncoding.EncodeToString(picRaw), nil
 }
 
-func (s *Whatsmiau) persistMongoMessage(instance *models.Instance, data *WookMessageData, publish bool) {
+func (s *Whatsmiau) persistMongoMessage(instance *models.Instance, data *WookMessageData) {
 	if s == nil || s.mongoMessages == nil || instance == nil || data == nil || data.Key == nil {
 		return
 	}
@@ -1308,6 +1382,8 @@ func (s *Whatsmiau) persistMongoMessage(instance *models.Instance, data *WookMes
 		})
 		if err == nil && meta != nil {
 			s.publishStream(context.Background(), meta.TenantID.Hex(), "contact:update", map[string]string{
+				"instanceName":  instance.ID,
+				"connectionId":  meta.ConnectionID.Hex(),
 				"remoteJid":     data.Key.RemoteJid,
 				"pushName":      data.PushName,
 				"profilePicUrl": "",
@@ -1315,17 +1391,6 @@ func (s *Whatsmiau) persistMongoMessage(instance *models.Instance, data *WookMes
 		}
 	}
 
-	if publish {
-		// Fanout event to Redis Streams for the backend consumer (Socket.IO).
-		meta, err := s.mongoMessages.ResolveMeta(context.Background(), instance.ID)
-		if err == nil && meta != nil {
-			s.publishStream(context.Background(), meta.TenantID.Hex(), "message:new", map[string]string{
-				"instanceName": instance.ID,
-				"messageId":    data.Key.Id,
-				"remoteJid":    data.Key.RemoteJid,
-			})
-		}
-	}
 }
 
 func (s *Whatsmiau) persistMongoStatus(instance *models.Instance, upd *WookMessageUpdateData) {
@@ -1349,15 +1414,6 @@ func (s *Whatsmiau) persistMongoStatus(instance *models.Instance, upd *WookMessa
 
 	if err := s.mongoMessages.UpdateStatus(context.Background(), instance.ID, upd.MessageId, status); err != nil {
 		zap.L().Warn("mongo update status failed", zap.Error(err), zap.String("instance", instance.ID), zap.String("messageId", upd.MessageId), zap.String("status", status))
-	}
-
-	meta, err := s.mongoMessages.ResolveMeta(context.Background(), instance.ID)
-	if err == nil && meta != nil {
-		s.publishStream(context.Background(), meta.TenantID.Hex(), "message:status", map[string]string{
-			"instanceName": instance.ID,
-			"messageId":    upd.MessageId,
-			"status":       status,
-		})
 	}
 }
 
@@ -1396,6 +1452,8 @@ func (s *Whatsmiau) persistMongoContacts(instance *models.Instance, contacts []W
 		})
 		if err == nil && meta != nil {
 			s.publishStream(context.Background(), meta.TenantID.Hex(), "contact:update", map[string]string{
+				"instanceName":  instance.ID,
+				"connectionId":  meta.ConnectionID.Hex(),
 				"remoteJid":     c.RemoteJid,
 				"pushName":      c.PushName,
 				"profilePicUrl": c.ProfilePicUrl,
@@ -1404,8 +1462,32 @@ func (s *Whatsmiau) persistMongoContacts(instance *models.Instance, contacts []W
 	}
 }
 
+// resolveTenantAndConnection attempts to resolve the tenantId and connectionId
+// for an instanceName using the available MongoDB stores (mongoMessages,
+// mongoContacts). If neither is available or the lookup fails, it returns empty
+// strings. The backend's Redis Stream consumer already has logic to resolve
+// tenantId from instanceName, so empty values are acceptable and will not break
+// the real-time flow.
+func (s *Whatsmiau) resolveTenantAndConnection(ctx context.Context, instanceName string) (tenantID, connectionID string) {
+	if s.mongoMessages != nil {
+		if meta, err := s.mongoMessages.ResolveMeta(ctx, instanceName); err == nil && meta != nil {
+			return meta.TenantID.Hex(), meta.ConnectionID.Hex()
+		}
+	}
+	if s.mongoContacts != nil {
+		if meta, err := s.mongoContacts.ResolveMeta(ctx, instanceName); err == nil && meta != nil {
+			return meta.TenantID.Hex(), meta.ConnectionID.Hex()
+		}
+	}
+	return "", ""
+}
+
 func (s *Whatsmiau) publishStream(ctx context.Context, tenantID, typ string, fields map[string]string) {
 	if !env.Env.StreamEnabled {
+		return
+	}
+	if tenantID == "" {
+		zap.L().Warn("skipping stream event with empty tenantId", zap.String("type", typ), zap.Any("fields", fields))
 		return
 	}
 	rdb := services.Redis()
@@ -1446,13 +1528,6 @@ func deriveBodyFromWook(data *WookMessageData) (body, messageType, mediaURL, med
 	}
 
 	// Mirror the Node webhook deriveBody logic.
-	if data.Message.Conversation != "" {
-		msgType := "conversation"
-		if data.MessageType != "" && data.MessageType != "unknown" {
-			msgType = data.MessageType
-		}
-		return data.Message.Conversation, msgType, "", "", "", ""
-	}
 	if data.Message.ImageMessage != nil {
 		caption := data.Message.ImageMessage.Caption
 		if caption == "" {
@@ -1496,6 +1571,21 @@ func deriveBodyFromWook(data *WookMessageData) (body, messageType, mediaURL, med
 			url = data.Message.DocumentMessage.Url
 		}
 		return name, "documentMessage", url, key, data.Message.DocumentMessage.Mimetype, data.Message.DocumentMessage.FileName
+	}
+	if data.Message.StickerMessage != nil {
+		url := data.Message.MediaURL
+		key := data.Message.MediaKey
+		if url == "" {
+			url = data.Message.StickerMessage.Url
+		}
+		return "[Sticker]", "stickerMessage", url, key, data.Message.StickerMessage.Mimetype, ""
+	}
+	if data.Message.Conversation != "" {
+		msgType := "conversation"
+		if data.MessageType != "" && data.MessageType != "unknown" {
+			msgType = data.MessageType
+		}
+		return data.Message.Conversation, msgType, "", "", "", ""
 	}
 	if data.Message.ContactMessage != nil {
 		return "[Contato]", "contactMessage", "", "", "", ""

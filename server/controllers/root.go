@@ -26,3 +26,10 @@ func Root(ctx echo.Context) error {
 
 	return ctx.JSON(http.StatusOK, jsonData)
 }
+
+func Health(ctx echo.Context) error {
+	return ctx.JSON(http.StatusOK, map[string]any{
+		"status": "ok",
+		"service": "whatsmiau",
+	})
+}

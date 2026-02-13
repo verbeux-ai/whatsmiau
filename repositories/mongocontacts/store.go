@@ -14,11 +14,13 @@ import (
 )
 
 type Meta struct {
-	TenantID primitive.ObjectID
+	TenantID     primitive.ObjectID
+	ConnectionID primitive.ObjectID
 }
 
 type ContactUpsert struct {
 	InstanceName  string
+	ConnectionID  string
 	RemoteJid     string
 	RemoteLid     string
 	PushName      string
@@ -78,9 +80,11 @@ func (s *Store) ResolveMeta(ctx context.Context, instanceName string) (*Meta, er
 	}
 
 	var doc struct {
+		ID       primitive.ObjectID `bson:"_id"`
 		TenantID primitive.ObjectID `bson:"tenantId"`
 	}
 	err := s.colConnections.FindOne(ctx, bson.M{"instanceName": instanceName}, options.FindOne().SetProjection(bson.M{
+		"_id":      1,
 		"tenantId": 1,
 	})).Decode(&doc)
 	if err != nil {
@@ -90,7 +94,10 @@ func (s *Store) ResolveMeta(ctx context.Context, instanceName string) (*Meta, er
 		return nil, err
 	}
 
-	meta := Meta{TenantID: doc.TenantID}
+	meta := Meta{
+		TenantID:     doc.TenantID,
+		ConnectionID: doc.ID,
+	}
 	s.metaCacheByInst.Store(instanceName, cachedMeta{
 		Meta:      meta,
 		ExpiresAt: time.Now().Add(metaCacheTTL),
@@ -126,6 +133,7 @@ func (s *Store) UpsertContact(ctx context.Context, c ContactUpsert) (*Meta, erro
 	set := bson.M{
 		"isGroup":      c.IsGroup,
 		"updatedAt":    c.UpdatedAt,
+		"connectionId": meta.ConnectionID,
 		"instanceName": c.InstanceName,
 	}
 	pnJid, lidJid, identityKey := deriveIdentity(c.RemoteJid, c.RemoteLid)

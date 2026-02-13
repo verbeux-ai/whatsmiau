@@ -3,9 +3,11 @@ package routes
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/server/middleware"
+	"github.com/verbeux-ai/whatsmiau/server/controllers"
 )
 
 func Load(app *echo.Echo) {
+	app.GET("/health", controllers.Health)
 	app.Pre(middleware.Simplify(middleware.Auth))
 
 	V1(app.Group("/v1"))

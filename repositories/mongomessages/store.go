@@ -20,6 +20,7 @@ type Meta struct {
 
 type MessageUpsert struct {
 	InstanceName    string
+	ConnectionID    string
 	RemoteJid       string
 	RemoteLid       string
 	MessageID       string
@@ -145,18 +146,18 @@ func (s *Store) UpsertMessage(ctx context.Context, msg MessageUpsert) error {
 
 	filter := bson.M{
 		"tenantId":     meta.TenantID,
-		"instanceName": msg.InstanceName,
+		"connectionId": meta.ConnectionID,
 		"messageId":    msg.MessageID,
 	}
 
 	setOnInsert := bson.M{
 		"tenantId":     meta.TenantID,
+		"connectionId": meta.ConnectionID,
 		"instanceName": msg.InstanceName,
 		"messageId":    msg.MessageID,
 	}
 
 	set := bson.M{
-		"connectionId": meta.ConnectionID,
 		"remoteJid":    msg.RemoteJid,
 		"fromMe":       msg.FromMe,
 		"pushName":     msg.PushName,
@@ -250,7 +251,7 @@ func (s *Store) UpdateStatus(ctx context.Context, instanceName, messageID, statu
 
 	filter := bson.M{
 		"tenantId":     meta.TenantID,
-		"instanceName": instanceName,
+		"connectionId": meta.ConnectionID,
 		"messageId":    messageID,
 	}
 	_, err = s.colMessages.UpdateOne(ctx, filter, bson.M{"$set": bson.M{"status": status}})
