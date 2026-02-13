@@ -12,15 +12,22 @@ import (
 	"time"
 
 	"github.com/emersion/go-vcard"
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
+	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/models"
+	"github.com/verbeux-ai/whatsmiau/repositories/mongocontacts"
+	"github.com/verbeux-ai/whatsmiau/repositories/mongomessages"
+	"github.com/verbeux-ai/whatsmiau/services"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
+	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type emitter struct {
@@ -115,9 +122,20 @@ func (s *Whatsmiau) emit(body any, url string) {
 
 func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 	return func(evt any) {
-		s.handlerSemaphore <- struct{}{}
+		if s == nil {
+			zap.L().Error("nil whatsmiau receiver in event handler", zap.String("instance", id), zap.String("type", fmt.Sprintf("%T", evt)))
+			return
+		}
+
+		// If handlerSemaphore is nil for any reason, proceed without concurrency limiting.
+		if s.handlerSemaphore != nil {
+			s.handlerSemaphore <- struct{}{}
+		}
+
 		go func() {
-			defer func() { <-s.handlerSemaphore }()
+			if s.handlerSemaphore != nil {
+				defer func() { <-s.handlerSemaphore }()
+			}
 			instance := s.getInstanceCached(id)
 			if instance == nil {
 				zap.L().Warn("no instance found for event", zap.String("instance", id))
@@ -204,6 +222,25 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
 	}
 
+	// Store message for later fetch (history/backfill/debugging).
+	if s.messageStore != nil && wookMessage.Data != nil && wookMessage.Data.Key != nil {
+		if raw, err := json.Marshal(wookMessage.Data); err != nil {
+			zap.L().Warn("failed to marshal message for store", zap.Error(err))
+		} else {
+			_ = s.messageStore.Upsert(
+				context.Background(),
+				instance.ID,
+				wookMessage.Data.Key.RemoteJid,
+				wookMessage.Data.Key.Id,
+				int64(wookMessage.Data.MessageTimestamp),
+				raw,
+			)
+		}
+	}
+
+	// Optional: persist directly to MongoDB (so the app doesn't depend on webhooks for storage).
+	s.persistMongoMessage(instance, wookMessage.Data, true)
+
 	s.emit(wookMessage, instance.Webhook.Url)
 }
 
@@ -229,6 +266,9 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 			Event:    WookMessagesUpdate,
 		}
 
+		// Best-effort Mongo status update.
+		s.persistMongoStatus(instance, &event)
+
 		s.emit(wookData, instance.Webhook.Url)
 	}
 }
@@ -250,6 +290,9 @@ func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance
 		DateTime: time.Now(),
 		Event:    WookContactsUpsert,
 	}
+
+	// Optional: persist contact to Mongo + fanout.
+	s.persistMongoContacts(instance, []WookContact{*data})
 
 	s.emit(wookData, instance.Webhook.Url)
 }
@@ -276,6 +319,8 @@ func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *
 		Event:    WookContactsUpsert,
 	}
 
+	s.persistMongoContacts(instance, []WookContact{*data})
+
 	s.emit(wookData, instance.Webhook.Url)
 }
 
@@ -296,27 +341,164 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 		Event:    WookContactsUpsert,
 	}
 
+	s.persistMongoContacts(instance, []WookContact{*data})
+
 	s.emit(wookData, instance.Webhook.Url)
 }
 
 func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance, e *events.HistorySync, eventMap map[string]bool) {
-	if !eventMap["CONTACTS_UPSERT"] {
-		return
+	// 1) Store historical messages for later fetch
+	// 2) Still emit contacts.upsert (pushnames) for the app
+	if s.messageStore != nil || s.mongoMessages != nil {
+		client, ok := s.clients.Load(id)
+		if ok && e != nil && e.Data != nil {
+			// Safety cap to avoid flooding on very large history syncs.
+			stored := 0
+			const maxStore = 5000
+			for _, conv := range e.Data.GetConversations() {
+				for _, hmsg := range conv.GetMessages() {
+					if stored >= maxStore {
+						break
+					}
+					wmi := hmsg.GetMessage()
+					if wmi == nil || wmi.GetKey() == nil {
+						continue
+					}
+					msg := s.convertHistorySyncWebMessage(id, instance, client, wmi)
+					if msg == nil || msg.Key == nil {
+						continue
+					}
+
+					// Persist to Mongo so the app can load historical messages after connection recreation.
+					// Do NOT publish per-message events to Redis Streams here (would flood the UI on full sync).
+					if s.mongoMessages != nil {
+						s.persistMongoMessage(instance, msg, false)
+					}
+
+					raw, err := json.Marshal(msg)
+					if err != nil {
+						continue
+					}
+					if s.messageStore != nil {
+						_ = s.messageStore.Upsert(
+							context.Background(),
+							instance.ID,
+							msg.Key.RemoteJid,
+							msg.Key.Id,
+							int64(msg.MessageTimestamp),
+							raw,
+						)
+					}
+					stored++
+				}
+				if stored >= maxStore {
+					break
+				}
+			}
+			if stored > 0 {
+				zap.L().Info("stored history sync messages", zap.String("instance", id), zap.Int("count", stored))
+
+				// Publish a single event so the app can refresh the conversations list.
+				if s.mongoMessages != nil {
+					if meta, err := s.mongoMessages.ResolveMeta(context.Background(), instance.ID); err == nil && meta != nil {
+						s.publishStream(context.Background(), meta.TenantID.Hex(), "history:sync", map[string]string{
+							"instanceName": instance.ID,
+							"count":        fmt.Sprintf("%d", stored),
+						})
+					}
+				}
+			}
+		}
 	}
 
-	data := s.convertContactHistorySync(id, e.Data.GetPushnames(), e.Data.Conversations)
-	if data == nil {
-		return
+	// Emit contacts.upsert from pushnames (existing behavior).
+	if eventMap["CONTACTS_UPSERT"] {
+		data := s.convertContactHistorySync(id, e.Data.GetPushnames(), e.Data.Conversations)
+		if data != nil {
+			wookData := &WookEvent[WookContactUpsertData]{
+				Instance: instance.ID,
+				Data:     &data,
+				DateTime: time.Now(),
+				Event:    WookContactsUpsert,
+			}
+			s.emit(wookData, instance.Webhook.Url)
+		}
+	}
+}
+
+func (s *Whatsmiau) convertHistorySyncWebMessage(id string, instance *models.Instance, client *whatsmeow.Client, wmi *waWeb.WebMessageInfo) *WookMessageData {
+	if wmi == nil || wmi.GetKey() == nil || wmi.GetMessage() == nil {
+		return nil
 	}
 
-	wookData := &WookEvent[WookContactUpsertData]{
-		Instance: instance.ID,
-		Data:     &data,
-		DateTime: time.Now(),
-		Event:    WookContactsUpsert,
+	key := wmi.GetKey()
+	jid := key.GetRemoteJID()
+
+	participant := key.GetParticipant()
+	if participant == "" {
+		participant = jid
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	wookKey := &WookKey{
+		RemoteJid:   jid,
+		RemoteLid:   "",
+		FromMe:      key.GetFromMe(),
+		Id:          key.GetID(),
+		Participant: participant,
+	}
+
+	status := "received"
+	if key.GetFromMe() {
+		status = "sent"
+	}
+
+	ts := int64(wmi.GetMessageTimestamp())
+	if ts <= 0 {
+		ts = time.Now().Unix()
+	}
+
+	messageType, raw, ci := s.parseWAMessage(wmi.GetMessage())
+
+	// Upload media to configured storage (MinIO/S3/GCS) when possible.
+	switch messageType {
+	case "imageMessage":
+		if img := wmi.GetMessage().GetImageMessage(); img != nil {
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, img, img.GetMimetype(), "")
+		}
+	case "audioMessage":
+		if aud := wmi.GetMessage().GetAudioMessage(); aud != nil {
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, aud, aud.GetMimetype(), "")
+		}
+	case "documentMessage":
+		if doc := wmi.GetMessage().GetDocumentMessage(); doc != nil {
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, doc, doc.GetMimetype(), doc.GetFileName())
+		}
+	case "videoMessage":
+		if vid := wmi.GetMessage().GetVideoMessage(); vid != nil {
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(context.Background(), instance, client, vid, vid.GetMimetype(), "")
+		}
+	}
+
+	// Minimal context info (enough for quoted/mentions later, if needed).
+	var messageContext WookMessageContextInfo
+	if ci != nil {
+		messageContext.StanzaId = ci.GetStanzaID()
+		messageContext.Participant = ci.GetParticipant()
+		messageContext.Expiration = int(ci.GetExpiration())
+		messageContext.MentionedJid = ci.GetMentionedJID()
+	}
+
+	return &WookMessageData{
+		Key:              wookKey,
+		PushName:         strings.TrimSpace(wmi.GetPushName()),
+		Status:           status,
+		Message:          raw,
+		ContextInfo:      &messageContext,
+		MessageType:      messageType,
+		MessageTimestamp: int(ts),
+		InstanceId:       instance.ID,
+		Source:           "whatsapp",
+	}
 }
 
 func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e *events.GroupInfo, eventMap map[string]bool) {
@@ -373,6 +555,11 @@ func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e 
 // It only inspects the content of the protobuf message itself –
 // media upload (URL/Base64 generation) is handled later by the caller.
 func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *waE2E.ContextInfo) {
+	if m == nil {
+		return "unknown", &WookMessageRaw{}, nil
+	}
+	m = unwrapNestedMessage(m)
+
 	var messageType string
 	raw := &WookMessageRaw{}
 	var ci *waE2E.ContextInfo
@@ -507,6 +694,26 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 			Contacts:    contacts,
 		}
 		ci = contactArray.GetContextInfo()
+	} else if sticker := m.GetStickerMessage(); sticker != nil {
+		messageType = "stickerMessage"
+		raw.Conversation = "[Sticker]"
+	} else if loc := m.GetLocationMessage(); loc != nil {
+		messageType = "locationMessage"
+		name := strings.TrimSpace(loc.GetName())
+		if name == "" {
+			name = "[Localizacao]"
+		}
+		raw.Conversation = name
+	} else if m.GetLiveLocationMessage() != nil {
+		messageType = "liveLocationMessage"
+		raw.Conversation = "[Localizacao ao vivo]"
+	} else if poll := m.GetPollCreationMessage(); poll != nil {
+		messageType = "pollCreationMessage"
+		name := strings.TrimSpace(poll.GetName())
+		if name == "" {
+			name = "[Enquete]"
+		}
+		raw.Conversation = name
 	} else if conv := strings.TrimSpace(m.GetConversation()); conv != "" {
 		messageType = "conversation"
 		raw.Conversation = conv
@@ -515,10 +722,59 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 		raw.Conversation = et.GetText()
 		ci = et.GetContextInfo()
 	} else {
+		if env.Env.DebugRawMsgs && m != nil {
+			// Print the raw protobuf JSON to help mapping new message types (ephemeral/viewOnce/sticker/etc).
+			b, err := protojson.MarshalOptions{
+				UseProtoNames:   true,
+				EmitUnpopulated: false,
+			}.Marshal(m)
+			if err != nil {
+				zap.L().Warn("unknown message: failed to marshal proto", zap.Error(err))
+			} else {
+				const max = 20000
+				rawJSON := string(b)
+				if len(rawJSON) > max {
+					rawJSON = rawJSON[:max] + "...(truncated)"
+				}
+				zap.L().Warn("unknown message: raw proto", zap.String("raw", rawJSON))
+			}
+		}
 		messageType = "unknown"
 	}
 
 	return messageType, raw, ci
+}
+
+func unwrapNestedMessage(m *waE2E.Message) *waE2E.Message {
+	current := m
+	for i := 0; i < 8 && current != nil; i++ {
+		var next *waE2E.Message
+
+		switch {
+		case current.GetDeviceSentMessage() != nil:
+			next = current.GetDeviceSentMessage().GetMessage()
+		case current.GetEphemeralMessage() != nil:
+			next = current.GetEphemeralMessage().GetMessage()
+		case current.GetViewOnceMessage() != nil:
+			next = current.GetViewOnceMessage().GetMessage()
+		case current.GetViewOnceMessageV2() != nil:
+			next = current.GetViewOnceMessageV2().GetMessage()
+		case current.GetViewOnceMessageV2Extension() != nil:
+			next = current.GetViewOnceMessageV2Extension().GetMessage()
+		case current.GetDocumentWithCaptionMessage() != nil:
+			next = current.GetDocumentWithCaptionMessage().GetMessage()
+		case current.GetEditedMessage() != nil:
+			next = current.GetEditedMessage().GetMessage()
+		case current.GetGroupMentionedMessage() != nil:
+			next = current.GetGroupMentionedMessage().GetMessage()
+		}
+
+		if next == nil {
+			break
+		}
+		current = next
+	}
+	return current
 }
 
 func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.Pushname, conversations []*waHistorySync.Conversation) WookContactUpsertData {
@@ -530,13 +786,13 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 		}
 
 		if dt := strings.Split(pushName.GetPushname(), "@"); len(dt) == 2 && (dt[1] == "g.us" || dt[1] == "s.whatsapp.net") {
-			return nil
+			continue
 		}
 
 		jid, err := types.ParseJID(pushName.GetID())
 		if err != nil {
 			zap.L().Error("failed to parse jid", zap.String("pushname", pushName.GetPushname()))
-			return nil
+			continue
 		}
 
 		jidParsed, lid := s.GetJidLid(context.Background(), id, jid)
@@ -561,13 +817,13 @@ func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.
 			continue
 		}
 		if dt := strings.Split(name, "@"); len(dt) == 2 && (dt[1] == "g.us" || dt[1] == "s.whatsapp.net") {
-			return nil
+			continue
 		}
 
 		jid, err := types.ParseJID(conversation.GetID())
 		if err != nil {
 			zap.L().Error("failed to parse jid", zap.String("name", conversation.GetName()))
-			return nil
+			continue
 		}
 		jidParsed, lid := s.GetJidLid(context.Background(), id, jid)
 
@@ -647,19 +903,19 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 	switch messageType {
 	case "imageMessage":
 		if img := m.GetImageMessage(); img != nil {
-			raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, img, img.GetMimetype(), "")
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(ctx, instance, client, img, img.GetMimetype(), "")
 		}
 	case "audioMessage":
 		if aud := m.GetAudioMessage(); aud != nil {
-			raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, aud, aud.GetMimetype(), "")
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(ctx, instance, client, aud, aud.GetMimetype(), "")
 		}
 	case "documentMessage":
 		if doc := m.GetDocumentMessage(); doc != nil {
-			raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, doc, doc.GetMimetype(), doc.GetFileName())
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(ctx, instance, client, doc, doc.GetMimetype(), doc.GetFileName())
 		}
 	case "videoMessage":
 		if vid := m.GetVideoMessage(); vid != nil {
-			raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, vid, vid.GetMimetype(), "")
+			raw.MediaURL, raw.Base64, raw.MediaKey = s.uploadMessageFile(ctx, instance, client, vid, vid.GetMimetype(), "")
 		}
 	}
 
@@ -755,10 +1011,11 @@ func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMe
 	return result
 }
 
-func (s *Whatsmiau) uploadMessageFile(ctx context.Context, instance *models.Instance, client *whatsmeow.Client, fileMessage whatsmeow.DownloadableMessage, mimetype, fileName string) (string, string) {
+func (s *Whatsmiau) uploadMessageFile(ctx context.Context, instance *models.Instance, client *whatsmeow.Client, fileMessage whatsmeow.DownloadableMessage, mimetype, fileName string) (string, string, string) {
 	var (
 		b64Result string
 		urlResult string
+		keyResult string
 		ext       string
 	)
 
@@ -769,8 +1026,14 @@ func (s *Whatsmiau) uploadMessageFile(ctx context.Context, instance *models.Inst
 
 	defer os.Remove(tmpFile.Name())
 	if err := client.DownloadToFile(ctx, fileMessage, tmpFile); err != nil {
-		zap.L().Error("failed to download image", zap.Error(err))
-		return "", ""
+		// History sync often contains media that is no longer retrievable from WhatsApp's CDN (403).
+		// This should not stop message persistence; we just skip uploading media.
+		if strings.Contains(err.Error(), "status code 403") || strings.Contains(err.Error(), "403") {
+			zap.L().Debug("media download forbidden (likely old history)", zap.Error(err))
+		} else {
+			zap.L().Error("failed to download media", zap.Error(err))
+		}
+		return "", "", ""
 	}
 
 	if _, err := tmpFile.Seek(0, io.SeekStart); err != nil {
@@ -791,13 +1054,14 @@ func (s *Whatsmiau) uploadMessageFile(ctx context.Context, instance *models.Inst
 			zap.L().Error("failed to seek image", zap.Error(err))
 		}
 
-		urlResult, _, err = s.fileStorage.Upload(ctx, uuid.NewString()+"."+ext, mimetype, tmpFile)
+		objectKey := uuid.NewString() + "." + ext
+		urlResult, keyResult, err = s.fileStorage.Upload(ctx, objectKey, mimetype, tmpFile)
 		if err != nil {
 			zap.L().Error("failed to upload image", zap.Error(err))
 		}
 	}
 
-	return urlResult, b64Result
+	return urlResult, b64Result, keyResult
 }
 
 func (s *Whatsmiau) convertContact(id string, evt *events.Contact) *WookContact {
@@ -972,4 +1236,272 @@ func (s *Whatsmiau) getPic(id string, jid types.JID) (string, string, error) {
 	}
 
 	return pic.URL, base64.StdEncoding.EncodeToString(picRaw), nil
+}
+
+func (s *Whatsmiau) persistMongoMessage(instance *models.Instance, data *WookMessageData, publish bool) {
+	if s == nil || s.mongoMessages == nil || instance == nil || data == nil || data.Key == nil {
+		return
+	}
+
+	// Track our own pushName to avoid polluting contact records with "self" names.
+	if data.Key.FromMe && data.PushName != "" && s.selfPushName != nil {
+		s.selfPushName.Store(instance.ID, data.PushName)
+	}
+
+	body, msgType, mediaURL, mediaKey, mediaMime, mediaFileName := deriveBodyFromWook(data)
+
+	quotedID := ""
+	if data.ContextInfo != nil && data.ContextInfo.StanzaId != "" {
+		quotedID = data.ContextInfo.StanzaId
+	}
+
+	ts := time.Unix(int64(data.MessageTimestamp), 0)
+	if ts.IsZero() || ts.Unix() <= 0 {
+		ts = time.Now()
+	}
+
+	status := ""
+	if data.Key.FromMe {
+		status = "sent"
+	} else {
+		status = "received"
+	}
+
+	if err := s.mongoMessages.UpsertMessage(context.Background(), mongomessages.MessageUpsert{
+		InstanceName:    instance.ID,
+		RemoteJid:       data.Key.RemoteJid,
+		RemoteLid:       data.Key.RemoteLid,
+		MessageID:       data.Key.Id,
+		FromMe:          data.Key.FromMe,
+		PushName:        data.PushName,
+		Participant:     data.Key.Participant,
+		MessageType:     msgType,
+		Body:            body,
+		MediaKey:        mediaKey,
+		MediaURL:        mediaURL,
+		MediaMimetype:   mediaMime,
+		MediaFileName:   mediaFileName,
+		QuotedMessageID: quotedID,
+		Status:          status,
+		Timestamp:       ts,
+	}); err != nil {
+		zap.L().Warn("mongo upsert message failed", zap.Error(err), zap.String("instance", instance.ID), zap.String("remoteJid", data.Key.RemoteJid), zap.String("messageId", data.Key.Id))
+	}
+
+	// If this is an incoming message, use its pushName to keep Contact.pushName correct.
+	// (Contact events can be inconsistent; message events are the most reliable signal.)
+	if !data.Key.FromMe && s.mongoContacts != nil && data.PushName != "" {
+		isGroup := strings.HasSuffix(data.Key.RemoteJid, "@g.us")
+		phone := ""
+		if !isGroup {
+			phone = strings.Split(data.Key.RemoteJid, "@")[0]
+		}
+		meta, err := s.mongoContacts.UpsertContact(context.Background(), mongocontacts.ContactUpsert{
+			InstanceName:  instance.ID,
+			RemoteJid:     data.Key.RemoteJid,
+			RemoteLid:     data.Key.RemoteLid,
+			PushName:      data.PushName,
+			ProfilePicUrl: "",
+			IsGroup:       isGroup,
+			Phone:         phone,
+			UpdatedAt:     time.Now(),
+		})
+		if err == nil && meta != nil {
+			s.publishStream(context.Background(), meta.TenantID.Hex(), "contact:update", map[string]string{
+				"remoteJid":     data.Key.RemoteJid,
+				"pushName":      data.PushName,
+				"profilePicUrl": "",
+			})
+		}
+	}
+
+	if publish {
+		// Fanout event to Redis Streams for the backend consumer (Socket.IO).
+		meta, err := s.mongoMessages.ResolveMeta(context.Background(), instance.ID)
+		if err == nil && meta != nil {
+			s.publishStream(context.Background(), meta.TenantID.Hex(), "message:new", map[string]string{
+				"instanceName": instance.ID,
+				"messageId":    data.Key.Id,
+				"remoteJid":    data.Key.RemoteJid,
+			})
+		}
+	}
+}
+
+func (s *Whatsmiau) persistMongoStatus(instance *models.Instance, upd *WookMessageUpdateData) {
+	if s == nil || s.mongoMessages == nil || instance == nil || upd == nil {
+		return
+	}
+	// Only relevant for our own outgoing messages.
+	if !upd.FromMe {
+		return
+	}
+
+	status := ""
+	switch upd.Status {
+	case MessageStatusDeliveryAck:
+		status = "delivered"
+	case MessageStatusRead:
+		status = "read"
+	default:
+		return
+	}
+
+	if err := s.mongoMessages.UpdateStatus(context.Background(), instance.ID, upd.MessageId, status); err != nil {
+		zap.L().Warn("mongo update status failed", zap.Error(err), zap.String("instance", instance.ID), zap.String("messageId", upd.MessageId), zap.String("status", status))
+	}
+
+	meta, err := s.mongoMessages.ResolveMeta(context.Background(), instance.ID)
+	if err == nil && meta != nil {
+		s.publishStream(context.Background(), meta.TenantID.Hex(), "message:status", map[string]string{
+			"instanceName": instance.ID,
+			"messageId":    upd.MessageId,
+			"status":       status,
+		})
+	}
+}
+
+func (s *Whatsmiau) persistMongoContacts(instance *models.Instance, contacts []WookContact) {
+	if s == nil || s.mongoContacts == nil || instance == nil || len(contacts) == 0 {
+		return
+	}
+	selfName := ""
+	if s.selfPushName != nil {
+		if v, ok := s.selfPushName.Load(instance.ID); ok {
+			selfName = v
+		}
+	}
+	for _, c := range contacts {
+		isGroup := strings.HasSuffix(c.RemoteJid, "@g.us")
+		phone := ""
+		if !isGroup {
+			phone = strings.Split(c.RemoteJid, "@")[0]
+		}
+
+		// Avoid overwriting a contact's name with our own pushName.
+		pushName := c.PushName
+		if selfName != "" && pushName == selfName {
+			pushName = ""
+		}
+
+		meta, err := s.mongoContacts.UpsertContact(context.Background(), mongocontacts.ContactUpsert{
+			InstanceName:  instance.ID,
+			RemoteJid:     c.RemoteJid,
+			RemoteLid:     c.RemoteLid,
+			PushName:      pushName,
+			ProfilePicUrl: c.ProfilePicUrl,
+			IsGroup:       isGroup,
+			Phone:         phone,
+			UpdatedAt:     time.Now(),
+		})
+		if err == nil && meta != nil {
+			s.publishStream(context.Background(), meta.TenantID.Hex(), "contact:update", map[string]string{
+				"remoteJid":     c.RemoteJid,
+				"pushName":      c.PushName,
+				"profilePicUrl": c.ProfilePicUrl,
+			})
+		}
+	}
+}
+
+func (s *Whatsmiau) publishStream(ctx context.Context, tenantID, typ string, fields map[string]string) {
+	if !env.Env.StreamEnabled {
+		return
+	}
+	rdb := services.Redis()
+	if rdb == nil {
+		return
+	}
+	key := env.Env.StreamKey
+	if key == "" {
+		key = "rz:events"
+	}
+	maxLen := int64(env.Env.StreamMaxLen)
+	if maxLen <= 0 {
+		maxLen = 10000
+	}
+
+	values := make(map[string]interface{}, 2+len(fields))
+	values["tenantId"] = tenantID
+	values["type"] = typ
+	for k, v := range fields {
+		values[k] = v
+	}
+
+	args := &redis.XAddArgs{
+		Stream: key,
+		Values: values,
+	}
+	if env.Env.StreamMaxLenApprox {
+		args.MaxLenApprox = maxLen
+	} else {
+		args.MaxLen = maxLen
+	}
+	_ = rdb.XAdd(ctx, args).Err()
+}
+
+func deriveBodyFromWook(data *WookMessageData) (body, messageType, mediaURL, mediaKey, mediaMimetype, mediaFileName string) {
+	if data == nil || data.Message == nil {
+		return "[Mensagem]", "unknown", "", "", "", ""
+	}
+
+	// Mirror the Node webhook deriveBody logic.
+	if data.Message.Conversation != "" {
+		msgType := "conversation"
+		if data.MessageType != "" && data.MessageType != "unknown" {
+			msgType = data.MessageType
+		}
+		return data.Message.Conversation, msgType, "", "", "", ""
+	}
+	if data.Message.ImageMessage != nil {
+		caption := data.Message.ImageMessage.Caption
+		if caption == "" {
+			caption = "[Imagem]"
+		}
+		url := data.Message.MediaURL
+		key := data.Message.MediaKey
+		if url == "" {
+			url = data.Message.ImageMessage.Url
+		}
+		return caption, "imageMessage", url, key, data.Message.ImageMessage.Mimetype, ""
+	}
+	if data.Message.AudioMessage != nil {
+		url := data.Message.MediaURL
+		key := data.Message.MediaKey
+		if url == "" {
+			url = data.Message.AudioMessage.Url
+		}
+		return "[Audio]", "audioMessage", url, key, data.Message.AudioMessage.Mimetype, ""
+	}
+	if data.Message.VideoMessage != nil {
+		caption := data.Message.VideoMessage.Caption
+		if caption == "" {
+			caption = "[Video]"
+		}
+		url := data.Message.MediaURL
+		key := data.Message.MediaKey
+		if url == "" {
+			url = data.Message.VideoMessage.Url
+		}
+		return caption, "videoMessage", url, key, data.Message.VideoMessage.Mimetype, ""
+	}
+	if data.Message.DocumentMessage != nil {
+		name := data.Message.DocumentMessage.FileName
+		if name == "" {
+			name = "[Documento]"
+		}
+		url := data.Message.MediaURL
+		key := data.Message.MediaKey
+		if url == "" {
+			url = data.Message.DocumentMessage.Url
+		}
+		return name, "documentMessage", url, key, data.Message.DocumentMessage.Mimetype, data.Message.DocumentMessage.FileName
+	}
+	if data.Message.ContactMessage != nil {
+		return "[Contato]", "contactMessage", "", "", "", ""
+	}
+	if data.Message.ReactionMessage != nil {
+		return data.Message.ReactionMessage.Text, "reactionMessage", "", "", "", ""
+	}
+	return "[Mensagem]", "unknown", "", "", "", ""
 }

@@ -2,13 +2,17 @@ package controllers
 
 import (
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
+	msgrepo "github.com/verbeux-ai/whatsmiau/repositories/messages"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
+	"github.com/verbeux-ai/whatsmiau/services"
 	"github.com/verbeux-ai/whatsmiau/utils"
 	"go.mau.fi/whatsmeow/types"
 	"go.uber.org/zap"
@@ -115,6 +119,104 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, map[string]interface{}{})
+}
+
+func (s *Chat) GetContacts(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+
+	contacts, err := s.whatsmiau.GetAllContacts(ctx.Request().Context(), instanceID)
+	if err != nil {
+		zap.L().Error("Whatsmiau.GetAllContacts failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to get contacts")
+	}
+
+	return ctx.JSON(http.StatusOK, contacts)
+}
+
+func (s *Chat) GetMessages(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+	remoteJid := ctx.Param("remoteJid")
+	if remoteJid == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "remoteJid is required in the URL path")
+	}
+
+	beforeStr := ctx.QueryParam("before")
+	limitStr := ctx.QueryParam("limit")
+
+	limit := 50
+	if limitStr != "" {
+		if n, err := strconv.Atoi(limitStr); err == nil {
+			limit = n
+		}
+	}
+	before, err := msgrepo.ParseBeforeParam(beforeStr)
+	if err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid before")
+	}
+
+	store := services.MessageStore()
+	msgs, err := store.List(ctx.Request().Context(), instanceID, remoteJid, before, limit)
+	if err != nil {
+		zap.L().Error("MessageStore.List failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to list messages")
+	}
+
+	return ctx.JSON(http.StatusOK, msgs)
+}
+
+func (s *Chat) GetGroups(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+
+	groups, err := s.whatsmiau.GetGroups(ctx.Request().Context(), instanceID)
+	if err != nil {
+		zap.L().Error("Whatsmiau.GetGroups failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to get groups")
+	}
+
+	return ctx.JSON(http.StatusOK, groups)
+}
+
+func (s *Chat) GetGroupInfo(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+	groupJid := ctx.Param("groupJid")
+	if groupJid == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "groupJid is required in the URL path")
+	}
+	if decoded, err := url.PathUnescape(groupJid); err == nil && decoded != "" {
+		groupJid = decoded
+	}
+
+	jid, err := numberToJid(groupJid)
+	if err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid group jid format")
+	}
+	includeParticipants := false
+	if p := ctx.QueryParam("participants"); p == "1" || p == "true" || p == "yes" {
+		includeParticipants = true
+	}
+
+	info, err := s.whatsmiau.GetGroupInfo(ctx.Request().Context(), instanceID, *jid, includeParticipants)
+	if err != nil {
+		zap.L().Error("Whatsmiau.GetGroupInfo failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to get group info")
+	}
+	if info == nil {
+		return utils.HTTPFail(ctx, http.StatusNotFound, nil, "group not found")
+	}
+
+	return ctx.JSON(http.StatusOK, info)
 }
 
 func (s *Chat) NumberExists(ctx echo.Context) error {

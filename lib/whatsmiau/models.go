@@ -102,6 +102,7 @@ type WookMessageRaw struct {
 
 	ListResponseMessage *WookListMessageRaw `json:"listResponseMessage,omitempty"`
 	MediaURL            string              `json:"mediaUrl,omitempty"` // Sent when connect with some storage
+	MediaKey            string              `json:"mediaKey,omitempty"` // Object key in storage (preferred over MediaURL)
 }
 
 type ContactsArrayMessageRaw struct {

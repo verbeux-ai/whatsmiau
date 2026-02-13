@@ -27,4 +27,5 @@ func MessageEVO(group *echo.Group) {
 	group.POST("/sendWhatsAppAudio/:instance", controller.SendAudio) // is always whatsapp 🤣
 	group.POST("/sendMedia/:instance", controller.SendMedia)
 	group.POST("/sendReaction/:instance", controller.SendReaction)
+	group.POST("/revokeMessage/:instance", controller.RevokeMessage)
 }

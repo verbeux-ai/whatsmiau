@@ -314,3 +314,46 @@ func (s *Message) SendReaction(ctx echo.Context) error {
 		InstanceId:       request.InstanceID,
 	})
 }
+
+func (s *Message) RevokeMessage(ctx echo.Context) error {
+	var request dto.RevokeMessageRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	if err := validator.New().Struct(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
+	}
+
+	jid, err := numberToJid(request.Key.RemoteJid)
+	if err != nil {
+		zap.L().Error("error converting number to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
+	}
+
+	revokeRequest := &whatsmiau.RevokeMessageRequest{
+		InstanceID: request.InstanceID,
+		RemoteJID:  jid,
+		MessageID:  request.Key.Id,
+		FromMe:     request.Key.FromMe,
+	}
+
+	c := ctx.Request().Context()
+	res, err := s.whatsmiau.RevokeMessage(c, revokeRequest)
+	if err != nil {
+		zap.L().Error("Whatsmiau.RevokeMessage failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to revoke message")
+	}
+
+	return ctx.JSON(http.StatusOK, dto.RevokeMessageResponse{
+		Key: dto.MessageResponseKey{
+			RemoteJid: request.Key.RemoteJid,
+			FromMe:    true,
+			Id:        res.ID,
+		},
+		Status:           "sent",
+		MessageType:      "revokeMessage",
+		MessageTimestamp: int(res.CreatedAt.UnixMicro() / 1000),
+		InstanceId:       request.InstanceID,
+	})
+}

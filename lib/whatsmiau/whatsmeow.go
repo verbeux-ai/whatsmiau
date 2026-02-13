@@ -10,8 +10,12 @@ import (
 	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
 	"github.com/verbeux-ai/whatsmiau/lib/storage/gcs"
+	"github.com/verbeux-ai/whatsmiau/lib/storage/s3"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
+	"github.com/verbeux-ai/whatsmiau/repositories/messages"
+	"github.com/verbeux-ai/whatsmiau/repositories/mongocontacts"
+	"github.com/verbeux-ai/whatsmiau/repositories/mongomessages"
 	"github.com/verbeux-ai/whatsmiau/services"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
@@ -36,6 +40,10 @@ type Whatsmiau struct {
 	emitter          chan emitter
 	httpClient       *http.Client
 	fileStorage      interfaces.Storage
+	messageStore     *messages.Store
+	mongoMessages    *mongomessages.Store
+	mongoContacts    *mongocontacts.Store
+	selfPushName     *xsync.Map[string, string]
 	handlerSemaphore chan struct{}
 }
 
@@ -80,6 +88,8 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	clients := xsync.NewMap[string, *whatsmeow.Client]()
 
 	clientLog := waLog.Stdout("Client", level, false)
+	zap.L().Info("starting auto-reconnect", zap.Int("device_count", len(deviceStore)), zap.Int("instance_count", len(instanceByRemoteJid)))
+
 	for _, device := range deviceStore {
 		client := whatsmeow.NewClient(device, clientLog)
 		if client.Store.ID == nil {
@@ -87,18 +97,25 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 			continue
 		}
 
-		instanceFound, ok := instanceByRemoteJid[client.Store.ID.String()]
+		jidStr := client.Store.ID.String()
+		instanceFound, ok := instanceByRemoteJid[jidStr]
 		if ok {
+			zap.L().Info("found matching instance for device", zap.String("jid", jidStr), zap.String("instance_id", instanceFound.ID))
 			configProxy(client, instanceFound.InstanceProxy)
 			clients.Store(instanceFound.ID, client)
 			if err := client.Connect(); err != nil {
-				zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", client.Store.ID.String()))
+				zap.L().Error("failed to connect device", zap.Error(err), zap.String("jid", jidStr), zap.String("instance_id", instanceFound.ID))
+				// Remove from clients map if connection failed
+				clients.Delete(instanceFound.ID)
+			} else {
+				zap.L().Info("device reconnected successfully", zap.String("jid", jidStr), zap.String("instance_id", instanceFound.ID))
 			}
 			continue
 		}
 
+		zap.L().Warn("no matching instance found for device, logging out", zap.String("jid", jidStr))
 		if err := client.Logout(context.TODO()); err != nil {
-			zap.L().Error("failed to logout", zap.Error(err), zap.String("jid", client.Store.ID.String()))
+			zap.L().Error("failed to logout", zap.Error(err), zap.String("jid", jidStr))
 		}
 		if client.Store != nil && client.Store.ID != nil {
 			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
@@ -108,7 +125,21 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	}
 
 	var storage interfaces.Storage
-	if env.Env.GCSEnabled {
+	if env.Env.S3Enabled {
+		storage, err = s3.New(context.Background(), s3.Options{
+			Endpoint:       env.Env.S3Endpoint,
+			Region:         env.Env.S3Region,
+			Bucket:         env.Env.S3Bucket,
+			AccessKey:      env.Env.S3AccessKey,
+			SecretKey:      env.Env.S3SecretKey,
+			UseSSL:         env.Env.S3UseSSL,
+			ForcePathStyle: env.Env.S3ForcePathStyle,
+			PublicURL:      env.Env.S3PublicURL,
+		})
+		if err != nil {
+			zap.L().Panic("failed to create S3 storage", zap.Error(err))
+		}
+	} else if env.Env.GCSEnabled {
 		storage, err = gcs.New(env.Env.GCSBucket)
 		if err != nil {
 			zap.L().Panic("failed to create GCS storage", zap.Error(err))
@@ -129,16 +160,23 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 			Timeout: time.Second * 30, // TODO: load from env
 		},
 		fileStorage:      storage,
+		messageStore:     services.MessageStore(),
+		mongoMessages:    mongomessages.New(services.Mongo(), env.Env.MongoDB),
+		mongoContacts:    mongocontacts.New(services.Mongo(), env.Env.MongoDB),
+		selfPushName:     xsync.NewMap[string, string](),
 		handlerSemaphore: make(chan struct{}, env.Env.HandlerSemaphoreSize),
 	}
 
 	go instance.startEmitter()
 
-	clients.Range(func(id string, client *whatsmeow.Client) bool {
-		zap.L().Info("stating event handler", zap.String("jid", client.Store.ID.String()))
-		client.AddEventHandler(instance.Handle(id))
-		return true
-	})
+	// Populate instance cache and add event handlers for reconnected clients
+	for jidStr, inst := range instanceByRemoteJid {
+		if client, ok := clients.Load(inst.ID); ok {
+			instance.instanceCache.Store(inst.ID, inst)
+			zap.L().Info("registering event handler", zap.String("jid", jidStr), zap.String("instance_id", inst.ID))
+			client.AddEventHandler(instance.Handle(inst.ID))
+		}
+	}
 
 }
 

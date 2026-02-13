@@ -302,3 +302,46 @@ func (s *Whatsmiau) SendReaction(ctx context.Context, data *SendReactionRequest)
 		CreatedAt: res.Timestamp,
 	}, nil
 }
+
+type RevokeMessageRequest struct {
+	InstanceID string     `json:"instance_id"`
+	RemoteJID  *types.JID `json:"remote_jid"`
+	MessageID  string     `json:"message_id"`
+	FromMe     bool       `json:"from_me"`
+}
+
+type RevokeMessageResponse struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *Whatsmiau) RevokeMessage(ctx context.Context, data *RevokeMessageRequest) (*RevokeMessageResponse, error) {
+	client, ok := s.clients.Load(data.InstanceID)
+	if !ok {
+		return nil, whatsmeow.ErrClientIsNil
+	}
+
+	if len(data.MessageID) <= 0 {
+		return nil, fmt.Errorf("invalid message_id")
+	}
+
+	if client.Store == nil || client.Store.ID == nil {
+		return nil, fmt.Errorf("device is not connected")
+	}
+
+	sender := data.RemoteJID
+	if data.FromMe {
+		sender = client.Store.ID
+	}
+
+	doc := client.BuildRevoke(*data.RemoteJID, *sender, data.MessageID)
+	res, err := client.SendMessage(ctx, *data.RemoteJID, doc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RevokeMessageResponse{
+		ID:        res.ID,
+		CreatedAt: res.Timestamp,
+	}, nil
+}

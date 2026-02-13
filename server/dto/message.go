@@ -174,15 +174,34 @@ type SendDocumentResponseDataImage struct {
 
 type SendReactionRequest struct {
 	InstanceID string `param:"instance" validate:"required"`
-	Reaction   string `json:"reaction,omitempty" validate:"required,len=1"`
+	Reaction   string `json:"reaction,omitempty" validate:"required,min=1,max=2"`
 	Key        struct {
 		RemoteJid string `json:"remoteJid,omitempty" validate:"required"`
 		Id        string `json:"id,omitempty" validate:"required"`
-		FromMe    bool   `json:"fromMe,omitempty" validate:"required"`
+		FromMe    bool   `json:"fromMe" validate:""`
 	} `json:"key"`
 }
 
 type SendReactionResponse struct {
+	Key              MessageResponseKey `json:"key"`
+	ContextInfo      any                `json:"contextInfo,omitempty"`
+	MessageType      string             `json:"messageType,omitempty"`
+	MessageTimestamp int                `json:"messageTimestamp,omitempty"`
+	InstanceId       string             `json:"instanceId,omitempty"`
+	Source           string             `json:"source,omitempty"`
+	Status           string             `json:"status,omitempty"`
+}
+
+type RevokeMessageRequest struct {
+	InstanceID string `param:"instance" validate:"required"`
+	Key        struct {
+		RemoteJid string `json:"remoteJid,omitempty" validate:"required"`
+		Id        string `json:"id,omitempty" validate:"required"`
+		FromMe    bool   `json:"fromMe" validate:""`
+	} `json:"key"`
+}
+
+type RevokeMessageResponse struct {
 	Key              MessageResponseKey `json:"key"`
 	ContextInfo      any                `json:"contextInfo,omitempty"`
 	MessageType      string             `json:"messageType,omitempty"`
