@@ -47,6 +47,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/chat/deleteMessageForEveryone/{instance}": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Revokes a message in the chat so it is deleted for all participants.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Delete message for everyone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Message to revoke",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.DeleteMessageForEveryoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Empty object on success",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/chat/markMessageAsRead/{instance}": {
             "post": {
                 "security": [
@@ -974,6 +1039,71 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instance/{instance}/chat/deleteMessageForEveryone": {
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Revokes a message in the chat so it is deleted for all participants.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Delete message for everyone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Message to revoke",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.DeleteMessageForEveryoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Empty object on success",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }
@@ -1964,60 +2094,7 @@ const docTemplate = `{
             }
         },
         "dto.CreateInstanceRequest": {
-            "type": "object",
-            "properties": {
-                "alwaysOnline": {
-                    "type": "boolean"
-                },
-                "groupsIgnore": {
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "instanceName": {
-                    "type": "string"
-                },
-                "msgCall": {
-                    "type": "string"
-                },
-                "proxyHost": {
-                    "type": "string"
-                },
-                "proxyPassword": {
-                    "type": "string"
-                },
-                "proxyPort": {
-                    "type": "string"
-                },
-                "proxyProtocol": {
-                    "type": "string"
-                },
-                "proxyUsername": {
-                    "type": "string"
-                },
-                "readMessages": {
-                    "type": "boolean"
-                },
-                "readStatus": {
-                    "type": "boolean"
-                },
-                "rejectCall": {
-                    "type": "boolean"
-                },
-                "remoteJID": {
-                    "type": "string"
-                },
-                "syncFullHistory": {
-                    "type": "boolean"
-                },
-                "syncRecentHistory": {
-                    "type": "boolean"
-                },
-                "webhook": {
-                    "$ref": "#/definitions/models.InstanceWebhook"
-                }
-            }
+            "type": "object"
         },
         "dto.CreateInstanceResponse": {
             "type": "object",
@@ -2030,6 +2107,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "migration": {
+                    "$ref": "#/definitions/dto.MigrationResult"
                 },
                 "msgCall": {
                     "type": "string"
@@ -2076,6 +2156,27 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.DeleteMessageForEveryoneRequest": {
+            "type": "object",
+            "required": [
+                "id",
+                "remoteJid"
+            ],
+            "properties": {
+                "fromMe": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "participant": {
+                    "type": "string"
+                },
+                "remoteJid": {
                     "type": "string"
                 }
             }
@@ -2192,6 +2293,23 @@ const docTemplate = `{
                 },
                 "remoteJid": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.MigrationResult": {
+            "type": "object",
+            "properties": {
+                "connected": {
+                    "type": "boolean"
+                },
+                "jid": {
+                    "type": "string"
+                },
+                "lid": {
+                    "type": "string"
+                },
+                "preKeysImported": {
+                    "type": "integer"
                 }
             }
         },
@@ -2463,7 +2581,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "reply",
+                        "pix"
+                    ]
                 }
             }
         },

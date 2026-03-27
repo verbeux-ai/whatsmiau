@@ -117,7 +117,6 @@ func (s *Whatsmiau) resolveJID(ctx context.Context, client *whatsmeow.Client, ji
 	return jid
 }
 
-// DeleteMessageForEveryoneRequest revoga uma mensagem no chat (apagar para todos) via BuildRevoke + SendMessage.
 type DeleteMessageForEveryoneRequest struct {
 	InstanceID     string     `json:"instance_id"`
 	RemoteJID      *types.JID `json:"remote_jid"`
@@ -126,7 +125,6 @@ type DeleteMessageForEveryoneRequest struct {
 	ParticipantJID *types.JID `json:"participant_jid,omitempty"`
 }
 
-// DeleteMessageForEveryone envia revogação global da mensagem usando whatsmeow BuildRevoke (não RevokeMessage).
 func (s *Whatsmiau) DeleteMessageForEveryone(ctx context.Context, req *DeleteMessageForEveryoneRequest) error {
 	client, ok := s.clients.Load(req.InstanceID)
 	if !ok {

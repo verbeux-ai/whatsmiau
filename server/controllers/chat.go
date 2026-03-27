@@ -190,7 +190,7 @@ func (s *Chat) NumberExists(ctx echo.Context) error {
 
 // DeleteMessageForEveryone godoc
 // @Summary      Delete message for everyone
-// @Description  Revokes a message in the chat so it is deleted for all participants (BuildRevoke + SendMessage)
+// @Description  Revokes a message in the chat so it is deleted for all participants.
 // @Tags         Chat
 // @Accept       json
 // @Produce      json
