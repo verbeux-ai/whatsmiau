@@ -123,6 +123,20 @@ definitions:
       message:
         type: string
     type: object
+  dto.DeleteMessageForEveryoneRequest:
+    properties:
+      fromMe:
+        type: boolean
+      id:
+        type: string
+      participant:
+        type: string
+      remoteJid:
+        type: string
+    required:
+    - id
+    - remoteJid
+    type: object
   dto.DeviceListMetadata:
     properties:
       recipientKeyHash:
@@ -378,6 +392,9 @@ definitions:
       name:
         type: string
       type:
+        enum:
+        - reply
+        - pix
         type: string
     required:
     - displayText
@@ -795,6 +812,49 @@ paths:
       summary: API health check and info
       tags:
       - Root
+  /chat/deleteMessageForEveryone/{instance}:
+    delete:
+      consumes:
+      - application/json
+      description: Revokes a message in the chat so it is deleted for all participants
+        (BuildRevoke + SendMessage)
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Message to revoke
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.DeleteMessageForEveryoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Empty object on success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete message for everyone
+      tags:
+      - Chat
   /chat/markMessageAsRead/{instance}:
     post:
       consumes:
@@ -1123,6 +1183,49 @@ paths:
       summary: Get instance connection state
       tags:
       - Instance
+  /instance/{instance}/chat/deleteMessageForEveryone:
+    delete:
+      consumes:
+      - application/json
+      description: Revokes a message in the chat so it is deleted for all participants
+        (BuildRevoke + SendMessage)
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Message to revoke
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.DeleteMessageForEveryoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Empty object on success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete message for everyone
+      tags:
+      - Chat
   /instance/{instance}/chat/presence:
     post:
       consumes:

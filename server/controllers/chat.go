@@ -187,3 +187,63 @@ func (s *Chat) NumberExists(ctx echo.Context) error {
 
 	return ctx.JSON(http.StatusOK, response)
 }
+
+// DeleteMessageForEveryone godoc
+// @Summary      Delete message for everyone
+// @Description  Revokes a message in the chat so it is deleted for all participants (BuildRevoke + SendMessage)
+// @Tags         Chat
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        instance  path      string                             true  "Instance ID"
+// @Param        body      body      dto.DeleteMessageForEveryoneRequest true  "Message to revoke"
+// @Success      200       {object}  map[string]interface{}             "Empty object on success"
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /instance/{instance}/chat/deleteMessageForEveryone [delete]
+// @Router       /chat/deleteMessageForEveryone/{instance} [delete]
+func (s *Chat) DeleteMessageForEveryone(ctx echo.Context) error {
+	var request dto.DeleteMessageForEveryoneRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	if err := validator.New().Struct(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
+	}
+
+	remoteJid, err := numberToJid(request.RemoteJid)
+	if err != nil {
+		zap.L().Error("error converting remoteJid to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid remoteJid format")
+	}
+
+	if !request.FromMe && remoteJid.Server == types.GroupServer && request.Participant == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "participant is required when deleting another user's message in a group")
+	}
+
+	var participantJid *types.JID
+	if request.Participant != "" {
+		p, err := numberToJid(request.Participant)
+		if err != nil {
+			zap.L().Error("error converting participant to jid", zap.Error(err))
+			return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid participant format")
+		}
+		participantJid = p
+	}
+
+	c := ctx.Request().Context()
+	if err := s.whatsmiau.DeleteMessageForEveryone(c, &whatsmiau.DeleteMessageForEveryoneRequest{
+		InstanceID:       request.InstanceID,
+		RemoteJID:        remoteJid,
+		MessageID:        request.ID,
+		FromMe:           request.FromMe,
+		ParticipantJID:   participantJid,
+	}); err != nil {
+		zap.L().Error("Whatsmiau.DeleteMessageForEveryone failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to delete message for everyone")
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]interface{}{})
+}
