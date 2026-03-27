@@ -135,12 +135,9 @@ func (s *Whatsmiau) DeleteMessageForEveryone(ctx context.Context, req *DeleteMes
 	if client.Store == nil || client.Store.ID == nil {
 		return fmt.Errorf("device is not connected")
 	}
-	if req.RemoteJID == nil {
-		return fmt.Errorf("remote_jid is required")
-	}
-	if req.MessageID == "" {
-		return fmt.Errorf("message id is required")
-	}
+    if client.Store == nil || client.Store.ID == nil {
+        return fmt.Errorf("device is not connected")
+    }
 
 	chat := s.resolveJID(ctx, client, *req.RemoteJID)
 
