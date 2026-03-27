@@ -207,6 +207,7 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 			return
 		}
 	}
+	fmt.Println("\033[31maqui 0\033[0m")
 
 	if !eventMap["MESSAGES_UPSERT"] {
 		return
@@ -219,13 +220,14 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 	if canIgnoreMessage(e) {
 		return
 	}
+	fmt.Println("\033[31maqui 1\033[0m")
 
 	messageData := s.convertEventMessage(id, instance, e)
 	if messageData == nil {
 		zap.L().Error("failed to convert event", zap.String("id", id), zap.String("type", fmt.Sprintf("%T", e)), zap.Any("raw", e))
 		return
 	}
-
+	fmt.Println("\033[31maqui 2\033[0m")
 	messageData.InstanceId = instance.ID
 
 	dateTime := time.Unix(int64(messageData.MessageTimestamp), 0)
@@ -235,7 +237,7 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		DateTime: dateTime,
 		Event:    WookMessagesUpsert,
 	}
-
+	fmt.Println("\033[31maqui 3\033[0m")
 	if wookMessage.Data.Message != nil && len(wookMessage.Data.Message.Base64) > 0 {
 		b64Temp := wookMessage.Data.Message.Base64
 		wookMessage.Data.Message.Base64 = ""
