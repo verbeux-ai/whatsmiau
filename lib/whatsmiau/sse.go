@@ -1,6 +1,13 @@
 package whatsmiau
 
-import "sync"
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"sync"
+
+	"github.com/labstack/echo/v4"
+)
 
 type StatusEvent struct {
 	Instance string `json:"instance"`
@@ -41,6 +48,30 @@ func (b *SSEBroadcaster) Broadcast(event StatusEvent) {
 		select {
 		case ch <- event:
 		default: // skip slow clients
+		}
+	}
+}
+
+func (b *SSEBroadcaster) Handler() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		c.Response().Header().Set("Content-Type", "text/event-stream")
+		c.Response().Header().Set("Cache-Control", "no-cache")
+		c.Response().Header().Set("Connection", "keep-alive")
+		c.Response().WriteHeader(http.StatusOK)
+		c.Response().Flush()
+
+		ch := b.Register()
+		defer b.Unregister(ch)
+
+		for {
+			select {
+			case event := <-ch:
+				data, _ := json.Marshal(event)
+				fmt.Fprintf(c.Response(), "event: status\ndata: %s\n\n", data)
+				c.Response().Flush()
+			case <-c.Request().Context().Done():
+				return nil
+			}
 		}
 	}
 }

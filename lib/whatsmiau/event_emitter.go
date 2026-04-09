@@ -254,7 +254,7 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 }
 
 func (s *Whatsmiau) handleLoggedOut(id string) {
-	s.SSE.Broadcast(StatusEvent{Instance: id, State: "closed"})
+	s.SSE.Broadcast(StatusEvent{Instance: id, State: "close"})
 
 	client, ok := s.clients.Load(id)
 	if ok {
