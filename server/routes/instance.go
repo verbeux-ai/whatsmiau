@@ -1,6 +1,10 @@
 package routes
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
@@ -18,6 +22,29 @@ func Instance(group *echo.Group) {
 	group.POST("/:id/logout", controller.Logout)
 	group.DELETE("/:id", controller.Delete)
 	group.GET("/:id/status", controller.Status)
+
+	group.GET("/events/stream", func(c echo.Context) error {
+		c.Response().Header().Set("Content-Type", "text/event-stream")
+		c.Response().Header().Set("Cache-Control", "no-cache")
+		c.Response().Header().Set("Connection", "keep-alive")
+		c.Response().WriteHeader(http.StatusOK)
+		c.Response().Flush()
+
+		miau := whatsmiau.Get()
+		ch := miau.SSE.Register()
+		defer miau.SSE.Unregister(ch)
+
+		for {
+			select {
+			case event := <-ch:
+				data, _ := json.Marshal(event)
+				fmt.Fprintf(c.Response(), "event: status\ndata: %s\n\n", data)
+				c.Response().Flush()
+			case <-c.Request().Context().Done():
+				return nil
+			}
+		}
+	})
 
 	// Evolution API Compatibility (partially REST)
 	group.POST("/create", controller.Create)

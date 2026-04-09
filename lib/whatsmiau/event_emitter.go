@@ -241,6 +241,8 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 }
 
 func (s *Whatsmiau) handleLoggedOut(id string) {
+	s.SSE.Broadcast(StatusEvent{Instance: id, State: "closed"})
+
 	client, ok := s.clients.Load(id)
 	if ok {
 		if err := s.deleteDeviceIfExists(context.Background(), client); err != nil {
@@ -511,6 +513,14 @@ func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e 
 }
 
 func (s *Whatsmiau) handleConnectionUpdateEvent(id string, instance *models.Instance, state string, statusReason int, eventMap map[string]bool) {
+	sseEvent := StatusEvent{Instance: id, State: state}
+	if state == "open" {
+		if client, ok := s.clients.Load(id); ok && client.Store.ID != nil {
+			sseEvent.Wuid = client.Store.ID.ToNonAD().String()
+		}
+	}
+	s.SSE.Broadcast(sseEvent)
+
 	if !eventMap["CONNECTION_UPDATE"] {
 		return
 	}

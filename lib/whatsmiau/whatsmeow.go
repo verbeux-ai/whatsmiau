@@ -35,6 +35,7 @@ type Whatsmiau struct {
 	httpClient       *http.Client
 	fileStorage      interfaces.Storage
 	handlerSemaphore chan struct{}
+	SSE              *SSEBroadcaster
 }
 
 var instance *Whatsmiau
@@ -128,6 +129,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		},
 		fileStorage:      storage,
 		handlerSemaphore: make(chan struct{}, env.Env.HandlerSemaphoreSize),
+		SSE:              NewSSEBroadcaster(),
 	}
 
 	go instance.startEmitter()
