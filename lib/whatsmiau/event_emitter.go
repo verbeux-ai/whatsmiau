@@ -201,6 +201,19 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
+			switch evt.(type) {
+			case *events.Connected:
+				sseEvent := StatusEvent{Instance: id, State: "open"}
+				if client, ok := s.clients.Load(id); ok && client.Store.ID != nil {
+					sseEvent.Wuid = client.Store.ID.ToNonAD().String()
+				}
+				s.SSE.Broadcast(sseEvent)
+			case *events.Disconnected:
+				s.SSE.Broadcast(StatusEvent{Instance: id, State: "close"})
+			case *events.ConnectFailure:
+				s.SSE.Broadcast(StatusEvent{Instance: id, State: "close"})
+			}
+
 			if instance.Webhook.Enabled != nil && !*instance.Webhook.Enabled {
 				return
 			}
@@ -513,14 +526,6 @@ func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e 
 }
 
 func (s *Whatsmiau) handleConnectionUpdateEvent(id string, instance *models.Instance, state string, statusReason int, eventMap map[string]bool) {
-	sseEvent := StatusEvent{Instance: id, State: state}
-	if state == "open" {
-		if client, ok := s.clients.Load(id); ok && client.Store.ID != nil {
-			sseEvent.Wuid = client.Store.ID.ToNonAD().String()
-		}
-	}
-	s.SSE.Broadcast(sseEvent)
-
 	if !eventMap["CONNECTION_UPDATE"] {
 		return
 	}

@@ -3,19 +3,19 @@
 {{define "title"}}{{.Instance.ID}}{{end}}
 
 {{define "content"}}
-<div class="instance-detail">
+<div class="instance-detail" data-detail-instance="{{.Instance.ID}}">
     <a href="/manager/instances" class="back-link">&larr; Voltar para instâncias</a>
     <div class="detail-header">
         <h2>{{.Instance.ID}}</h2>
         {{template "status_badge.html" .}}
         {{if .Instance.RemoteJID}}
-            <span style="color:var(--text-light);font-size:.85rem;">{{.Instance.RemoteJID}}</span>
+            <span class="detail-jid" style="color:var(--text-light);font-size:.85rem;">{{.Instance.RemoteJID}}</span>
         {{end}}
     </div>
 
-    <div class="detail-actions">
+    <div class="detail-actions" id="detail-actions" data-status="{{.Status}}">
         {{if ne .Status "open"}}
-            <button class="btn btn-primary"
+            <button class="btn btn-primary" id="btn-connect"
                     hx-post="/manager/instances/{{.Instance.ID}}/connect"
                     hx-target="#qr-container"
                     hx-swap="innerHTML">
@@ -24,7 +24,7 @@
             </button>
         {{end}}
         {{if eq .Status "open"}}
-            <button class="btn btn-outline"
+            <button class="btn btn-outline" id="btn-logout"
                     hx-post="/manager/instances/{{.Instance.ID}}/logout"
                     hx-confirm="Isso vai desconectar o WhatsApp. Precisará escanear o QR novamente. Continuar?">
                 Desconectar

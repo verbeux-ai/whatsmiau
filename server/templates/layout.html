@@ -28,6 +28,12 @@
             form_error: 'Erro ao processar formulário',
             save_error: 'Erro ao salvar configurações'
         };
+        var statusLabels = {
+            open: 'Conectado',
+            connecting: 'Conectando',
+            'qr-code': 'QR Code',
+            closed: 'Desconectado'
+        };
         function resolveMessage(code) {
             if (!code) return '';
             if (code.indexOf(':') > -1) {
@@ -60,6 +66,75 @@
             localStorage.setItem('theme', next);
             document.getElementById('theme-icon').textContent = next === 'dark' ? '\u2600' : '\u263E';
         }
+
+        (function() {
+            var sse;
+            function connect() {
+                sse = new EventSource('/manager/sse');
+                sse.addEventListener('status', function(e) {
+                    var ev = JSON.parse(e.data);
+                    var state = ev.state === 'close' ? 'closed' : (ev.state || 'closed');
+                    var label = statusLabels[state] || 'Desconectado';
+
+                    document.querySelectorAll('[data-instance="' + ev.instance + '"]').forEach(function(badge) {
+                        badge.className = 'status-badge status-' + state;
+                        badge.textContent = label;
+                    });
+
+                    var qrContainer = document.getElementById('qr-poll-container');
+                    if (qrContainer && state === 'open' && qrContainer.getAttribute('data-instance') === ev.instance) {
+                        qrContainer.innerHTML = '<p class="qr-status qr-connected">Instância conectada!</p>';
+                        setTimeout(function(){ window.location.reload(); }, 2000);
+                    }
+
+                    var detail = document.querySelector('[data-detail-instance="' + ev.instance + '"]');
+                    if (detail) {
+                        var actions = document.getElementById('detail-actions');
+                        var btnConnect = document.getElementById('btn-connect');
+                        var btnLogout = document.getElementById('btn-logout');
+                        if (state === 'open') {
+                            if (btnConnect) btnConnect.style.display = 'none';
+                            if (!btnLogout && actions) {
+                                var btn = document.createElement('button');
+                                btn.id = 'btn-logout';
+                                btn.className = 'btn btn-outline';
+                                btn.setAttribute('hx-post', '/manager/instances/' + ev.instance + '/logout');
+                                btn.setAttribute('hx-confirm', 'Isso vai desconectar o WhatsApp. Precisará escanear o QR novamente. Continuar?');
+                                btn.innerHTML = 'Desconectar <span class="htmx-indicator"></span>';
+                                actions.insertBefore(btn, actions.firstChild);
+                                htmx.process(btn);
+                            } else if (btnLogout) {
+                                btnLogout.style.display = '';
+                            }
+                        } else if (state === 'closed') {
+                            if (btnLogout) btnLogout.style.display = 'none';
+                            if (!btnConnect && actions) {
+                                var btn = document.createElement('button');
+                                btn.id = 'btn-connect';
+                                btn.className = 'btn btn-primary';
+                                btn.setAttribute('hx-post', '/manager/instances/' + ev.instance + '/connect');
+                                btn.setAttribute('hx-target', '#qr-container');
+                                btn.setAttribute('hx-swap', 'innerHTML');
+                                btn.innerHTML = 'Conectar <span class="htmx-indicator"></span>';
+                                actions.insertBefore(btn, actions.firstChild);
+                                htmx.process(btn);
+                            } else if (btnConnect) {
+                                btnConnect.style.display = '';
+                            }
+                            var qr = document.getElementById('qr-container');
+                            if (qr) qr.innerHTML = '';
+                        }
+                    }
+                });
+                sse.onerror = function() {
+                    sse.close();
+                    setTimeout(connect, 5000);
+                };
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                if (document.querySelector('.header-logout')) connect();
+            });
+        })();
     </script>
 </head>
 <body>

@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -58,4 +60,26 @@ func Manager(group *echo.Group) {
 	auth.POST("/instances/:id/logout", controller.LogoutInstance)
 	auth.DELETE("/instances/:id", controller.DeleteInstance)
 	auth.PUT("/instances/:id", controller.UpdateInstance)
+
+	auth.GET("/sse", func(c echo.Context) error {
+		c.Response().Header().Set("Content-Type", "text/event-stream")
+		c.Response().Header().Set("Cache-Control", "no-cache")
+		c.Response().Header().Set("Connection", "keep-alive")
+		c.Response().WriteHeader(http.StatusOK)
+		c.Response().Flush()
+
+		ch := w.SSE.Register()
+		defer w.SSE.Unregister(ch)
+
+		for {
+			select {
+			case event := <-ch:
+				data, _ := json.Marshal(event)
+				fmt.Fprintf(c.Response(), "event: status\ndata: %s\n\n", data)
+				c.Response().Flush()
+			case <-c.Request().Context().Done():
+				return nil
+			}
+		}
+	})
 }
