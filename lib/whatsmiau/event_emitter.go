@@ -455,15 +455,28 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 		}
 	}
 
-	// Emitir mensagens do histórico (novo — só se MESSAGES_UPSERT estiver habilitado)
+	// Emitir mensagens do histórico (novo — só se MESSAGES_UPSERT estiver habilitado).
+	// Executa em goroutine para não bloquear o event loop: em contas antigas
+	// o HistorySync pode trazer dezenas de milhares de mensagens.
 	if eventMap["MESSAGES_UPSERT"] {
-		s.emitHistoryMessages(id, instance, e)
+		go s.emitHistoryMessages(id, instance, e)
 	}
 }
 
 func (s *Whatsmiau) emitHistoryMessages(id string, instance *models.Instance, e *events.HistorySync) {
 	ctx, c := context.WithTimeout(context.Background(), time.Minute*5)
 	defer c()
+
+	// Carrega o client uma vez — evita map lookup por mensagem.
+	client, ok := s.clients.Load(id)
+	if !ok {
+		return
+	}
+
+	var ownJid string
+	if own := client.Store.ID; own != nil {
+		ownJid = own.ToNonAD().String()
+	}
 
 	total := 0
 	for _, conv := range e.Data.GetConversations() {
@@ -478,6 +491,9 @@ func (s *Whatsmiau) emitHistoryMessages(id string, instance *models.Instance, e 
 		if err != nil {
 			continue
 		}
+
+		// JID/LID é constante dentro da conversa — resolve uma vez só.
+		jid, lid := s.GetJidLid(ctx, id, chatJid)
 
 		for _, histMsg := range conv.GetMessages() {
 			webMsgInfo := histMsg.GetMessage()
@@ -501,15 +517,11 @@ func (s *Whatsmiau) emitHistoryMessages(id string, instance *models.Instance, e 
 				continue
 			}
 
-			jid, lid := s.GetJidLid(ctx, id, chatJid)
-
 			// Sender (pode ser o próprio chat em 1-1, ou Participant em grupos)
 			senderJid := jid
 			if key.GetFromMe() {
-				if client, ok := s.clients.Load(id); ok {
-					if own := client.Store.ID; own != nil {
-						senderJid = own.ToNonAD().String()
-					}
+				if ownJid != "" {
+					senderJid = ownJid
 				}
 			} else if p := key.GetParticipant(); p != "" {
 				if pJid, perr := types.ParseJID(p); perr == nil {
