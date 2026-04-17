@@ -14,6 +14,7 @@ func Chat(group *echo.Group) {
 
 	group.POST("/presence", controller.SendChatPresence)
 	group.POST("/read-messages", controller.ReadMessages)
+	group.POST("/download-media", controller.GetBase64FromMediaMessage)
 }
 
 func ChatEVO(group *echo.Group) {
@@ -24,4 +25,5 @@ func ChatEVO(group *echo.Group) {
 	group.POST("/markMessageAsRead/:instance", controller.ReadMessages)
 	group.POST("/sendPresence/:instance", controller.SendChatPresence)
 	group.POST("/whatsappNumbers/:instance", controller.NumberExists)
+	group.POST("/getBase64FromMediaMessage/:instance", controller.GetBase64FromMediaMessage)
 }
