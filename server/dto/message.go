@@ -24,7 +24,7 @@ type SendLocationResponse struct {
 	Key              MessageResponseKey `json:"key"`
 	Status           string             `json:"status"`
 	MessageType      string             `json:"messageType"`
-	MessageTimestamp int                `json:"messageTimestamp"`
+	MessageTimestamp int64              `json:"messageTimestamp"`
 	InstanceId       string             `json:"instanceId"`
 }
 
