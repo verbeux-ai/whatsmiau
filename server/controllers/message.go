@@ -157,7 +157,7 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      "locationMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: int(res.CreatedAt.UnixMilli()),
 		InstanceId:       request.InstanceID,
 	})
 }
