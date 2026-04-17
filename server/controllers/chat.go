@@ -147,6 +147,47 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, map[string]interface{}{})
 }
 
+// GetBase64FromMediaMessage godoc
+// @Summary      Download media as base64
+// @Description  Downloads and decrypts a media message (image/audio/video/document/sticker)
+//
+//	using the downloadable fields previously delivered via webhook and returns
+//	it as base64-encoded bytes. Response shape mirrors Evolution API's
+//	/chat/getBase64FromMediaMessage for drop-in compatibility.
+//
+// @Tags         Chat
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        instance  path      string                        true  "Instance ID"
+// @Param        body      body      whatsmiau.DownloadMediaRequest true "Media fields"
+// @Success      200       {object}  whatsmiau.DownloadMediaResponse
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /chat/getBase64FromMediaMessage/{instance} [post]
+func (s *Chat) GetBase64FromMediaMessage(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+
+	var request whatsmiau.DownloadMediaRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+	request.InstanceID = instanceID
+
+	resp, err := s.whatsmiau.DownloadMedia(ctx.Request().Context(), &request)
+	if err != nil {
+		zap.L().Error("Whatsmiau.DownloadMedia failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to download media")
+	}
+
+	return ctx.JSON(http.StatusOK, resp)
+}
+
 // NumberExists godoc
 // @Summary      Check if numbers exist on WhatsApp
 // @Description  Checks whether the given phone numbers are registered on WhatsApp
