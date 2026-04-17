@@ -99,7 +99,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 			Conversation: request.Text,
 		},
 		MessageType:      "conversation",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: res.CreatedAt.UnixMilli(),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -231,7 +231,7 @@ func (s *Message) SendAudio(ctx echo.Context) error {
 
 		Status:           "sent",
 		MessageType:      "audioMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: res.CreatedAt.UnixMilli(),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -328,7 +328,7 @@ func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest
 		},
 		Status:           "sent",
 		MessageType:      "documentMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: res.CreatedAt.UnixMilli(),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -392,7 +392,7 @@ func (s *Message) sendImage(ctx echo.Context, request dto.SendDocumentRequest) e
 		},
 		Status:           "sent",
 		MessageType:      "imageMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: res.CreatedAt.UnixMilli(),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -455,7 +455,7 @@ func (s *Message) SendReaction(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      "reactionMessage",
-		MessageTimestamp: int(res.CreatedAt.UnixMicro() / 1000),
+		MessageTimestamp: res.CreatedAt.UnixMilli(),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -543,7 +543,7 @@ func (s *Message) SendList(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      "listMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: res.CreatedAt.UnixMilli(),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -646,7 +646,7 @@ func (s *Message) sendReplyButtons(ctx echo.Context, c context.Context, request 
 		},
 		Status:           "sent",
 		MessageType:      "buttonsMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: res.CreatedAt.UnixMilli(),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -685,7 +685,7 @@ func (s *Message) sendPixButtons(ctx echo.Context, c context.Context, request dt
 		},
 		Status:           "sent",
 		MessageType:      "buttonsMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: res.CreatedAt.UnixMilli(),
 		InstanceId:       request.InstanceID,
 	})
 }
