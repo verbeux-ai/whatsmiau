@@ -78,6 +78,57 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 	}, nil
 }
 
+type SendLocationRequest struct {
+	InstanceID string     `json:"instance_id"`
+	RemoteJID  *types.JID `json:"remote_jid"`
+	Latitude   float64    `json:"latitude"`
+	Longitude  float64    `json:"longitude"`
+	Name       string     `json:"name"`
+	Address    string     `json:"address"`
+}
+
+type SendLocationResponse struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *Whatsmiau) SendLocation(ctx context.Context, data *SendLocationRequest) (*SendLocationResponse, error) {
+	client, ok := s.clients.Load(data.InstanceID)
+	if !ok {
+		return nil, whatsmeow.ErrClientIsNil
+	}
+
+	if data.RemoteJID == nil {
+		return nil, fmt.Errorf("remote_jid is required")
+	}
+
+	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
+	data.RemoteJID = &resolved
+
+	locMessage := &waE2E.LocationMessage{
+		DegreesLatitude:  proto.Float64(data.Latitude),
+		DegreesLongitude: proto.Float64(data.Longitude),
+	}
+	if data.Name != "" {
+		locMessage.Name = proto.String(data.Name)
+	}
+	if data.Address != "" {
+		locMessage.Address = proto.String(data.Address)
+	}
+
+	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
+		LocationMessage: locMessage,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &SendLocationResponse{
+		ID:        res.ID,
+		CreatedAt: res.Timestamp,
+	}, nil
+}
+
 type SendAudioRequest struct {
 	AudioURL       string     `json:"text"`
 	InstanceID     string     `json:"instance_id"`
