@@ -11,6 +11,23 @@ type SendTextRequest struct {
 	Mentioned        []string              `json:"mentioned,omitempty"`
 }
 
+type SendLocationRequest struct {
+	InstanceID string  `param:"instance" validate:"required" swaggerignore:"true"`
+	Number     string  `json:"number,omitempty" validate:"required"`
+	Latitude   float64 `json:"latitude" validate:"required"`
+	Longitude  float64 `json:"longitude" validate:"required"`
+	Name       string  `json:"name,omitempty"`
+	Address    string  `json:"address,omitempty"`
+}
+
+type SendLocationResponse struct {
+	Key              MessageResponseKey `json:"key"`
+	Status           string             `json:"status"`
+	MessageType      string             `json:"messageType"`
+	MessageTimestamp int64              `json:"messageTimestamp"`
+	InstanceId       string             `json:"instanceId"`
+}
+
 type MessageRequestQuoted struct {
 	Key     QuotedKey     `json:"key,omitempty"`
 	Message QuotedMessage `json:"message,omitempty"`

@@ -18,6 +18,7 @@ func Message(group *echo.Group) {
 	group.POST("/image", controller.SendImage)
 	group.POST("/list", controller.SendList)
 	group.POST("/buttons", controller.SendButtons)
+	group.POST("/location", controller.SendLocation)
 }
 
 func MessageEVO(group *echo.Group) {
@@ -31,4 +32,5 @@ func MessageEVO(group *echo.Group) {
 	group.POST("/sendReaction/:instance", controller.SendReaction)
 	group.POST("/sendList/:instance", controller.SendList)
 	group.POST("/sendButtons/:instance", controller.SendButtons)
+	group.POST("/sendLocation/:instance", controller.SendLocation)
 }
