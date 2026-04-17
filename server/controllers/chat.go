@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -181,8 +182,18 @@ func (s *Chat) GetBase64FromMediaMessage(ctx echo.Context) error {
 
 	resp, err := s.whatsmiau.DownloadMedia(ctx.Request().Context(), &request)
 	if err != nil {
-		zap.L().Error("Whatsmiau.DownloadMedia failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to download media")
+		// Client-side issues (malformed payload, bad base64, no media fields)
+		// map to 4xx. Genuine server/decryption failures stay 500.
+		switch {
+		case errors.Is(err, whatsmiau.ErrMediaFieldsMissing),
+			errors.Is(err, whatsmiau.ErrInvalidBase64):
+			return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+		case errors.Is(err, whatsmiau.ErrInstanceNotFound):
+			return utils.HTTPFail(ctx, http.StatusNotFound, err, err.Error())
+		default:
+			zap.L().Error("Whatsmiau.DownloadMedia failed", zap.Error(err))
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to download media")
+		}
 	}
 
 	return ctx.JSON(http.StatusOK, resp)

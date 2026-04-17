@@ -1,15 +1,22 @@
 package whatsmiau
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/proto/waE2E"
 	"google.golang.org/protobuf/proto"
+)
+
+// Sentinels so the HTTP layer can distinguish client-supplied input problems
+// from genuine server/decryption failures and return the right status code.
+var (
+	ErrMediaFieldsMissing = errors.New("request does not contain a supported media message")
+	ErrInstanceNotFound   = errors.New("instance not connected")
 )
 
 // DownloadableFields are the media fields required by the WhatsApp servers to
@@ -61,7 +68,7 @@ type DownloadMediaResponse struct {
 func (s *Whatsmiau) DownloadMedia(ctx context.Context, req *DownloadMediaRequest) (*DownloadMediaResponse, error) {
 	client, ok := s.clients.Load(req.InstanceID)
 	if !ok {
-		return nil, fmt.Errorf("instance %s not connected", req.InstanceID)
+		return nil, fmt.Errorf("%w: %s", ErrInstanceNotFound, req.InstanceID)
 	}
 
 	msg, messageType, mimetype, fileName, err := buildDownloadableMessage(req)
@@ -69,7 +76,7 @@ func (s *Whatsmiau) DownloadMedia(ctx context.Context, req *DownloadMediaRequest
 		return nil, err
 	}
 	if msg == nil {
-		return nil, fmt.Errorf("request does not contain a supported media message")
+		return nil, ErrMediaFieldsMissing
 	}
 
 	data, err := client.Download(ctx, msg)
@@ -210,25 +217,27 @@ func decodeBinaryFields(f *DownloadableFields) ([]byte, []byte, []byte, error) {
 	return mediaKey, encHash, plainHash, nil
 }
 
+// ErrInvalidBase64 is returned wrapped with the offending field name so the
+// HTTP layer can surface a 400 response.
+var ErrInvalidBase64 = errors.New("invalid base64")
+
 func decodeBase64Field(name, v string) ([]byte, error) {
 	if v == "" {
 		return nil, nil
 	}
-	// Tolerate URL-safe base64 as well.
-	v = bytes.NewBufferString(v).String()
-	if data, err := base64.StdEncoding.DecodeString(v); err == nil {
-		return data, nil
+	// Tolerate both standard and URL-safe base64 encodings, with or without
+	// padding — consumers echo back whatever the webhook delivered.
+	for _, enc := range []*base64.Encoding{
+		base64.StdEncoding,
+		base64.URLEncoding,
+		base64.RawStdEncoding,
+		base64.RawURLEncoding,
+	} {
+		if data, err := enc.DecodeString(v); err == nil {
+			return data, nil
+		}
 	}
-	if data, err := base64.URLEncoding.DecodeString(v); err == nil {
-		return data, nil
-	}
-	if data, err := base64.RawStdEncoding.DecodeString(v); err == nil {
-		return data, nil
-	}
-	if data, err := base64.RawURLEncoding.DecodeString(v); err == nil {
-		return data, nil
-	}
-	return nil, fmt.Errorf("invalid base64 for field %s", name)
+	return nil, fmt.Errorf("%w for field %s", ErrInvalidBase64, name)
 }
 
 func strPtrOrNil(v string) *string {
