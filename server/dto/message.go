@@ -11,6 +11,23 @@ type SendTextRequest struct {
 	Mentioned        []string              `json:"mentioned,omitempty"`
 }
 
+type SendLocationRequest struct {
+	InstanceID string  `param:"instance" validate:"required" swaggerignore:"true"`
+	Number     string  `json:"number,omitempty" validate:"required"`
+	Latitude   float64 `json:"latitude" validate:"required"`
+	Longitude  float64 `json:"longitude" validate:"required"`
+	Name       string  `json:"name,omitempty"`
+	Address    string  `json:"address,omitempty"`
+}
+
+type SendLocationResponse struct {
+	Key              MessageResponseKey `json:"key"`
+	Status           string             `json:"status"`
+	MessageType      string             `json:"messageType"`
+	MessageTimestamp int64              `json:"messageTimestamp"`
+	InstanceId       string             `json:"instanceId"`
+}
+
 type MessageRequestQuoted struct {
 	Key     QuotedKey     `json:"key,omitempty"`
 	Message QuotedMessage `json:"message,omitempty"`
@@ -37,7 +54,7 @@ type SendTextResponse struct {
 	Message          SendTextResponseMessage     `json:"message"`
 	ContextInfo      SendTextResponseContextInfo `json:"contextInfo"`
 	MessageType      string                      `json:"messageType"`
-	MessageTimestamp int                         `json:"messageTimestamp"`
+	MessageTimestamp int64                         `json:"messageTimestamp"`
 	InstanceId       string                      `json:"instanceId"`
 	Source           string                      `json:"source"`
 }
@@ -90,7 +107,7 @@ type SendAudioResponse struct {
 	InstanceId       string                   `json:"instanceId"`
 	Key              MessageResponseKey       `json:"key"`
 	Message          SendAudioResponseMessage `json:"message"`
-	MessageTimestamp int                      `json:"messageTimestamp"`
+	MessageTimestamp int64                      `json:"messageTimestamp"`
 	MessageType      string                   `json:"messageType"`
 	PushName         string                   `json:"pushName"`
 	Source           string                   `json:"source"`
@@ -147,7 +164,7 @@ type SendDocumentResponse struct {
 	Message          SendDocumentResponseData `json:"message,omitempty"`
 	ContextInfo      any                      `json:"contextInfo,omitempty"`
 	MessageType      string                   `json:"messageType,omitempty"`
-	MessageTimestamp int                      `json:"messageTimestamp,omitempty"`
+	MessageTimestamp int64                      `json:"messageTimestamp,omitempty"`
 	InstanceId       string                   `json:"instanceId,omitempty"`
 	Source           string                   `json:"source,omitempty"`
 }
@@ -186,7 +203,7 @@ type SendReactionResponse struct {
 	Key              MessageResponseKey `json:"key"`
 	ContextInfo      any                `json:"contextInfo,omitempty"`
 	MessageType      string             `json:"messageType,omitempty"`
-	MessageTimestamp int                `json:"messageTimestamp,omitempty"`
+	MessageTimestamp int64                `json:"messageTimestamp,omitempty"`
 	InstanceId       string             `json:"instanceId,omitempty"`
 	Source           string             `json:"source,omitempty"`
 	Status           string             `json:"status,omitempty"`
@@ -220,7 +237,7 @@ type SendListResponse struct {
 	Key              MessageResponseKey `json:"key"`
 	Status           string             `json:"status"`
 	MessageType      string             `json:"messageType"`
-	MessageTimestamp int                `json:"messageTimestamp"`
+	MessageTimestamp int64                `json:"messageTimestamp"`
 	InstanceId       string             `json:"instanceId"`
 }
 
@@ -251,6 +268,6 @@ type SendButtonsResponse struct {
 	Key              MessageResponseKey `json:"key"`
 	Status           string             `json:"status"`
 	MessageType      string             `json:"messageType"`
-	MessageTimestamp int                `json:"messageTimestamp"`
+	MessageTimestamp int64                `json:"messageTimestamp"`
 	InstanceId       string             `json:"instanceId"`
 }

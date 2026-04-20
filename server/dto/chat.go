@@ -40,3 +40,16 @@ type SendChatPresenceResponse struct {
 type NumberExistsRequest struct {
 	Numbers []string `json:"numbers"     validate:"required,min=1,dive,required"`
 }
+
+// FetchProfilePictureUrlRequest mirrors the Evolution API v2 payload for
+// POST /chat/fetchProfilePictureUrl/{instance}.
+type FetchProfilePictureUrlRequest struct {
+	Number string `json:"number" validate:"required"`
+}
+
+// FetchProfilePictureUrlResponse mirrors Evolution's response shape so the
+// same client code works unchanged against both backends.
+type FetchProfilePictureUrlResponse struct {
+	Wuid              string `json:"wuid"`
+	ProfilePictureURL string `json:"profilePictureUrl"`
+}

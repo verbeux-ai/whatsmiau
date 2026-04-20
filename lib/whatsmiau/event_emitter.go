@@ -441,23 +441,146 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 }
 
 func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance, e *events.HistorySync, eventMap map[string]bool) {
-	if !eventMap["CONTACTS_UPSERT"] {
+	// Emitir contatos (comportamento original)
+	if eventMap["CONTACTS_UPSERT"] {
+		data := s.convertContactHistorySync(id, e.Data.GetPushnames(), e.Data.Conversations)
+		if data != nil {
+			wookData := &WookEvent[WookContactUpsertData]{
+				Instance: instance.ID,
+				Data:     &data,
+				DateTime: time.Now(),
+				Event:    WookContactsUpsert,
+			}
+			s.emit(wookData, instance.Webhook.Url)
+		}
+	}
+
+	// Emitir mensagens do histórico (novo — só se MESSAGES_UPSERT estiver habilitado).
+	// Executa em goroutine para não bloquear o event loop: em contas antigas
+	// o HistorySync pode trazer dezenas de milhares de mensagens.
+	if eventMap["MESSAGES_UPSERT"] {
+		go s.emitHistoryMessages(id, instance, e)
+	}
+}
+
+func (s *Whatsmiau) emitHistoryMessages(id string, instance *models.Instance, e *events.HistorySync) {
+	ctx, c := context.WithTimeout(context.Background(), time.Minute*5)
+	defer c()
+
+	// Carrega o client uma vez — evita map lookup por mensagem.
+	client, ok := s.clients.Load(id)
+	if !ok {
 		return
 	}
 
-	data := s.convertContactHistorySync(id, e.Data.GetPushnames(), e.Data.Conversations)
-	if data == nil {
-		return
+	var ownJid string
+	if own := client.Store.ID; own != nil {
+		ownJid = own.ToNonAD().String()
 	}
 
-	wookData := &WookEvent[WookContactUpsertData]{
-		Instance: instance.ID,
-		Data:     &data,
-		DateTime: time.Now(),
-		Event:    WookContactsUpsert,
+	total := 0
+	for _, conv := range e.Data.GetConversations() {
+		// Ignorar grupos se configurado
+		if instance.GroupsIgnore {
+			if strings.Contains(conv.GetID(), "@g.us") {
+				continue
+			}
+		}
+
+		chatJid, err := types.ParseJID(conv.GetID())
+		if err != nil {
+			continue
+		}
+
+		// JID/LID é constante dentro da conversa — resolve uma vez só.
+		jid, lid := s.GetJidLid(ctx, id, chatJid)
+
+		for _, histMsg := range conv.GetMessages() {
+			webMsgInfo := histMsg.GetMessage()
+			if webMsgInfo == nil || webMsgInfo.GetMessage() == nil {
+				continue
+			}
+
+			key := webMsgInfo.GetKey()
+			if key == nil {
+				continue
+			}
+
+			msg := webMsgInfo.GetMessage()
+			// Ignorar mensagens de protocolo (criptografia, etc)
+			if msg.GetProtocolMessage() != nil {
+				continue
+			}
+
+			messageType, raw, ci := s.parseWAMessage(msg)
+			if raw == nil {
+				continue
+			}
+
+			// Sender (pode ser o próprio chat em 1-1, ou Participant em grupos)
+			senderJid := jid
+			if key.GetFromMe() {
+				if ownJid != "" {
+					senderJid = ownJid
+				}
+			} else if p := key.GetParticipant(); p != "" {
+				if pJid, perr := types.ParseJID(p); perr == nil {
+					senderJid, _ = s.GetJidLid(ctx, id, pJid)
+				}
+			}
+
+			wookKey := &WookKey{
+				RemoteJid:   jid,
+				RemoteLid:   lid,
+				FromMe:      key.GetFromMe(),
+				Id:          key.GetID(),
+				Participant: senderJid,
+			}
+
+			status := "received"
+			if key.GetFromMe() {
+				status = "sent"
+			}
+
+			ts := time.Unix(int64(webMsgInfo.GetMessageTimestamp()), 0)
+
+			var messageContext WookMessageContextInfo
+			if ci != nil {
+				messageContext.StanzaId = ci.GetStanzaID()
+				messageContext.Participant = ci.GetParticipant()
+				if qm := ci.GetQuotedMessage(); qm != nil {
+					_, qmRaw, _ := s.parseWAMessage(qm)
+					messageContext.QuotedMessage = qmRaw
+				}
+			}
+
+			messageData := &WookMessageData{
+				Key:              wookKey,
+				PushName:         strings.TrimSpace(webMsgInfo.GetPushName()),
+				Status:           status,
+				Message:          raw,
+				ContextInfo:      &messageContext,
+				MessageType:      messageType,
+				MessageTimestamp: int(ts.Unix()),
+				InstanceId:       instance.ID,
+				Source:           "whatsapp-history",
+			}
+
+			wookMessage := &WookEvent[WookMessageData]{
+				Instance: instance.ID,
+				Data:     messageData,
+				DateTime: ts,
+				Event:    WookMessagesUpsert,
+			}
+
+			s.emit(wookMessage, instance.Webhook.Url)
+			total++
+		}
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	if total > 0 {
+		zap.L().Info("history messages emitted", zap.String("instance", instance.ID), zap.Int("total", total))
+	}
 }
 
 func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e *events.GroupInfo, eventMap map[string]bool) {
