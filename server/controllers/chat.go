@@ -11,6 +11,7 @@ import (
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 	"go.uber.org/zap"
 )
@@ -238,4 +239,55 @@ func (s *Chat) NumberExists(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, response)
+}
+
+// FetchProfilePictureUrl godoc
+// @Summary      Fetch WhatsApp profile picture URL
+// @Description  Returns the full-resolution profile picture URL for a given number. Evolution API compatible.
+// @Tags         Chat
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        instance  path      string                              true  "Instance ID"
+// @Param        body      body      dto.FetchProfilePictureUrlRequest   true  "Number to look up"
+// @Success      200       {object}  dto.FetchProfilePictureUrlResponse
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /chat/fetchProfilePictureUrl/{instance} [post]
+func (s *Chat) FetchProfilePictureUrl(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	if instanceID == "" {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "instance ID is required in the URL path")
+	}
+
+	var request dto.FetchProfilePictureUrlRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	if err := validator.New().Struct(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
+	}
+
+	response, err := s.whatsmiau.FetchProfilePictureUrl(ctx.Request().Context(), &whatsmiau.FetchProfilePictureUrlRequest{
+		InstanceID: instanceID,
+		Number:     request.Number,
+	})
+	if err != nil {
+		if errors.Is(err, whatsmeow.ErrClientIsNil) {
+			return utils.HTTPFail(ctx, http.StatusNotFound, err, "instance not found or not connected")
+		}
+		if errors.Is(err, whatsmiau.ErrEmptyNumber) {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, err, "number is empty")
+		}
+		zap.L().Error("Whatsmiau.FetchProfilePictureUrl failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to fetch profile picture")
+	}
+
+	return ctx.JSON(http.StatusOK, dto.FetchProfilePictureUrlResponse{
+		Wuid:              response.Wuid,
+		ProfilePictureURL: response.ProfilePictureURL,
+	})
 }
