@@ -22,20 +22,20 @@ import (
 )
 
 type Whatsmiau struct {
-	clients             *xsync.Map[string, *whatsmeow.Client]
-	container           *sqlstore.Container
-	logger              waLog.Logger
-	repo                interfaces.InstanceRepository
-	qrCache             *xsync.Map[string, string]
-	pairingCache        *xsync.Map[string, string]
-	observerRunning     *xsync.Map[string, *whatsmeow.Client]
-	instanceCache       *xsync.Map[string, models.Instance]
-	lockConnection      *xsync.Map[string, *sync.Mutex]
-	connectPhoneNumber  *xsync.Map[string, string]
-	emitter          chan emitter
-	httpClient       *http.Client
-	fileStorage      interfaces.Storage
-	handlerSemaphore chan struct{}
+	clients            *xsync.Map[string, *whatsmeow.Client]
+	container          *sqlstore.Container
+	logger             waLog.Logger
+	repo               interfaces.InstanceRepository
+	qrCache            *xsync.Map[string, string]
+	pairingCache       *xsync.Map[string, string]
+	observerRunning    *xsync.Map[string, *whatsmeow.Client]
+	instanceCache      *xsync.Map[string, models.Instance]
+	lockConnection     *xsync.Map[string, *sync.Mutex]
+	connectPhoneNumber *xsync.Map[string, string]
+	emitter            chan emitter
+	httpClient         *http.Client
+	fileStorage        interfaces.Storage
+	handlerSemaphore   chan struct{}
 }
 
 var instance *Whatsmiau
@@ -135,7 +135,13 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	go instance.startEmitter()
 
 	clients.Range(func(id string, client *whatsmeow.Client) bool {
-		zap.L().Info("stating event handler", zap.String("jid", client.Store.ID.String()))
+		// Store.ID can become nil between Connect() above and this Range when the
+		// server sends a logout/conflict event during the async connect.
+		jid := ""
+		if client.Store != nil && client.Store.ID != nil {
+			jid = client.Store.ID.String()
+		}
+		zap.L().Info("stating event handler", zap.String("id", id), zap.String("jid", jid))
 		client.AddEventHandler(instance.Handle(id))
 		return true
 	})
