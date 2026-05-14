@@ -80,6 +80,7 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 
 type SendAudioRequest struct {
 	AudioURL       string     `json:"text"`
+	AudioData      []byte     `json:"-"`
 	InstanceID     string     `json:"instance_id"`
 	RemoteJID      *types.JID `json:"remote_jid"`
 	QuoteMessageID string     `json:"quote_message_id"`
@@ -102,17 +103,21 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 		return nil, fmt.Errorf("remote_jid is required")
 	}
 
-	resAudio, err := s.getCtx(ctx, data.AudioURL)
-	if err != nil {
-		return nil, err
+	var rawAudio []byte
+	if len(data.AudioData) > 0 {
+		rawAudio = data.AudioData
+	} else {
+		resAudio, err := s.getCtx(ctx, data.AudioURL)
+		if err != nil {
+			return nil, err
+		}
+		rawAudio, err = io.ReadAll(resAudio.Body)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	dataBytes, err := io.ReadAll(resAudio.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	audioData, waveForm, secs, err := convertAudio(dataBytes, 64)
+	audioData, waveForm, secs, err := convertAudio(rawAudio, 64)
 	if err != nil {
 		return nil, err
 	}
@@ -154,6 +159,7 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 type SendDocumentRequest struct {
 	InstanceID string     `json:"instance_id"`
 	MediaURL   string     `json:"media_url"`
+	MediaData  []byte     `json:"-"`
 	Caption    string     `json:"caption"`
 	FileName   string     `json:"file_name"`
 	RemoteJID  *types.JID `json:"remote_jid"`
@@ -175,14 +181,18 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 		return nil, fmt.Errorf("remote_jid is required")
 	}
 
-	resMedia, err := s.getCtx(ctx, data.MediaURL)
-	if err != nil {
-		return nil, err
-	}
-
-	dataBytes, err := io.ReadAll(resMedia.Body)
-	if err != nil {
-		return nil, err
+	var dataBytes []byte
+	if len(data.MediaData) > 0 {
+		dataBytes = data.MediaData
+	} else {
+		resMedia, err := s.getCtx(ctx, data.MediaURL)
+		if err != nil {
+			return nil, err
+		}
+		dataBytes, err = io.ReadAll(resMedia.Body)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaDocument)
@@ -221,6 +231,7 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 type SendImageRequest struct {
 	InstanceID string     `json:"instance_id"`
 	MediaURL   string     `json:"media_url"`
+	MediaData  []byte     `json:"-"`
 	Caption    string     `json:"caption"`
 	RemoteJID  *types.JID `json:"remote_jid"`
 	Mimetype   string     `json:"mimetype"`
@@ -240,14 +251,18 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 		return nil, fmt.Errorf("remote_jid is required")
 	}
 
-	resMedia, err := s.getCtx(ctx, data.MediaURL)
-	if err != nil {
-		return nil, err
-	}
-
-	dataBytes, err := io.ReadAll(resMedia.Body)
-	if err != nil {
-		return nil, err
+	var dataBytes []byte
+	if len(data.MediaData) > 0 {
+		dataBytes = data.MediaData
+	} else {
+		resMedia, err := s.getCtx(ctx, data.MediaURL)
+		if err != nil {
+			return nil, err
+		}
+		dataBytes, err = io.ReadAll(resMedia.Body)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaImage)
