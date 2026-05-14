@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -145,6 +146,43 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, map[string]interface{}{})
+}
+
+// GetGroups godoc
+// @Summary      List joined groups
+// @Description  Returns WhatsApp groups the connected number is a member of, paginated. Results are cached for 5 minutes; use ?refresh=true to force a fresh fetch. Participants are omitted by default; use ?withParticipants=true to include them.
+// @Tags         Chat
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        instance          path   string  true   "Instance ID"
+// @Param        refresh           query  bool    false  "Force cache refresh"
+// @Param        withParticipants  query  bool    false  "Include participant list in each group"
+// @Param        page              query  int     false  "Page number (default: 1)"
+// @Param        limit             query  int     false  "Groups per page (default: 50)"
+// @Success      200       {object}  object
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /instance/{instance}/chat/groups [get]
+func (s *Chat) GetGroups(ctx echo.Context) error {
+	instanceID := ctx.Param("instance")
+	refresh := ctx.QueryParam("refresh") == "true"
+	withParticipants := ctx.QueryParam("withParticipants") == "true"
+
+	page, _ := strconv.Atoi(ctx.QueryParam("page"))
+	limit, _ := strconv.Atoi(ctx.QueryParam("limit"))
+
+	response, err := s.whatsmiau.GetGroups(ctx.Request().Context(), &whatsmiau.GetGroupsRequest{
+		InstanceID:       instanceID,
+		Refresh:          refresh,
+		WithParticipants: withParticipants,
+		Page:             page,
+		Limit:            limit,
+	})
+	if err != nil {
+		zap.L().Error("Whatsmiau.GetGroups failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to get groups")
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }
 
 // NumberExists godoc

@@ -14,6 +14,7 @@ func Chat(group *echo.Group) {
 
 	group.POST("/presence", controller.SendChatPresence)
 	group.POST("/read-messages", controller.ReadMessages)
+	group.GET("/groups", controller.GetGroups)
 }
 
 func ChatEVO(group *echo.Group) {

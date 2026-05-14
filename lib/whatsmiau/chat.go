@@ -9,6 +9,119 @@ import (
 	"golang.org/x/net/context"
 )
 
+const groupsCacheTTL = 5 * time.Minute
+
+type groupsCacheEntry struct {
+	data      []GroupInfo
+	expiresAt time.Time
+}
+
+type GetGroupsRequest struct {
+	InstanceID       string `json:"instance_id"`
+	Refresh          bool   `json:"refresh"`
+	WithParticipants bool   `json:"with_participants"`
+	Page             int    `json:"page"`
+	Limit            int    `json:"limit"`
+}
+
+type GroupParticipant struct {
+	JID          string `json:"jid"`
+	IsAdmin      bool   `json:"isAdmin"`
+	IsSuperAdmin bool   `json:"isSuperAdmin"`
+}
+
+type GroupInfo struct {
+	JID          string             `json:"jid"`
+	Name         string             `json:"name"`
+	Participants []GroupParticipant `json:"participants,omitempty"`
+}
+
+type GetGroupsResponse struct {
+	Total  int         `json:"total"`
+	Page   int         `json:"page"`
+	Limit  int         `json:"limit"`
+	Groups []GroupInfo `json:"groups"`
+}
+
+func (s *Whatsmiau) GetGroups(ctx context.Context, data *GetGroupsRequest) (*GetGroupsResponse, error) {
+	client, ok := s.clients.Load(data.InstanceID)
+	if !ok {
+		return nil, whatsmeow.ErrClientIsNil
+	}
+
+	var allGroups []GroupInfo
+
+	if !data.Refresh {
+		if entry, ok := s.groupsCache.Load(data.InstanceID); ok && time.Now().Before(entry.expiresAt) {
+			allGroups = entry.data
+		}
+	}
+
+	if allGroups == nil {
+		groups, err := client.GetJoinedGroups(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		allGroups = make([]GroupInfo, 0, len(groups))
+		for _, g := range groups {
+			participants := make([]GroupParticipant, 0, len(g.Participants))
+			for _, p := range g.Participants {
+				participants = append(participants, GroupParticipant{
+					JID:          p.JID.ToNonAD().String(),
+					IsAdmin:      p.IsAdmin,
+					IsSuperAdmin: p.IsSuperAdmin,
+				})
+			}
+			allGroups = append(allGroups, GroupInfo{
+				JID:          g.JID.String(),
+				Name:         g.Name,
+				Participants: participants,
+			})
+		}
+
+		s.groupsCache.Store(data.InstanceID, groupsCacheEntry{
+			data:      allGroups,
+			expiresAt: time.Now().Add(groupsCacheTTL),
+		})
+	}
+
+	total := len(allGroups)
+	page := data.Page
+	limit := data.Limit
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 50
+	}
+
+	start := (page - 1) * limit
+	if start >= total {
+		return &GetGroupsResponse{Total: total, Page: page, Limit: limit, Groups: []GroupInfo{}}, nil
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+
+	page_groups := allGroups[start:end]
+	if !data.WithParticipants {
+		stripped := make([]GroupInfo, len(page_groups))
+		for i, g := range page_groups {
+			stripped[i] = GroupInfo{JID: g.JID, Name: g.Name}
+		}
+		page_groups = stripped
+	}
+
+	return &GetGroupsResponse{
+		Total:  total,
+		Page:   page,
+		Limit:  limit,
+		Groups: page_groups,
+	}, nil
+}
+
 type ReadMessageRequest struct {
 	MessageIDs []string   `json:"message_ids"`
 	InstanceID string     `json:"instance_id"`
