@@ -28,8 +28,11 @@ func V1(group *echo.Group) {
 	Instance(group.Group("/instance"))
 	Message(group.Group("/instance/:instance/message"))
 	Chat(group.Group("/instance/:instance/chat"))
+	Group(group.Group("/instance/:instance/group"))
+	Community(group.Group("/instance/:instance/community"))
 
 	ChatEVO(group.Group("/chat"))
 	MessageEVO(group.Group("/message"))
+	GroupEVO(group.Group("/group"))
 	Webhook(group.Group("/webhook"))
 }

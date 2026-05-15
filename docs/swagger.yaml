@@ -1,5 +1,56 @@
 basePath: /v1
 definitions:
+  dto.CommunityLinkGroupRequest:
+    properties:
+      childJid:
+        type: string
+      parentJid:
+        type: string
+    required:
+    - childJid
+    - parentJid
+    type: object
+  dto.CommunitySetJoinApprovalModeRequest:
+    properties:
+      communityJid:
+        type: string
+      mode:
+        type: boolean
+    required:
+    - communityJid
+    type: object
+  dto.CommunitySetMemberAddModeRequest:
+    properties:
+      communityJid:
+        type: string
+      mode:
+        enum:
+        - admin_add
+        - all_member_add
+        type: string
+    required:
+    - communityJid
+    - mode
+    type: object
+  dto.CommunityUpdateRequestParticipantsRequest:
+    properties:
+      action:
+        enum:
+        - approve
+        - reject
+        type: string
+      communityJid:
+        type: string
+      participants:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - action
+    - communityJid
+    - participants
+    type: object
   dto.ConnectInstanceResponse:
     properties:
       alwaysOnline:
@@ -15,6 +66,8 @@ definitions:
       message:
         type: string
       msgCall:
+        type: string
+      pairingCode:
         type: string
       proxyHost:
         type: string
@@ -46,6 +99,54 @@ definitions:
       conversation:
         type: string
     type: object
+  dto.CreateCommunityRequest:
+    properties:
+      description:
+        type: string
+      subject:
+        maxLength: 25
+        minLength: 1
+        type: string
+    required:
+    - subject
+    type: object
+  dto.CreateCommunitySubGroupRequest:
+    properties:
+      parentJid:
+        type: string
+      participants:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      subject:
+        maxLength: 25
+        minLength: 1
+        type: string
+    required:
+    - parentJid
+    - participants
+    - subject
+    type: object
+  dto.CreateGroupRequest:
+    properties:
+      description:
+        type: string
+      participants:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      promoteParticipants:
+        type: boolean
+      subject:
+        maxLength: 25
+        minLength: 1
+        type: string
+    required:
+    - participants
+    - subject
+    type: object
   dto.CreateInstanceRequest:
     properties:
       alwaysOnline:
@@ -56,6 +157,8 @@ definitions:
         type: string
       instanceName:
         type: string
+      migration:
+        $ref: '#/definitions/dto.MigrationData'
       msgCall:
         type: string
       proxyHost:
@@ -91,6 +194,8 @@ definitions:
         type: boolean
       id:
         type: string
+      migration:
+        $ref: '#/definitions/dto.MigrationResult'
       msgCall:
         type: string
       proxyHost:
@@ -147,6 +252,111 @@ definitions:
         type: string
       senderTimestamp:
         type: string
+    type: object
+  dto.GroupDescriptionRequest:
+    properties:
+      description:
+        type: string
+      groupJid:
+        type: string
+    required:
+    - groupJid
+    type: object
+  dto.GroupPictureRequest:
+    properties:
+      groupJid:
+        type: string
+      image:
+        description: Image can be either a base64-encoded JPEG or a URL pointing to
+          a JPEG.
+        type: string
+    required:
+    - groupJid
+    - image
+    type: object
+  dto.GroupRevokeInviteRequest:
+    properties:
+      groupJid:
+        type: string
+    required:
+    - groupJid
+    type: object
+  dto.GroupSendInviteRequest:
+    properties:
+      description:
+        type: string
+      groupJid:
+        type: string
+      numbers:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - groupJid
+    - numbers
+    type: object
+  dto.GroupSubjectRequest:
+    properties:
+      groupJid:
+        type: string
+      subject:
+        maxLength: 25
+        minLength: 1
+        type: string
+    required:
+    - groupJid
+    - subject
+    type: object
+  dto.GroupToggleEphemeralRequest:
+    properties:
+      expiration:
+        enum:
+        - 0
+        - 86400
+        - 604800
+        - 7776000
+        type: integer
+      groupJid:
+        type: string
+    required:
+    - groupJid
+    type: object
+  dto.GroupUpdateParticipantRequest:
+    properties:
+      action:
+        enum:
+        - add
+        - remove
+        - promote
+        - demote
+        type: string
+      groupJid:
+        type: string
+      participants:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - action
+    - groupJid
+    - participants
+    type: object
+  dto.GroupUpdateSettingRequest:
+    properties:
+      action:
+        enum:
+        - announcement
+        - not_announcement
+        - locked
+        - unlocked
+        type: string
+      groupJid:
+        type: string
+    required:
+    - action
+    - groupJid
     type: object
   dto.ListInstancesResponse:
     properties:
@@ -211,6 +421,44 @@ definitions:
         type: string
       remoteJid:
         type: string
+    type: object
+  dto.MigrationBuffer:
+    properties:
+      data:
+        type: string
+      type:
+        type: string
+    type: object
+  dto.MigrationData:
+    properties:
+      creds:
+        items:
+          type: integer
+        type: array
+      preKeys:
+        items:
+          $ref: '#/definitions/dto.MigrationPreKey'
+        type: array
+    required:
+    - creds
+    type: object
+  dto.MigrationPreKey:
+    properties:
+      keyId:
+        type: integer
+      private:
+        $ref: '#/definitions/dto.MigrationBuffer'
+    type: object
+  dto.MigrationResult:
+    properties:
+      connected:
+        type: boolean
+      jid:
+        type: string
+      lid:
+        type: string
+      preKeysImported:
+        type: integer
     type: object
   dto.NumberExistsRequest:
     properties:
@@ -392,6 +640,9 @@ definitions:
       name:
         type: string
       type:
+        enum:
+        - reply
+        - pix
         type: string
     required:
     - displayText
@@ -422,6 +673,62 @@ definitions:
         $ref: '#/definitions/dto.SendPresenceRequestPresence'
       type:
         $ref: '#/definitions/dto.SendPresenceRequestType'
+    type: object
+  dto.SendContactItem:
+    properties:
+      email:
+        type: string
+      fullName:
+        type: string
+      organization:
+        type: string
+      phoneNumber:
+        type: string
+      url:
+        type: string
+      wuid:
+        type: string
+    required:
+    - fullName
+    - phoneNumber
+    type: object
+  dto.SendContactRequest:
+    properties:
+      contact:
+        items:
+          $ref: '#/definitions/dto.SendContactItem'
+        minItems: 1
+        type: array
+      delay:
+        maximum: 300000
+        minimum: 0
+        type: integer
+      mentioned:
+        items:
+          type: string
+        type: array
+      mentionsEveryOne:
+        type: boolean
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/dto.MessageRequestQuoted'
+    required:
+    - contact
+    - number
+    type: object
+  dto.SendContactResponse:
+    properties:
+      instanceId:
+        type: string
+      key:
+        $ref: '#/definitions/dto.MessageResponseKey'
+      messageTimestamp:
+        type: integer
+      messageType:
+        type: string
+      status:
+        type: string
     type: object
   dto.SendDocumentRequest:
     properties:
@@ -537,6 +844,48 @@ definitions:
       status:
         type: string
     type: object
+  dto.SendLocationRequest:
+    properties:
+      address:
+        type: string
+      delay:
+        maximum: 300000
+        minimum: 0
+        type: integer
+      latitude:
+        type: number
+      longitude:
+        type: number
+      mentioned:
+        items:
+          type: string
+        type: array
+      mentionsEveryOne:
+        type: boolean
+      name:
+        type: string
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/dto.MessageRequestQuoted'
+    required:
+    - latitude
+    - longitude
+    - number
+    type: object
+  dto.SendLocationResponse:
+    properties:
+      instanceId:
+        type: string
+      key:
+        $ref: '#/definitions/dto.MessageResponseKey'
+      messageTimestamp:
+        type: integer
+      messageType:
+        type: string
+      status:
+        type: string
+    type: object
   dto.SendMediaRequest:
     properties:
       caption:
@@ -565,6 +914,52 @@ definitions:
       quoted:
         $ref: '#/definitions/dto.MessageRequestQuoted'
     type: object
+  dto.SendPollRequest:
+    properties:
+      delay:
+        maximum: 300000
+        minimum: 0
+        type: integer
+      mentioned:
+        items:
+          type: string
+        type: array
+      mentionsEveryOne:
+        type: boolean
+      name:
+        type: string
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/dto.MessageRequestQuoted'
+      selectableCount:
+        maximum: 10
+        minimum: 0
+        type: integer
+      values:
+        items:
+          type: string
+        maxItems: 10
+        minItems: 2
+        type: array
+    required:
+    - name
+    - number
+    - values
+    type: object
+  dto.SendPollResponse:
+    properties:
+      instanceId:
+        type: string
+      key:
+        $ref: '#/definitions/dto.MessageResponseKey'
+      messageTimestamp:
+        type: integer
+      messageType:
+        type: string
+      status:
+        type: string
+    type: object
   dto.SendPresenceRequestPresence:
     enum:
     - composing
@@ -581,6 +976,41 @@ definitions:
     x-enum-varnames:
     - PresenceTypeText
     - PresenceTypeAudio
+  dto.SendPtvRequest:
+    properties:
+      delay:
+        maximum: 300000
+        minimum: 0
+        type: integer
+      mentioned:
+        items:
+          type: string
+        type: array
+      mentionsEveryOne:
+        type: boolean
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/dto.MessageRequestQuoted'
+      video:
+        type: string
+    required:
+    - number
+    - video
+    type: object
+  dto.SendPtvResponse:
+    properties:
+      instanceId:
+        type: string
+      key:
+        $ref: '#/definitions/dto.MessageResponseKey'
+      messageTimestamp:
+        type: integer
+      messageType:
+        type: string
+      status:
+        type: string
+    type: object
   dto.SendReactionRequest:
     properties:
       key:
@@ -597,9 +1027,8 @@ definitions:
         - remoteJid
         type: object
       reaction:
+        maxLength: 10
         type: string
-    required:
-    - reaction
     type: object
   dto.SendReactionResponse:
     properties:
@@ -613,6 +1042,85 @@ definitions:
       messageType:
         type: string
       source:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.SendStatusRequest:
+    properties:
+      allContacts:
+        type: boolean
+      backgroundColor:
+        type: string
+      caption:
+        type: string
+      content:
+        type: string
+      font:
+        maximum: 5
+        minimum: 0
+        type: integer
+      statusJidList:
+        items:
+          type: string
+        type: array
+      type:
+        enum:
+        - text
+        - image
+        - audio
+        - video
+        type: string
+    required:
+    - content
+    - type
+    type: object
+  dto.SendStatusResponse:
+    properties:
+      instanceId:
+        type: string
+      key:
+        $ref: '#/definitions/dto.MessageResponseKey'
+      messageTimestamp:
+        type: integer
+      messageType:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.SendStickerRequest:
+    properties:
+      delay:
+        maximum: 300000
+        minimum: 0
+        type: integer
+      mentioned:
+        items:
+          type: string
+        type: array
+      mentionsEveryOne:
+        type: boolean
+      notConvertSticker:
+        type: boolean
+      number:
+        type: string
+      quoted:
+        $ref: '#/definitions/dto.MessageRequestQuoted'
+      sticker:
+        type: string
+    required:
+    - number
+    - sticker
+    type: object
+  dto.SendStickerResponse:
+    properties:
+      instanceId:
+        type: string
+      key:
+        $ref: '#/definitions/dto.MessageResponseKey'
+      messageTimestamp:
+        type: integer
+      messageType:
         type: string
       status:
         type: string
@@ -709,6 +1217,8 @@ definitions:
         properties:
           base64:
             type: boolean
+          enabled:
+            type: boolean
           events:
             items:
               type: string
@@ -779,6 +1289,138 @@ definitions:
         type: string
       message:
         type: string
+    type: object
+  whatsmiau.AcceptGroupInviteResponse:
+    properties:
+      groupJid:
+        type: string
+    type: object
+  whatsmiau.FindParticipantsResponse:
+    properties:
+      participants:
+        items:
+          $ref: '#/definitions/whatsmiau.GroupParticipantResponse'
+        type: array
+    type: object
+  whatsmiau.GroupInfoResponse:
+    properties:
+      announce:
+        type: boolean
+      creation:
+        type: integer
+      desc:
+        type: string
+      descId:
+        type: string
+      ephemeral:
+        type: integer
+      id:
+        type: string
+      isCommunity:
+        type: boolean
+      isCommunityAnnounce:
+        type: boolean
+      joinApprovalMode:
+        type: boolean
+      linkedParent:
+        type: string
+      memberAddMode:
+        type: string
+      owner:
+        type: string
+      participants:
+        items:
+          $ref: '#/definitions/whatsmiau.GroupParticipantResponse'
+        type: array
+      restrict:
+        type: boolean
+      size:
+        type: integer
+      subject:
+        type: string
+      subjectOwner:
+        type: string
+      subjectTime:
+        type: integer
+    type: object
+  whatsmiau.GroupParticipantResponse:
+    properties:
+      displayName:
+        type: string
+      error:
+        type: integer
+      isAdmin:
+        type: boolean
+      isSuperAdmin:
+        type: boolean
+      jid:
+        type: string
+      lid:
+        type: string
+    type: object
+  whatsmiau.InviteCodeResponse:
+    properties:
+      inviteCode:
+        type: string
+      inviteUrl:
+        type: string
+    type: object
+  whatsmiau.LinkedParticipantResponse:
+    properties:
+      jid:
+        type: string
+      lid:
+        type: string
+    type: object
+  whatsmiau.RequestParticipantResponse:
+    properties:
+      jid:
+        type: string
+      lid:
+        type: string
+      requestedAt:
+        type: integer
+    type: object
+  whatsmiau.SendGroupInviteResponse:
+    properties:
+      inviteUrl:
+        type: string
+      sent:
+        items:
+          $ref: '#/definitions/whatsmiau.SendInviteResult'
+        type: array
+    type: object
+  whatsmiau.SendInviteResult:
+    properties:
+      error:
+        type: string
+      number:
+        type: string
+      success:
+        type: boolean
+    type: object
+  whatsmiau.SetGroupPictureResponse:
+    properties:
+      pictureId:
+        type: string
+    type: object
+  whatsmiau.SubGroupResponse:
+    properties:
+      id:
+        type: string
+      isDefaultSubGroup:
+        type: boolean
+      subject:
+        type: string
+      subjectTime:
+        type: integer
+    type: object
+  whatsmiau.UpdateParticipantResponse:
+    properties:
+      participants:
+        items:
+          $ref: '#/definitions/whatsmiau.GroupParticipantResponse'
+        type: array
     type: object
 host: localhost:8080
 info:
@@ -979,6 +1621,451 @@ paths:
       summary: Check if numbers exist on WhatsApp
       tags:
       - Chat
+  /group/acceptInviteCode/{instance}:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Invite code or full link
+        in: query
+        name: inviteCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.AcceptGroupInviteResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Join a group using an invite code
+      tags:
+      - Group
+  /group/create/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a WhatsApp group
+      tags:
+      - Group
+  /group/fetchAllGroups/{instance}:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Include participants (true/false)
+        in: query
+        name: getParticipants
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List all joined groups
+      tags:
+      - Group
+  /group/findGroupInfos/{instance}:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group JID
+        in: query
+        name: groupJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get group info by JID
+      tags:
+      - Group
+  /group/inviteCode/{instance}:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group JID
+        in: query
+        name: groupJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.InviteCodeResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get the group invite code (link)
+      tags:
+      - Group
+  /group/inviteInfo/{instance}:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Invite code or full link
+        in: query
+        name: inviteCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get info about an invite code (no join)
+      tags:
+      - Group
+  /group/leaveGroup/{instance}:
+    delete:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group JID
+        in: query
+        name: groupJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Leave a group
+      tags:
+      - Group
+  /group/participants/{instance}:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group JID
+        in: query
+        name: groupJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.FindParticipantsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List participants of a group
+      tags:
+      - Group
+  /group/revokeInviteCode/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupRevokeInviteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.InviteCodeResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Revoke current invite code and generate a new one
+      tags:
+      - Group
+  /group/sendInvite/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Invite payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupSendInviteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.SendGroupInviteResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send group invite link via text to phone numbers
+      tags:
+      - Group
+  /group/toggleEphemeral/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Ephemeral payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupToggleEphemeralRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle disappearing messages for the group
+      tags:
+      - Group
+  /group/updateGroupDescription/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Description payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupDescriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update group description
+      tags:
+      - Group
+  /group/updateGroupPicture/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Picture payload (base64 or URL)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupPictureRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.SetGroupPictureResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update group picture
+      tags:
+      - Group
+  /group/updateGroupSubject/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Subject payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupSubjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update group subject (name)
+      tags:
+      - Group
+  /group/updateParticipant/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupUpdateParticipantRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.UpdateParticipantResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update group participants (add/remove/promote/demote)
+      tags:
+      - Group
+  /group/updateSetting/{instance}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Setting payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupUpdateSettingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update group setting (announce/locked)
+      tags:
+      - Group
   /instance:
     get:
       description: Returns all instances, optionally filtered by name or ID
@@ -1306,6 +2393,732 @@ paths:
       summary: Mark messages as read
       tags:
       - Chat
+  /instance/{instance}/community/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Community payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCommunityRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a WhatsApp community (parent group)
+      tags:
+      - Community
+  /instance/{instance}/community/createSubGroup:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Sub group payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCommunitySubGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new group already linked to a community
+      tags:
+      - Community
+  /instance/{instance}/community/linkGroup:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Link payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommunityLinkGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Link an existing group to a community
+      tags:
+      - Community
+  /instance/{instance}/community/linkedGroupsParticipants:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Community JID
+        in: query
+        name: communityJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/whatsmiau.LinkedParticipantResponse'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List participants across all linked groups of a community
+      tags:
+      - Community
+  /instance/{instance}/community/requestParticipants:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Community JID
+        in: query
+        name: communityJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/whatsmiau.RequestParticipantResponse'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List pending join requests
+      tags:
+      - Community
+  /instance/{instance}/community/requestParticipants/update:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommunityUpdateRequestParticipantsRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.UpdateParticipantResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Approve or reject pending join requests
+      tags:
+      - Community
+  /instance/{instance}/community/setJoinApprovalMode:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Mode payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommunitySetJoinApprovalModeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle join-approval mode for a community
+      tags:
+      - Community
+  /instance/{instance}/community/setMemberAddMode:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Mode payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommunitySetMemberAddModeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle who can add members (admins only or all)
+      tags:
+      - Community
+  /instance/{instance}/community/subGroups:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Community JID
+        in: query
+        name: communityJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/whatsmiau.SubGroupResponse'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List subgroups of a community
+      tags:
+      - Community
+  /instance/{instance}/community/unlinkGroup:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Unlink payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommunityLinkGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove a group from a community
+      tags:
+      - Community
+  /instance/{instance}/group/acceptInviteCode:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Invite code or full link
+        in: query
+        name: inviteCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.AcceptGroupInviteResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Join a group using an invite code
+      tags:
+      - Group
+  /instance/{instance}/group/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a WhatsApp group
+      tags:
+      - Group
+  /instance/{instance}/group/fetchAllGroups:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Include participants (true/false)
+        in: query
+        name: getParticipants
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List all joined groups
+      tags:
+      - Group
+  /instance/{instance}/group/findGroupInfos:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group JID
+        in: query
+        name: groupJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get group info by JID
+      tags:
+      - Group
+  /instance/{instance}/group/inviteCode:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group JID
+        in: query
+        name: groupJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.InviteCodeResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get the group invite code (link)
+      tags:
+      - Group
+  /instance/{instance}/group/inviteInfo:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Invite code or full link
+        in: query
+        name: inviteCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get info about an invite code (no join)
+      tags:
+      - Group
+  /instance/{instance}/group/leaveGroup:
+    delete:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group JID
+        in: query
+        name: groupJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Leave a group
+      tags:
+      - Group
+  /instance/{instance}/group/participants:
+    get:
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group JID
+        in: query
+        name: groupJid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.FindParticipantsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List participants of a group
+      tags:
+      - Group
+  /instance/{instance}/group/revokeInviteCode:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Group payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupRevokeInviteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.InviteCodeResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Revoke current invite code and generate a new one
+      tags:
+      - Group
+  /instance/{instance}/group/sendInvite:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Invite payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupSendInviteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/whatsmiau.SendGroupInviteResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send group invite link via text to phone numbers
+      tags:
+      - Group
+  /instance/{instance}/group/toggleEphemeral:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Ephemeral payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupToggleEphemeralRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle disappearing messages for the group
+      tags:
+      - Group
+  /instance/{instance}/group/updateGroupDescription:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Description payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupDescriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update group description
+      tags:
+      - Group
+  /instance/{instance}/group/updateGroupPicture:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Picture payload (base64 or URL)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupPictureRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.SetGroupPictureResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update group picture
+      tags:
+      - Group
+  /instance/{instance}/group/updateGroupSubject:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Subject payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupSubjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update group subject (name)
+      tags:
+      - Group
+  /instance/{instance}/group/updateParticipant:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupUpdateParticipantRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/whatsmiau.UpdateParticipantResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update group participants (add/remove/promote/demote)
+      tags:
+      - Group
+  /instance/{instance}/group/updateSetting:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Setting payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupUpdateSettingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update group setting (announce/locked)
+      tags:
+      - Group
   /instance/{instance}/message/audio:
     post:
       consumes:
@@ -1551,6 +3364,35 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Send a text message
+      tags:
+      - Message
+  /instance/{instance}/message/video:
+    post:
+      consumes:
+      - application/json
+      description: Sends a video file by URL to a WhatsApp number
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Video parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendDocumentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendDocumentResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a video
       tags:
       - Message
   /instance/connect/{id}:
@@ -1876,6 +3718,35 @@ paths:
       summary: Send a buttons message
       tags:
       - Message
+  /message/sendContact/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Sends contact cards (vCard) to a WhatsApp number
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Contact parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendContactRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendContactResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send one or more contacts
+      tags:
+      - Message
   /message/sendList/{instance}:
     post:
       consumes:
@@ -1915,6 +3786,35 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Send a list message
+      tags:
+      - Message
+  /message/sendLocation/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Sends a geographic location to a WhatsApp number
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Location parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendLocationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendLocationResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a location message
       tags:
       - Message
   /message/sendMedia/{instance}:
@@ -1958,6 +3858,64 @@ paths:
       summary: Send a media message (Evolution API)
       tags:
       - Message
+  /message/sendPoll/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Sends a multiple-choice poll to a WhatsApp number
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Poll parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendPollRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendPollResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a poll
+      tags:
+      - Message
+  /message/sendPtv/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Sends a round/circle video note to a WhatsApp number
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: PTV parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendPtvRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendPtvResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a round video note (PTV)
+      tags:
+      - Message
   /message/sendReaction/{instance}:
     post:
       consumes:
@@ -1998,6 +3956,64 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Send a reaction to a message
+      tags:
+      - Message
+  /message/sendStatus/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Sends a status (text/image/audio/video) to status@broadcast
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Status parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendStatusResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a status broadcast
+      tags:
+      - Message
+  /message/sendSticker/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Sends a WebP sticker to a WhatsApp number
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Sticker parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendStickerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendStickerResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a sticker
       tags:
       - Message
   /message/sendText/{instance}:
