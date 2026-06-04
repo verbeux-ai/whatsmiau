@@ -1,6 +1,7 @@
 package whatsmiau
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -512,6 +513,49 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	client.Disconnect()
 	s.qrCache.Delete(id)
 	s.pairingCache.Delete(id)
+	return nil
+}
+
+func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
+	lock, _ := s.lockConnection.LoadOrStore(id, &sync.Mutex{})
+	lock.Lock()
+	defer lock.Unlock()
+
+	oldClient, ok := s.clients.Load(id)
+	if !ok {
+		return fmt.Errorf("instance %s is not connected", id)
+	}
+
+	device := oldClient.Store
+	oldClient.RemoveEventHandlers()
+	oldClient.Disconnect()
+	s.clients.Delete(id)
+
+	if device == nil || device.ID == nil {
+		return fmt.Errorf("instance %s has no device store", id)
+	}
+
+	s.qrCache.Delete(id)
+	s.pairingCache.Delete(id)
+	s.observerRunning.Delete(id)
+	s.instanceCache.Delete(id)
+
+	instance := s.getInstance(id)
+	if instance == nil {
+		return fmt.Errorf("instance %s not found in redis", id)
+	}
+
+	client := whatsmeow.NewClient(device, s.logger)
+	configProxy(client, instance.InstanceProxy)
+	client.AddEventHandler(s.Handle(id))
+	s.clients.Store(id, client)
+
+	if err := client.Connect(); err != nil {
+		zap.L().Error("restart: connect failed", zap.String("id", id), zap.Error(err))
+		return err
+	}
+
+	zap.L().Info("restart: instance restarted successfully", zap.String("id", id))
 	return nil
 }
 

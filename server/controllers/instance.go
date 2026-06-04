@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"net/http"
 
@@ -438,5 +439,60 @@ func (s *Instance) Delete(ctx echo.Context) error {
 
 	return ctx.JSON(http.StatusOK, dto.DeleteInstanceResponse{
 		Message: "instance deleted",
+	})
+}
+
+// Restart godoc
+// @Summary      Restart an instance connection
+// @Description  Disconnects and reconnects the WhatsApp websocket without logging out
+// @Tags         Instance
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        id  path  string  true  "Instance ID"
+// @Success      200  {object}  dto.RestartInstanceResponse
+// @Failure      400  {object}  utils.HTTPErrorResponse
+// @Failure      404  {object}  utils.HTTPErrorResponse
+// @Failure      422  {object}  utils.HTTPErrorResponse
+// @Failure      500  {object}  utils.HTTPErrorResponse
+// @Router       /instance/{id}/restart [post]
+// @Router       /instance/restart/{id} [post]
+func (s *Instance) Restart(ctx echo.Context) error {
+	c := ctx.Request().Context()
+	var request dto.RestartInstanceRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	result, err := s.repo.List(c, request.ID)
+	if err != nil {
+		zap.L().Error("failed to list instances", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to list instances")
+	}
+	if len(result) == 0 {
+		return utils.HTTPFail(ctx, http.StatusNotFound, nil, "instance not found")
+	}
+
+	currentStatus, err := s.whatsmiau.Status(request.ID)
+	if err != nil {
+		zap.L().Error("failed to get instance status", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to get instance status")
+	}
+	if currentStatus != whatsmiau.Connected && currentStatus != whatsmiau.Connecting {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil,
+			fmt.Sprintf("instance must be connected or connecting, current state: %s", currentStatus))
+	}
+
+	if err := s.whatsmiau.Restart(c, request.ID); err != nil {
+		zap.L().Error("failed to restart instance", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to restart instance")
+	}
+
+	return ctx.JSON(http.StatusOK, dto.RestartInstanceResponse{
+		ID:     request.ID,
+		Status: string(whatsmiau.Connecting),
+		Instance: &dto.RestartInstanceEvoCompatibility{
+			InstanceName: request.ID,
+			Status:       string(whatsmiau.Connecting),
+		},
 	})
 }
