@@ -49,7 +49,7 @@ func TestRestartInstance(t *testing.T) {
 	t.Run("RestartEvoRoute", func(t *testing.T) {
 		resp := do(t, http.MethodPost, "/v1/instance/restart/"+id, nil)
 		defer drainClose(resp)
-		assert.True(t, resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusBadRequest,
-			"expected 200 or 400, got %d", resp.StatusCode)
+		assert.Equal(t, http.StatusOK, resp.StatusCode,
+			"expected 200, got %d", resp.StatusCode)
 	})
 }
