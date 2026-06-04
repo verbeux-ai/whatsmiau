@@ -523,7 +523,7 @@ func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
 	defer lock.Unlock()
 
 	// Load fresh instance from Redis BEFORE destructive ops
-	ctxInst, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctxInst, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 	instances, err := s.repo.List(ctxInst, id)
 	if err != nil {
@@ -553,15 +553,13 @@ func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
 	if hadClient && oldClient.Store != nil && oldClient.Store.ID != nil {
 		device = oldClient.Store
 	} else if instance.RemoteJID != "" {
-		devices, err := s.container.GetAllDevices(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to list devices: %w", err)
+		jid, parseErr := types.ParseJID(instance.RemoteJID)
+		if parseErr != nil {
+			return fmt.Errorf("failed to parse RemoteJID %s: %w", instance.RemoteJID, parseErr)
 		}
-		for _, d := range devices {
-			if d.ID != nil && d.ID.String() == instance.RemoteJID {
-				device = d
-				break
-			}
+		device, err = s.container.GetDevice(ctx, jid)
+		if err != nil {
+			return fmt.Errorf("failed to get device for %s: %w", instance.RemoteJID, err)
 		}
 	}
 
