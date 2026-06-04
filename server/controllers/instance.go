@@ -3,7 +3,6 @@ package controllers
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"math/rand/v2"
 	"net/http"
 
@@ -470,16 +469,6 @@ func (s *Instance) Restart(ctx echo.Context) error {
 	}
 	if len(result) == 0 {
 		return utils.HTTPFail(ctx, http.StatusNotFound, nil, "instance not found")
-	}
-
-	currentStatus, err := s.whatsmiau.Status(request.ID)
-	if err != nil {
-		zap.L().Error("failed to get instance status", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to get instance status")
-	}
-	if currentStatus != whatsmiau.Connected && currentStatus != whatsmiau.Connecting {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, nil,
-			fmt.Sprintf("instance must be connected or connecting, current state: %s", currentStatus))
 	}
 
 	if err := s.whatsmiau.Restart(c, request.ID); err != nil {

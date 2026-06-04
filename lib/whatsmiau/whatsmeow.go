@@ -15,6 +15,7 @@ import (
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
 	"github.com/verbeux-ai/whatsmiau/services"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
@@ -521,28 +522,51 @@ func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	oldClient, ok := s.clients.Load(id)
-	if !ok {
-		return fmt.Errorf("instance %s is not connected", id)
+	// Load fresh instance from Redis BEFORE destructive ops
+	ctxInst, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	instances, err := s.repo.List(ctxInst, id)
+	if err != nil {
+		return fmt.Errorf("failed to load instance %s: %w", id, err)
+	}
+	if len(instances) == 0 {
+		return fmt.Errorf("instance %s not found in redis", id)
+	}
+	instance := &instances[0]
+
+	// Clean up existing client
+	oldClient, hadClient := s.clients.Load(id)
+	if hadClient {
+		oldClient.RemoveEventHandlers()
+		oldClient.Disconnect()
+		s.clients.Delete(id)
 	}
 
-	device := oldClient.Store
-	oldClient.RemoveEventHandlers()
-	oldClient.Disconnect()
-	s.clients.Delete(id)
-
-	if device == nil || device.ID == nil {
-		return fmt.Errorf("instance %s has no device store", id)
-	}
-
+	// Clear caches
 	s.qrCache.Delete(id)
 	s.pairingCache.Delete(id)
 	s.observerRunning.Delete(id)
 	s.instanceCache.Delete(id)
 
-	instance := s.getInstance(id)
-	if instance == nil {
-		return fmt.Errorf("instance %s not found in redis", id)
+	// Find device: old client's Store, or scan SQL store
+	var device *store.Device
+	if hadClient && oldClient.Store != nil && oldClient.Store.ID != nil {
+		device = oldClient.Store
+	} else if instance.RemoteJID != "" {
+		devices, err := s.container.GetAllDevices(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list devices: %w", err)
+		}
+		for _, d := range devices {
+			if d.ID != nil && d.ID.String() == instance.RemoteJID {
+				device = d
+				break
+			}
+		}
+	}
+
+	if device == nil {
+		return fmt.Errorf("instance %s has no saved session — connect via QR code first", id)
 	}
 
 	client := whatsmeow.NewClient(device, s.logger)
