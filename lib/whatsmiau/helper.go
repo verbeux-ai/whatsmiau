@@ -376,7 +376,7 @@ func configProxy(client *whatsmeow.Client, instanceProxy models.InstanceProxy) {
 	}
 
 	var jid string
-	if client.Store.ID != nil {
+	if client.Store != nil && client.Store.ID != nil {
 		jid = client.Store.ID.String()
 	}
 
