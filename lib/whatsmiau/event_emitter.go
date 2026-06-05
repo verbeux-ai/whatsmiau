@@ -522,7 +522,7 @@ func (s *Whatsmiau) handleConnectionUpdateEvent(id string, instance *models.Inst
 	}
 
 	if state == "open" {
-		if client, ok := s.clients.Load(id); ok && client.Store.ID != nil {
+		if client, ok := s.clients.Load(id); ok && client.Store != nil && client.Store.ID != nil {
 			data.Wuid = client.Store.ID.ToNonAD().String()
 			data.ProfileName = client.Store.PushName
 		}

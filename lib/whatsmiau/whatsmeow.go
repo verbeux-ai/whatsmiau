@@ -92,13 +92,21 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 			configProxy(client, instanceFound.InstanceProxy)
 			clients.Store(instanceFound.ID, client)
 			if err := client.Connect(); err != nil {
-				zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", client.Store.ID.String()))
+				jid := ""
+				if client.Store != nil && client.Store.ID != nil {
+					jid = client.Store.ID.String()
+				}
+				zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", jid))
 			}
 			continue
 		}
 
 		if err := client.Logout(context.TODO()); err != nil {
-			zap.L().Error("failed to logout", zap.Error(err), zap.String("jid", client.Store.ID.String()))
+			jid := ""
+			if client.Store != nil && client.Store.ID != nil {
+				jid = client.Store.ID.String()
+			}
+			zap.L().Error("failed to logout", zap.Error(err), zap.String("jid", jid))
 		}
 		if client.Store != nil && client.Store.ID != nil {
 			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
