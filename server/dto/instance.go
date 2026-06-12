@@ -110,3 +110,18 @@ type LogoutInstanceRequest struct {
 type LogoutInstanceResponse struct {
 	Message string `json:"message,omitempty"`
 }
+
+type RestartInstanceRequest struct {
+	ID string `param:"id" validate:"required" swaggerignore:"true"`
+}
+
+type RestartInstanceResponse struct {
+	ID       string                          `json:"id,omitempty"`
+	Status   string                          `json:"state,omitempty"`
+	Instance *RestartInstanceEvoCompatibility `json:"instance,omitempty"`
+}
+
+type RestartInstanceEvoCompatibility struct {
+	InstanceName string `json:"instanceName,omitempty"`
+	Status       string `json:"status,omitempty"`
+}

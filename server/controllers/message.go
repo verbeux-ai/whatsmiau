@@ -29,6 +29,8 @@ func NewMessages(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.
 	}
 }
 
+var emojiRegex = regexp.MustCompile(`[\x{1F000}-\x{1FFFF}]|[\x{2300}-\x{23FF}]|[\x{2600}-\x{27BF}]|[\x{2B00}-\x{2BFF}]|[\x{2000}-\x{206F}]|[\x{2100}-\x{214F}]|[\x{2190}-\x{21FF}]`)
+
 // SendText godoc
 // @Summary      Send a text message
 // @Description  Sends a text message to a WhatsApp number via the specified instance
@@ -205,6 +207,8 @@ func (s *Message) SendMedia(ctx echo.Context) error {
 	case "image":
 		request.SendDocumentRequest.Mimetype = "image/png"
 		return s.sendImage(ctx, request.SendDocumentRequest)
+	case "video":
+		return s.sendVideo(ctx, request.SendDocumentRequest, false)
 	}
 
 	return s.sendDocument(ctx, request.SendDocumentRequest)
@@ -369,9 +373,8 @@ func (s *Message) SendReaction(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
-	var emojiRegex = regexp.MustCompile(`[\x{1F600}-\x{1F64F}]|[\x{1F300}-\x{1F5FF}]|[\x{1F680}-\x{1F6FF}]|[\x{2600}-\x{26FF}]|[\x{2700}-\x{27BF}]`)
-	if !emojiRegex.MatchString(request.Reaction) {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid reaction, must be a emoji")
+	if request.Reaction != "" && !emojiRegex.MatchString(request.Reaction) {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, nil, "invalid reaction, must be a emoji")
 	}
 
 	sendReaction := &whatsmiau.SendReactionRequest{
@@ -379,7 +382,7 @@ func (s *Message) SendReaction(ctx echo.Context) error {
 		Reaction:   request.Reaction,
 		RemoteJID:  jid,
 		MessageID:  request.Key.Id,
-		FromMe:     request.Key.FromMe,
+		FromMe:     *request.Key.FromMe,
 	}
 
 	c := ctx.Request().Context()
@@ -392,7 +395,7 @@ func (s *Message) SendReaction(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, dto.SendReactionResponse{
 		Key: dto.MessageResponseKey{
 			RemoteJid: request.Key.RemoteJid,
-			FromMe:    true,
+			FromMe:    *request.Key.FromMe,
 			Id:        res.ID,
 		},
 		Status:           "sent",

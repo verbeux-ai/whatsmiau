@@ -21,6 +21,11 @@ It's designed to be compatible with the Evolution API, making it a flexible choi
 - **SQLite Database:** Utilizes SQLite for persistent data storage.
 - **Environment-based Configuration:** Easily configure the application using environment variables.
 - **Structured Logging:** Implements structured logging with Zap for better monitoring and debugging.
+- **Group & Community Management:** Full support for WhatsApp group and community operations.
+- **Web Manager Dashboard:** Built-in web UI for managing instances, viewing QR codes, and monitoring status.
+- **All Evolution API Message Types:** Compatible with all Evolution API message types for sending and receiving.
+- **Message Reactions:** Support for sending and receiving emoji reactions.
+- **Message Deletion:** Ability to delete messages for everyone.
 
 ## Getting Started
 
@@ -103,14 +108,17 @@ The application is configured using environment variables. The following variabl
 | `GCS_ENABLED` | Enable or disable Google Cloud Storage. | `false` |
 | `GCS_BUCKET` | The GCS bucket name. | `whatsmiau` |
 | `GCS_URL` | The GCS URL. | `https://storage.googleapis.com` |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to GCP service account JSON key. | `` |
 | `GCL_APP_NAME` | The GCL application name. | `whatsmiau-br-1` |
 | `GCL_ENABLED` | Enable or disable Google Cloud Logging. | `false` |
 | `GCL_PROJECT_ID` | The GCL project ID. | `` |
 | `EMITTER_BUFFER_SIZE` | The emitter buffer size. | `2048` |
-| `HANDLER_SEMAPH-ORE_SIZE` | The handler semaphore size. | `512` |
+| `EMITTER_WORKERS` | The number of emitter workers. | `50` |
+| `HANDLER_SEMAPHORE_SIZE` | The handler semaphore size. | `512` |
 | `PROXY_ADDRESSES` | A comma-separated list of proxy addresses. Example: `SOCKS5://user:pass@host:port,HTTP://host:port` | `` |
 | `PROXY_STRATEGY` | The strategy to use when selecting a proxy from the list (`RANDOM`). | `RANDOM` |
 | `PROXY_NO_MEDIA` | If set to `true`, media will not be sent through the proxy. | `false` |
+| `MANAGER_URL` | The public URL for the manager dashboard. | `` |
 
 ## Versioning
 
@@ -162,6 +170,27 @@ No API key is required to access the documentation page.
 
 The Swagger UI allows you to explore all available routes, view request/response schemas, and test the API directly from your browser.
 
+## Manager Dashboard
+
+WhatsMiau includes a built-in web manager dashboard for managing your WhatsApp instances visually.
+
+### Access
+
+```
+http://localhost:8080/manager/
+```
+
+### Features
+
+- View all instances and their connection status
+- Generate and display QR codes for authentication
+- Pair with phone using pairing codes
+- Monitor instance health and activity
+
+### Authentication
+
+If `API_KEY` is configured, the manager dashboard will require login. If no `API_KEY` is set, the dashboard is accessible without authentication (useful for local development).
+
 ## Supported Events
 
 The application can send webhook events for the following actions:
@@ -172,6 +201,7 @@ The application can send webhook events for the following actions:
 | `MESSAGES_UPDATE` | Triggered when a message status changes (e.g., read). |
 | `MESSAGES_DELETE` | Triggered when a message is deleted for everyone.   |
 | `CONTACTS_UPSERT` | Triggered when a contact is created or updated.     |
+| `CONNECTION_UPDATE` | Triggered when connection state changes (connected, disconnected, failed). |
 
 
 ## Contributors

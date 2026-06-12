@@ -522,7 +522,7 @@ func (s *Whatsmiau) handleConnectionUpdateEvent(id string, instance *models.Inst
 	}
 
 	if state == "open" {
-		if client, ok := s.clients.Load(id); ok && client.Store.ID != nil {
+		if client, ok := s.clients.Load(id); ok && client.Store != nil && client.Store.ID != nil {
 			data.Wuid = client.Store.ID.ToNonAD().String()
 			data.ProfileName = client.Store.PushName
 		}
@@ -695,6 +695,89 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 			Contacts:    contacts,
 		}
 		ci = contactArray.GetContextInfo()
+	} else if sticker := m.GetStickerMessage(); sticker != nil {
+		messageType = "stickerMessage"
+		ci = sticker.GetContextInfo()
+		raw.StickerMessage = &WookStickerMessageRaw{
+			Url:               sticker.GetURL(),
+			FileSha256:        b64(sticker.GetFileSHA256()),
+			FileEncSha256:     b64(sticker.GetFileEncSHA256()),
+			MediaKey:          b64(sticker.GetMediaKey()),
+			Mimetype:          sticker.GetMimetype(),
+			DirectPath:        sticker.GetDirectPath(),
+			FileLength:        u64(sticker.GetFileLength()),
+			MediaKeyTimestamp: i64(sticker.GetMediaKeyTimestamp()),
+			IsAnimated:        sticker.GetIsAnimated(),
+			PngThumbnail:      b64(sticker.GetPngThumbnail()),
+			Height:            int(sticker.GetHeight()),
+			Width:             int(sticker.GetWidth()),
+		}
+	} else if loc := m.GetLocationMessage(); loc != nil {
+		messageType = "locationMessage"
+		ci = loc.GetContextInfo()
+		raw.LocationMessage = &WookLocationMessageRaw{
+			DegreesLatitude:  loc.GetDegreesLatitude(),
+			DegreesLongitude: loc.GetDegreesLongitude(),
+			Name:             loc.GetName(),
+			Address:          loc.GetAddress(),
+			Url:              loc.GetURL(),
+			JpegThumbnail:    b64(loc.GetJPEGThumbnail()),
+		}
+	} else if live := m.GetLiveLocationMessage(); live != nil {
+		messageType = "liveLocationMessage"
+		ci = live.GetContextInfo()
+		raw.LiveLocationMessage = &WookLiveLocationMessageRaw{
+			DegreesLatitude:              live.GetDegreesLatitude(),
+			DegreesLongitude:             live.GetDegreesLongitude(),
+			AccuracyInMeters:             live.GetAccuracyInMeters(),
+			SpeedInMps:                   live.GetSpeedInMps(),
+			DegreesClockwiseFromMagNorth: live.GetDegreesClockwiseFromMagneticNorth(),
+			Caption:                      live.GetCaption(),
+			SequenceNumber:               live.GetSequenceNumber(),
+			TimeOffset:                   live.GetTimeOffset(),
+			JpegThumbnail:                b64(live.GetJPEGThumbnail()),
+		}
+	} else if poll := m.GetPollCreationMessage(); poll != nil {
+		messageType = "pollCreationMessage"
+		ci = poll.GetContextInfo()
+		options := make([]WookPollOption, 0, len(poll.GetOptions()))
+		for _, opt := range poll.GetOptions() {
+			options = append(options, WookPollOption{OptionName: opt.GetOptionName()})
+		}
+		raw.PollCreationMessage = &WookPollCreationMessageRaw{
+			Name:                   poll.GetName(),
+			Options:                options,
+			SelectableOptionsCount: poll.GetSelectableOptionsCount(),
+		}
+	} else if pollUp := m.GetPollUpdateMessage(); pollUp != nil {
+		messageType = "pollUpdateMessage"
+		updKey := &WookKey{}
+		if k := pollUp.GetPollCreationMessageKey(); k != nil {
+			updKey.RemoteJid = k.GetRemoteJID()
+			updKey.FromMe = k.GetFromMe()
+			updKey.Id = k.GetID()
+			updKey.Participant = k.GetParticipant()
+		}
+		raw.PollUpdateMessage = &WookPollUpdateMessageRaw{
+			PollCreationMessageKey: updKey,
+			SenderTimestampMs:      i64(pollUp.GetSenderTimestampMS()),
+			EncPayload:             b64(pollUp.GetVote().GetEncPayload()),
+			EncIv:                  b64(pollUp.GetVote().GetEncIV()),
+		}
+	} else if ptv := m.GetPtvMessage(); ptv != nil {
+		messageType = "ptvMessage"
+		ci = ptv.GetContextInfo()
+		raw.PtvMessage = &WookPtvMessageRaw{
+			Url:           ptv.GetURL(),
+			Mimetype:      ptv.GetMimetype(),
+			FileSha256:    b64(ptv.GetFileSHA256()),
+			FileLength:    u64(ptv.GetFileLength()),
+			Seconds:       ptv.GetSeconds(),
+			MediaKey:      b64(ptv.GetMediaKey()),
+			FileEncSha256: b64(ptv.GetFileEncSHA256()),
+			DirectPath:    ptv.GetDirectPath(),
+			JpegThumbnail: b64(ptv.GetJPEGThumbnail()),
+		}
 	} else if conv := strings.TrimSpace(m.GetConversation()); conv != "" {
 		messageType = "conversation"
 		raw.Conversation = conv
@@ -856,6 +939,14 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 	case "videoMessage":
 		if vid := m.GetVideoMessage(); vid != nil {
 			raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, vid, vid.GetMimetype(), "")
+		}
+	case "stickerMessage":
+		if st := m.GetStickerMessage(); st != nil {
+			raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, st, st.GetMimetype(), "")
+		}
+	case "ptvMessage":
+		if ptv := m.GetPtvMessage(); ptv != nil {
+			raw.MediaURL, raw.Base64 = s.uploadMessageFile(ctx, instance, client, ptv, ptv.GetMimetype(), "")
 		}
 	}
 

@@ -1,0 +1,43 @@
+{{define "qrcode.html"}}
+{{if .Connected}}
+    <div class="qr-container">
+        <p class="qr-status qr-connected">Instância conectada!</p>
+    </div>
+    <script>setTimeout(function(){ window.location.reload(); }, 2000);</script>
+{{else if .QRBase64}}
+    <div class="qr-container" id="qr-poll-container"
+         hx-get="/manager/instances/{{.ID}}/qr-poll"
+         hx-trigger="every 3s"
+         hx-swap="outerHTML">
+        <img src="data:image/png;base64,{{.QRBase64}}" alt="QR Code" width="256" height="256">
+        <p class="qr-status">Escaneie o QR code com o WhatsApp</p>
+    </div>
+    <script>
+        setTimeout(function(){
+            var c = document.getElementById('qr-poll-container');
+            if (c) {
+                c.removeAttribute('hx-get');
+                c.removeAttribute('hx-trigger');
+                htmx.process(c);
+                c.innerHTML = '<p class="qr-status qr-expired">QR code expirado</p>' +
+                    '<button class="btn btn-primary" style="margin-top:.75rem;" ' +
+                    'hx-post="/manager/instances/{{.ID}}/connect" ' +
+                    'hx-target="#qr-container" hx-swap="innerHTML">' +
+                    'Reconectar <span class="htmx-indicator"></span></button>';
+                htmx.process(c);
+            }
+        }, 120000);
+    </script>
+{{else}}
+    <div class="qr-container">
+        <p class="qr-status qr-expired">QR code expirado</p>
+        <button class="btn btn-primary" style="margin-top:.75rem;"
+                hx-post="/manager/instances/{{.ID}}/connect"
+                hx-target="#qr-container"
+                hx-swap="innerHTML">
+            Reconectar
+            <span class="htmx-indicator"></span>
+        </button>
+    </div>
+{{end}}
+{{end}}

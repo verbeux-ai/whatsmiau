@@ -1,0 +1,14 @@
+{{define "status_badge.html"}}
+<span class="status-badge status-{{.Status}}"
+      hx-get="/manager/instances/{{.ID}}/status"
+      hx-trigger="every 10s"
+      hx-swap="outerHTML">
+    {{if eq .Status "open"}}Conectado{{else if eq .Status "connecting"}}Conectando{{else if eq .Status "qr-code"}}QR Code{{else}}Desconectado{{end}}
+</span>
+{{end}}
+
+{{define "status_badge_static.html"}}
+<span class="status-badge status-{{.}}">
+    {{if eq . "open"}}Conectado{{else if eq . "connecting"}}Conectando{{else if eq . "qr-code"}}QR Code{{else}}Desconectado{{end}}
+</span>
+{{end}}

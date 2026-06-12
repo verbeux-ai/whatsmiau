@@ -20,6 +20,7 @@ import (
 	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -52,6 +53,31 @@ func (s *Whatsmiau) getCtx(ctx context.Context, url string) (*http.Response, err
 	}
 
 	return res, nil
+}
+
+// fetchBytes downloads url contents into memory and guarantees the response body is closed.
+func (s *Whatsmiau) fetchBytes(ctx context.Context, url string) ([]byte, error) {
+	res, err := s.getCtx(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	return io.ReadAll(res.Body)
+}
+
+// loadClientWithJID validates the instance client, ensures jid is non-nil, and returns
+// the client together with the resolved JID. Centralises the boilerplate used by every
+// Send* method.
+func (s *Whatsmiau) loadClientWithJID(ctx context.Context, instanceID string, jid *types.JID) (*whatsmeow.Client, types.JID, error) {
+	client, ok := s.clients.Load(instanceID)
+	if !ok {
+		return nil, types.EmptyJID, whatsmeow.ErrClientIsNil
+	}
+	if jid == nil {
+		return nil, types.EmptyJID, fmt.Errorf("remote_jid is required")
+	}
+	resolved := s.resolveJID(ctx, client, *jid)
+	return client, resolved, nil
 }
 
 // Returns audioConverted, waveform, duration and an error
@@ -350,7 +376,7 @@ func configProxy(client *whatsmeow.Client, instanceProxy models.InstanceProxy) {
 	}
 
 	var jid string
-	if client.Store.ID != nil {
+	if client.Store != nil && client.Store.ID != nil {
 		jid = client.Store.ID.String()
 	}
 
@@ -366,6 +392,52 @@ func configProxy(client *whatsmeow.Client, instanceProxy models.InstanceProxy) {
 
 func mountProxyUrl(proxy models.InstanceProxy) string {
 	return fmt.Sprintf("%s://%s:%s@%s:%s", proxy.ProxyProtocol, proxy.ProxyUsername, proxy.ProxyPassword, proxy.ProxyHost, proxy.ProxyPort)
+}
+
+func buildVCard(fullName, wuid, phone, organization, email, urlValue string) string {
+	if wuid == "" {
+		wuid = strings.TrimPrefix(phone, "+")
+		wuid = strings.ReplaceAll(wuid, " ", "")
+	}
+
+	var b strings.Builder
+	b.WriteString("BEGIN:VCARD\n")
+	b.WriteString("VERSION:3.0\n")
+	fmt.Fprintf(&b, "N:;%s;;;\n", fullName)
+	fmt.Fprintf(&b, "FN:%s\n", fullName)
+	if organization != "" {
+		fmt.Fprintf(&b, "ORG:%s\n", organization)
+	}
+	fmt.Fprintf(&b, "TEL;type=CELL;type=VOICE;waid=%s:%s\n", wuid, phone)
+	if email != "" {
+		fmt.Fprintf(&b, "EMAIL;type=INTERNET:%s\n", email)
+	}
+	if urlValue != "" {
+		fmt.Fprintf(&b, "URL:%s\n", urlValue)
+	}
+	b.WriteString("END:VCARD")
+	return b.String()
+}
+
+// parseStatusBackgroundARGB converts a hex color string (#RRGGBB or #AARRGGBB) to an ARGB uint32.
+// Returns 0 if the input is empty or malformed.
+func parseStatusBackgroundARGB(s string) uint32 {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "#")
+	if s == "" {
+		return 0
+	}
+	if len(s) == 6 {
+		s = "FF" + s
+	}
+	if len(s) != 8 {
+		return 0
+	}
+	var v uint32
+	if _, err := fmt.Sscanf(s, "%08x", &v); err != nil {
+		return 0
+	}
+	return v
 }
 
 // Adding or removing the 9th digit. Returns empty if not applicable.

@@ -1,6 +1,7 @@
 package whatsmiau
 
 import (
+	"fmt"
 	"time"
 
 	"go.mau.fi/whatsmeow"
@@ -114,4 +115,41 @@ func (s *Whatsmiau) resolveJID(ctx context.Context, client *whatsmeow.Client, ji
 	}
 
 	return jid
+}
+
+type DeleteMessageForEveryoneRequest struct {
+	InstanceID     string     `json:"instance_id"`
+	RemoteJID      *types.JID `json:"remote_jid"`
+	MessageID      string     `json:"message_id"`
+	FromMe         bool       `json:"from_me"`
+	ParticipantJID *types.JID `json:"participant_jid,omitempty"`
+}
+
+func (s *Whatsmiau) DeleteMessageForEveryone(ctx context.Context, req *DeleteMessageForEveryoneRequest) error {
+	client, ok := s.clients.Load(req.InstanceID)
+	if !ok {
+		return whatsmeow.ErrClientIsNil
+	}
+	if client.Store == nil || client.Store.ID == nil {
+		return fmt.Errorf("device is not connected")
+	}
+
+	chat := s.resolveJID(ctx, client, *req.RemoteJID)
+
+	var sender types.JID
+	if req.FromMe {
+		if chat.Server == types.GroupServer {
+			sender = client.Store.ID.ToNonAD()
+		} else {
+			sender = types.EmptyJID
+		}
+	} else if chat.Server == types.GroupServer {
+		sender = s.resolveJID(ctx, client, *req.ParticipantJID)
+	} else {
+		sender = chat
+	}
+
+	msg := client.BuildRevoke(chat, sender, types.MessageID(req.MessageID))
+	_, err := client.SendMessage(ctx, chat, msg)
+	return err
 }

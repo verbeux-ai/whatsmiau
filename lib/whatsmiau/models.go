@@ -13,7 +13,7 @@ const (
 	WookMessagesUpdate   Wook = "messages.update"
 	WookContactsUpsert   Wook = "contacts.upsert"
 	WookConnectionUpdate Wook = "connection.update"
-  WookMessagesDelete  Wook = "messages.delete"
+	WookMessagesDelete   Wook = "messages.delete"
 )
 
 type WookEvent[data any] struct {
@@ -102,8 +102,14 @@ type WookMessageRaw struct {
 	ContactsArrayMessage *ContactsArrayMessageRaw `json:"contactsArrayMessage,omitempty"`
 	//MessageContextInfo  WookMessageContextInfo `json:"messageContextInfo,omitempty"`
 
-	ListResponseMessage *WookListMessageRaw `json:"listResponseMessage,omitempty"`
-	MediaURL            string              `json:"mediaUrl,omitempty"` // Sent when connect with some storage
+	ListResponseMessage *WookListMessageRaw         `json:"listResponseMessage,omitempty"`
+	StickerMessage      *WookStickerMessageRaw      `json:"stickerMessage,omitempty"`
+	LocationMessage     *WookLocationMessageRaw     `json:"locationMessage,omitempty"`
+	LiveLocationMessage *WookLiveLocationMessageRaw `json:"liveLocationMessage,omitempty"`
+	PollCreationMessage *WookPollCreationMessageRaw `json:"pollCreationMessage,omitempty"`
+	PollUpdateMessage   *WookPollUpdateMessageRaw   `json:"pollUpdateMessage,omitempty"`
+	PtvMessage          *WookPtvMessageRaw          `json:"ptvMessage,omitempty"`
+	MediaURL            string                      `json:"mediaUrl,omitempty"` // Sent when connect with some storage
 }
 
 type ContactsArrayMessageRaw struct {

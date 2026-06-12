@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}Manager{{end}} — Whatsmiau</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Nunito:wght@700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/manager/static/style.css">
+    <script>
+        (function() {
+            var t = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js" integrity="sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz" crossorigin="anonymous"></script>
+    <script>
+        var toastMessages = {
+            settings_saved: 'Configurações salvas com sucesso',
+            instance_name_required: 'Nome da instância é obrigatório',
+            instance_create_error: 'Erro ao criar instância',
+            instance_not_found: 'Instância não encontrada',
+            connect_error: 'Erro ao conectar instância',
+            qr_encode_error: 'Erro ao gerar QR code',
+            disconnect_error: 'Erro ao desconectar instância',
+            delete_error: 'Erro ao deletar instância',
+            form_error: 'Erro ao processar formulário',
+            save_error: 'Erro ao salvar configurações'
+        };
+        function resolveMessage(code) {
+            if (!code) return '';
+            if (code.indexOf(':') > -1) {
+                var parts = code.split(':');
+                var key = parts[0];
+                var param = parts.slice(1).join(':');
+                if (key === 'instance_exists') return "Instância '" + param + "' já existe";
+            }
+            return toastMessages[code] || code;
+        }
+        document.addEventListener('showSuccess', function(e) {
+            showToast('success', resolveMessage(e.detail.value));
+        });
+        document.addEventListener('showError', function(e) {
+            showToast('error', resolveMessage(e.detail.value));
+        });
+        function showToast(type, message) {
+            var existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, 3000);
+        }
+        function toggleTheme() {
+            var current = document.documentElement.getAttribute('data-theme');
+            var next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            document.getElementById('theme-icon').textContent = next === 'dark' ? '\u2600' : '\u263E';
+        }
+    </script>
+</head>
+<body>
+    <header class="header">
+        <a href="/manager/instances" class="header-logo">Whatsmiau</a>
+        <div class="header-actions">
+            <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+                <span id="theme-icon">
+                    <script>document.write(localStorage.getItem('theme') === 'light' ? '\u263E' : '\u2600')</script>
+                </span>
+            </button>
+            <button class="header-logout" hx-post="/manager/logout">Sair</button>
+        </div>
+    </header>
+    <main class="page">
+        {{block "content" .}}{{end}}
+    </main>
+</body>
+</html>

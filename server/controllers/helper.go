@@ -31,6 +31,27 @@ func numberToJid(number string) (*types.JID, error) {
 	return &jid, nil
 }
 
+func parseGroupJID(input string) (*types.JID, error) {
+	if input == "" {
+		return nil, fmt.Errorf("group jid is required")
+	}
+
+	if !strings.Contains(input, "@") {
+		input += "@" + types.GroupServer
+	}
+
+	jid, err := types.ParseJID(input)
+	if err != nil {
+		return nil, fmt.Errorf("invalid group jid: %w", err)
+	}
+
+	if jid.Server != types.GroupServer {
+		return nil, fmt.Errorf("not a group jid: %s", jid.String())
+	}
+
+	return &jid, nil
+}
+
 func parseProxyURL(proxyURL string) (*models.InstanceProxy, error) {
 	if !strings.Contains(proxyURL, "://") {
 		return nil, fmt.Errorf("invalid proxy url, missing scheme: %s", proxyURL)

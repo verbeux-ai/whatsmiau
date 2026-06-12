@@ -1,0 +1,19 @@
+{{define "instances_grid.html"}}
+<div id="instances-grid" class="instances-grid">
+    {{if .Instances}}
+        {{range .Instances}}
+        <a href="/manager/instances/{{.ID}}" class="instance-card">
+            <div class="card-header">
+                <span class="card-id">{{.ID}}</span>
+                {{template "status_badge_static.html" .Status}}
+            </div>
+            <span class="card-jid">{{if .RemoteJID}}{{.RemoteJID}}{{else}}Não conectado{{end}}</span>
+        </a>
+        {{end}}
+    {{else}}
+        <div class="empty-state">
+            <p>Nenhuma instância encontrada</p>
+        </div>
+    {{end}}
+</div>
+{{end}}

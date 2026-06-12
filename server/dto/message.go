@@ -174,11 +174,11 @@ type SendDocumentResponseDataImage struct {
 
 type SendReactionRequest struct {
 	InstanceID string `param:"instance" validate:"required" swaggerignore:"true"`
-	Reaction   string `json:"reaction,omitempty" validate:"required,len=1"`
+	Reaction   string `json:"reaction" validate:"max=10"`
 	Key        struct {
 		RemoteJid string `json:"remoteJid,omitempty" validate:"required"`
 		Id        string `json:"id,omitempty" validate:"required"`
-		FromMe    bool   `json:"fromMe,omitempty" validate:"required"`
+		FromMe    *bool  `json:"fromMe,omitempty" validate:"required"`
 	} `json:"key"`
 }
 

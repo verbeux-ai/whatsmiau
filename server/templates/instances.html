@@ -1,0 +1,50 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Instâncias{{end}}
+
+{{define "content"}}
+<h1 class="page-title">Instâncias</h1>
+
+<div class="filter-bar">
+    <form method="GET" action="/manager/instances" style="display:flex;gap:.75rem;flex:1;min-width:200px;">
+        <input type="text" name="search" placeholder="Buscar pelo ID exato..." value="{{.Search}}">
+        <button type="submit" class="btn btn-outline">Buscar</button>
+        {{if .Search}}
+            <a href="/manager/instances" class="btn btn-outline">Limpar</a>
+        {{end}}
+    </form>
+    <button class="btn btn-primary" onclick="document.getElementById('create-dialog').showModal()">
+        + Nova Instância
+    </button>
+</div>
+
+<dialog id="create-dialog" class="modal">
+    <div class="modal-content">
+        <h3>Nova Instância</h3>
+        <div class="form-group">
+            <label for="instanceName">Nome da instância</label>
+            <input type="text" id="instanceName" name="instanceName" placeholder="minha-instancia" required autofocus>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('create-dialog').close()">Cancelar</button>
+            <button type="button" class="btn btn-primary"
+                hx-post="/manager/instances"
+                hx-include="[name='instanceName']"
+                hx-target="#instances-grid"
+                hx-swap="outerHTML"
+                hx-on::after-request="if(event.detail.successful) { document.getElementById('create-dialog').close(); document.getElementById('instanceName').value=''; }">
+                Criar
+                <span class="htmx-indicator"></span>
+            </button>
+        </div>
+    </div>
+</dialog>
+
+{{if .Error}}
+    <div class="alert alert-error">{{.Error}}</div>
+{{end}}
+
+<div id="instances-grid">
+    {{template "instances_grid.html" .}}
+</div>
+{{end}}

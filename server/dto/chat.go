@@ -40,3 +40,11 @@ type SendChatPresenceResponse struct {
 type NumberExistsRequest struct {
 	Numbers []string `json:"numbers"     validate:"required,min=1,dive,required"`
 }
+
+type DeleteMessageForEveryoneRequest struct {
+	InstanceID  string `param:"instance" validate:"required" swaggerignore:"true"`
+	ID          string `json:"id" validate:"required"`
+	RemoteJid   string `json:"remoteJid" validate:"required"`
+	Participant string `json:"participant,omitempty" validate:"omitempty"`
+	FromMe      bool   `json:"fromMe"`
+}

@@ -33,6 +33,8 @@ type E struct {
 	ProxyAddresses []string `env:"PROXY_ADDRESSES" envDefault:""`      // random choices proxies ex: <SOCKS5|HTTP|HTTPS>://<username>:<password>@<host>:<port>
 	ProxyStrategy  string   `env:"PROXY_STRATEGY" envDefault:"RANDOM"` // todo: implement BALANCED
 	ProxyNoMedia   bool     `env:"PROXY_NO_MEDIA" envDefault:"false"`
+
+	ManagerURL string `env:"MANAGER_URL" envDefault:""`
 }
 
 var Env E

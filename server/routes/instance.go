@@ -18,6 +18,7 @@ func Instance(group *echo.Group) {
 	group.POST("/:id/logout", controller.Logout)
 	group.DELETE("/:id", controller.Delete)
 	group.GET("/:id/status", controller.Status)
+	group.POST("/:id/restart", controller.Restart)
 
 	// Evolution API Compatibility (partially REST)
 	group.POST("/create", controller.Create)
@@ -28,5 +29,6 @@ func Instance(group *echo.Group) {
 	group.DELETE("/logout/:id", controller.Logout)
 	group.DELETE("/delete/:id", controller.Delete)
 	group.PUT("/update/:id", controller.Update)
+	group.POST("/restart/:id", controller.Restart)
 
 }

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Whatsmiau</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Nunito:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/manager/static/style.css">
+    <script>
+        (function() {
+            var t = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <h1>Whatsmiau</h1>
+            {{if .ApiKeyRequired}}
+                <p>Informe a chave de API para acessar o painel</p>
+            {{else}}
+                <p>Acesse o painel de gerenciamento</p>
+            {{end}}
+            {{if .Error}}
+                <div class="alert alert-error">{{.Error}}</div>
+            {{end}}
+            <form action="/manager/login" method="POST">
+                {{if .ApiKeyRequired}}
+                <div class="form-group">
+                    <label for="apiKey">Chave de API</label>
+                    <input type="password" id="apiKey" name="apiKey" placeholder="Sua chave de API" required autofocus>
+                </div>
+                {{end}}
+                <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

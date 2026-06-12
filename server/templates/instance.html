@@ -1,0 +1,109 @@
+{{template "layout.html" .}}
+
+{{define "title"}}{{.Instance.ID}}{{end}}
+
+{{define "content"}}
+<div class="instance-detail">
+    <a href="/manager/instances" class="back-link">&larr; Voltar para instâncias</a>
+    <div class="detail-header">
+        <h2>{{.Instance.ID}}</h2>
+        {{template "status_badge.html" .}}
+        {{if .Instance.RemoteJID}}
+            <span style="color:var(--text-light);font-size:.85rem;">{{.Instance.RemoteJID}}</span>
+        {{end}}
+    </div>
+
+    <div class="detail-actions">
+        {{if ne .Status "open"}}
+            <button class="btn btn-primary"
+                    hx-post="/manager/instances/{{.Instance.ID}}/connect"
+                    hx-target="#qr-container"
+                    hx-swap="innerHTML">
+                Conectar
+                <span class="htmx-indicator"></span>
+            </button>
+        {{end}}
+        {{if eq .Status "open"}}
+            <button class="btn btn-outline"
+                    hx-post="/manager/instances/{{.Instance.ID}}/logout"
+                    hx-confirm="Isso vai desconectar o WhatsApp. Precisará escanear o QR novamente. Continuar?">
+                Desconectar
+                <span class="htmx-indicator"></span>
+            </button>
+        {{end}}
+        <button class="btn btn-danger"
+                hx-delete="/manager/instances/{{.Instance.ID}}"
+                hx-confirm="Deletar instância permanentemente?">
+            Deletar
+            <span class="htmx-indicator"></span>
+        </button>
+    </div>
+
+    <div id="qr-container"></div>
+
+    <form hx-put="/manager/instances/{{.Instance.ID}}" hx-swap="none">
+        <div class="form-section">
+            <h3>Webhook</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="webhookUrl">URL</label>
+                    <input type="url" id="webhookUrl" name="webhookUrl" value="{{.Instance.Webhook.Url}}" placeholder="https://example.com/webhook">
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="webhookBase64" name="webhookBase64" value="true" {{if and .Instance.Webhook.Base64 (deref .Instance.Webhook.Base64)}}checked{{end}}>
+                <label for="webhookBase64">Base64</label>
+            </div>
+            <div class="checkbox-group" style="margin-bottom:.75rem;">
+                <input type="checkbox" id="webhookByEvents" name="webhookByEvents" value="true" {{if and .Instance.Webhook.ByEvents (deref .Instance.Webhook.ByEvents)}}checked{{end}}>
+                <label for="webhookByEvents">Filtrar por eventos</label>
+            </div>
+            <div class="flags-grid">
+                {{$events := .Instance.Webhook.Events}}
+                {{range $ev, $_ := .WebhookEventOptions}}
+                <div class="checkbox-group">
+                    <input type="checkbox" name="webhookEvents" value="{{$ev}}" {{if hasEvent $events $ev}}checked{{end}}>
+                    <label>{{$ev}}</label>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Proxy</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="proxyHost">Host</label>
+                    <input type="text" id="proxyHost" name="proxyHost" value="{{.Instance.ProxyHost}}" placeholder="proxy.example.com">
+                </div>
+                <div class="form-group">
+                    <label for="proxyPort">Porta</label>
+                    <input type="text" id="proxyPort" name="proxyPort" value="{{.Instance.ProxyPort}}" placeholder="1080">
+                </div>
+                <div class="form-group">
+                    <label for="proxyProtocol">Protocolo</label>
+                    <select id="proxyProtocol" name="proxyProtocol">
+                        <option value="">Nenhum</option>
+                        <option value="SOCKS5" {{if eq .Instance.ProxyProtocol "SOCKS5"}}selected{{end}}>SOCKS5</option>
+                        <option value="HTTP" {{if eq .Instance.ProxyProtocol "HTTP"}}selected{{end}}>HTTP</option>
+                        <option value="HTTPS" {{if eq .Instance.ProxyProtocol "HTTPS"}}selected{{end}}>HTTPS</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="proxyUsername">Usuário</label>
+                    <input type="text" id="proxyUsername" name="proxyUsername" value="{{.Instance.ProxyUsername}}" placeholder="username">
+                </div>
+                <div class="form-group">
+                    <label for="proxyPassword">Senha</label>
+                    <input type="password" id="proxyPassword" name="proxyPassword" value="{{.Instance.ProxyPassword}}" placeholder="password">
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Salvar Configurações
+            <span class="htmx-indicator"></span>
+        </button>
+    </form>
+</div>
+{{end}}
