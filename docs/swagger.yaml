@@ -16,6 +16,8 @@ definitions:
         type: string
       msgCall:
         type: string
+      pairingCode:
+        type: string
       proxyHost:
         type: string
       proxyPassword:
@@ -47,41 +49,6 @@ definitions:
         type: string
     type: object
   dto.CreateInstanceRequest:
-    properties:
-      alwaysOnline:
-        type: boolean
-      groupsIgnore:
-        type: boolean
-      id:
-        type: string
-      instanceName:
-        type: string
-      msgCall:
-        type: string
-      proxyHost:
-        type: string
-      proxyPassword:
-        type: string
-      proxyPort:
-        type: string
-      proxyProtocol:
-        type: string
-      proxyUsername:
-        type: string
-      readMessages:
-        type: boolean
-      readStatus:
-        type: boolean
-      rejectCall:
-        type: boolean
-      remoteJID:
-        type: string
-      syncFullHistory:
-        type: boolean
-      syncRecentHistory:
-        type: boolean
-      webhook:
-        $ref: '#/definitions/models.InstanceWebhook'
     type: object
   dto.CreateInstanceResponse:
     properties:
@@ -91,6 +58,8 @@ definitions:
         type: boolean
       id:
         type: string
+      migration:
+        $ref: '#/definitions/dto.MigrationResult'
       msgCall:
         type: string
       proxyHost:
@@ -198,6 +167,17 @@ definitions:
       remoteJid:
         type: string
     type: object
+  dto.MigrationResult:
+    properties:
+      connected:
+        type: boolean
+      jid:
+        type: string
+      lid:
+        type: string
+      preKeysImported:
+        type: integer
+    type: object
   dto.NumberExistsRequest:
     properties:
       numbers:
@@ -266,6 +246,8 @@ definitions:
   dto.SendAudioRequest:
     properties:
       audio:
+        type: string
+      audioBase64:
         type: string
       delay:
         maximum: 300000
@@ -378,6 +360,9 @@ definitions:
       name:
         type: string
       type:
+        enum:
+        - reply
+        - pix
         type: string
     required:
     - displayText
@@ -420,7 +405,8 @@ definitions:
       fileName:
         type: string
       media:
-        description: Media is the URL of the file
+        type: string
+      mediaBase64:
         type: string
       mentioned:
         items:
@@ -534,7 +520,8 @@ definitions:
       fileName:
         type: string
       media:
-        description: Media is the URL of the file
+        type: string
+      mediaBase64:
         type: string
       mediatype:
         type: string
@@ -694,6 +681,8 @@ definitions:
       webhook:
         properties:
           base64:
+            type: boolean
+          enabled:
             type: boolean
           events:
             items:
@@ -1123,6 +1112,50 @@ paths:
       summary: Get instance connection state
       tags:
       - Instance
+  /instance/{instance}/chat/groups:
+    get:
+      description: Returns WhatsApp groups the connected number is a member of, paginated.
+        Results are cached for 5 minutes; use ?refresh=true to force a fresh fetch.
+        Participants are omitted by default; use ?withParticipants=true to include
+        them.
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Force cache refresh
+        in: query
+        name: refresh
+        type: boolean
+      - description: Include participant list in each group
+        in: query
+        name: withParticipants
+        type: boolean
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Groups per page (default: 50)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List joined groups
+      tags:
+      - Chat
   /instance/{instance}/chat/presence:
     post:
       consumes:

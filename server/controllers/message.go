@@ -2,9 +2,11 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -141,6 +143,14 @@ func (s *Message) SendAudio(ctx echo.Context) error {
 		RemoteJID:  jid,
 	}
 
+	if request.AudioBase64 != "" {
+		audioBytes, err := decodeBase64Media(request.AudioBase64)
+		if err != nil {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid audioBase64 encoding")
+		}
+		sendText.AudioData = audioBytes
+	}
+
 	if request.Quoted != nil && len(request.Quoted.Key.Id) > 0 && len(request.Quoted.Message.Conversation) > 0 {
 		sendText.QuoteMessage = request.Quoted.Message.Conversation
 		sendText.QuoteMessageID = request.Quoted.Key.Id
@@ -237,6 +247,13 @@ func (s *Message) SendDocument(ctx echo.Context) error {
 	return s.sendDocument(ctx, request)
 }
 
+func decodeBase64Media(raw string) ([]byte, error) {
+	if idx := strings.Index(raw, ";base64,"); idx != -1 {
+		raw = raw[idx+8:]
+	}
+	return base64.StdEncoding.DecodeString(raw)
+}
+
 func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest) error {
 	jid, err := numberToJid(request.Number)
 	if err != nil {
@@ -251,6 +268,14 @@ func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest
 		FileName:   request.FileName,
 		RemoteJID:  jid,
 		Mimetype:   request.Mimetype,
+	}
+
+	if request.MediaBase64 != "" {
+		mediaBytes, err := decodeBase64Media(request.MediaBase64)
+		if err != nil {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid mediaBase64 encoding")
+		}
+		sendData.MediaData = mediaBytes
 	}
 
 	c := ctx.Request().Context()
@@ -315,6 +340,14 @@ func (s *Message) sendImage(ctx echo.Context, request dto.SendDocumentRequest) e
 		Caption:    request.Caption,
 		RemoteJID:  jid,
 		Mimetype:   request.Mimetype,
+	}
+
+	if request.MediaBase64 != "" {
+		mediaBytes, err := decodeBase64Media(request.MediaBase64)
+		if err != nil {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid mediaBase64 encoding")
+		}
+		sendData.MediaData = mediaBytes
 	}
 
 	c := ctx.Request().Context()

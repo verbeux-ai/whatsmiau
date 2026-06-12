@@ -993,6 +993,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/instance/{instance}/chat/groups": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns WhatsApp groups the connected number is a member of, paginated. Results are cached for 5 minutes; use ?refresh=true to force a fresh fetch. Participants are omitted by default; use ?withParticipants=true to include them.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "List joined groups",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force cache refresh",
+                        "name": "refresh",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include participant list in each group",
+                        "name": "withParticipants",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Groups per page (default: 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/instance/{instance}/chat/presence": {
             "post": {
                 "security": [
@@ -1917,6 +1981,9 @@ const docTemplate = `{
                 "msgCall": {
                     "type": "string"
                 },
+                "pairingCode": {
+                    "type": "string"
+                },
                 "proxyHost": {
                     "type": "string"
                 },
@@ -1964,60 +2031,7 @@ const docTemplate = `{
             }
         },
         "dto.CreateInstanceRequest": {
-            "type": "object",
-            "properties": {
-                "alwaysOnline": {
-                    "type": "boolean"
-                },
-                "groupsIgnore": {
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "instanceName": {
-                    "type": "string"
-                },
-                "msgCall": {
-                    "type": "string"
-                },
-                "proxyHost": {
-                    "type": "string"
-                },
-                "proxyPassword": {
-                    "type": "string"
-                },
-                "proxyPort": {
-                    "type": "string"
-                },
-                "proxyProtocol": {
-                    "type": "string"
-                },
-                "proxyUsername": {
-                    "type": "string"
-                },
-                "readMessages": {
-                    "type": "boolean"
-                },
-                "readStatus": {
-                    "type": "boolean"
-                },
-                "rejectCall": {
-                    "type": "boolean"
-                },
-                "remoteJID": {
-                    "type": "string"
-                },
-                "syncFullHistory": {
-                    "type": "boolean"
-                },
-                "syncRecentHistory": {
-                    "type": "boolean"
-                },
-                "webhook": {
-                    "$ref": "#/definitions/models.InstanceWebhook"
-                }
-            }
+            "type": "object"
         },
         "dto.CreateInstanceResponse": {
             "type": "object",
@@ -2030,6 +2044,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "migration": {
+                    "$ref": "#/definitions/dto.MigrationResult"
                 },
                 "msgCall": {
                     "type": "string"
@@ -2195,6 +2212,23 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.MigrationResult": {
+            "type": "object",
+            "properties": {
+                "connected": {
+                    "type": "boolean"
+                },
+                "jid": {
+                    "type": "string"
+                },
+                "lid": {
+                    "type": "string"
+                },
+                "preKeysImported": {
+                    "type": "integer"
+                }
+            }
+        },
         "dto.NumberExistsRequest": {
             "type": "object",
             "required": [
@@ -2293,6 +2327,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "audio": {
+                    "type": "string"
+                },
+                "audioBase64": {
                     "type": "string"
                 },
                 "delay": {
@@ -2463,7 +2500,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "reply",
+                        "pix"
+                    ]
                 }
             }
         },
@@ -2521,7 +2562,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "media": {
-                    "description": "Media is the URL of the file",
+                    "type": "string"
+                },
+                "mediaBase64": {
                     "type": "string"
                 },
                 "mentioned": {
@@ -2690,7 +2733,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "media": {
-                    "description": "Media is the URL of the file",
+                    "type": "string"
+                },
+                "mediaBase64": {
                     "type": "string"
                 },
                 "mediatype": {
@@ -2929,6 +2974,9 @@ const docTemplate = `{
                     "type": "object",
                     "properties": {
                         "base64": {
+                            "type": "boolean"
+                        },
+                        "enabled": {
                             "type": "boolean"
                         },
                         "events": {

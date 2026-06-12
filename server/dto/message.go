@@ -60,6 +60,7 @@ type SendAudioRequest struct {
 	InstanceID       string                `param:"instance" swaggerignore:"true"`
 	Number           string                `json:"number,omitempty"`
 	Audio            string                `json:"audio,omitempty"`
+	AudioBase64      string                `json:"audioBase64,omitempty"`
 	Delay            int                   `json:"delay,omitempty" validate:"omitempty,min=0,max=300000"`
 	Quoted           *MessageRequestQuoted `json:"quoted,omitempty"`
 	MentionsEveryOne bool                  `json:"mentionsEveryOne,omitempty"`
@@ -127,12 +128,12 @@ type SendMediaResponse struct {
 }
 
 type SendDocumentRequest struct {
-	InstanceID string `param:"instance" swaggerignore:"true"`
-	Number     string `json:"number,omitempty"`
-	Mimetype   string `json:"mimetype,omitempty"`
-	Caption    string `json:"caption,omitempty"`
-	// Media is the URL of the file
+	InstanceID       string                `param:"instance" swaggerignore:"true"`
+	Number           string                `json:"number,omitempty"`
+	Mimetype         string                `json:"mimetype,omitempty"`
+	Caption          string                `json:"caption,omitempty"`
 	Media            string                `json:"media,omitempty"`
+	MediaBase64      string                `json:"mediaBase64,omitempty"`
 	FileName         string                `json:"fileName,omitempty"`
 	Delay            int                   `json:"delay,omitempty" validate:"omitempty,min=0,max=300000"`
 	Quoted           *MessageRequestQuoted `json:"quoted,omitempty"`
