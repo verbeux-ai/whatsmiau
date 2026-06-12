@@ -15,7 +15,11 @@ func numberToJid(number string) (*types.JID, error) {
 		number += "@s.whatsapp.net"
 	}
 
-	if len(splitNumber[0]) < 12 {
+	// E.164 numbers are 8-15 digits including the country code. The previous
+	// "< 12" bound only fit Brazilian numbers (55 + DDD + 8/9 = 12-13 digits)
+	// and wrongly rejected valid shorter international numbers that already
+	// carry their country prefix, e.g. US +1 (11 digits) and Spain +34 (11).
+	if len(splitNumber[0]) < 8 {
 		return nil, fmt.Errorf("invalid jid, put country prefix")
 	}
 
