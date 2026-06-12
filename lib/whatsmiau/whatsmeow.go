@@ -31,6 +31,7 @@ type Whatsmiau struct {
 	observerRunning  *xsync.Map[string, *whatsmeow.Client]
 	instanceCache    *xsync.Map[string, models.Instance]
 	lockConnection   *xsync.Map[string, *sync.Mutex]
+	groupsCache      *xsync.Map[string, groupsCacheEntry]
 	emitter          chan emitter
 	httpClient       *http.Client
 	fileStorage      interfaces.Storage
@@ -122,6 +123,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		instanceCache:   xsync.NewMap[string, models.Instance](),
 		observerRunning: xsync.NewMap[string, *whatsmeow.Client](),
 		lockConnection:  xsync.NewMap[string, *sync.Mutex](),
+		groupsCache:     xsync.NewMap[string, groupsCacheEntry](),
 		emitter:         make(chan emitter, env.Env.EmitterBufferSize),
 		httpClient: &http.Client{
 			Timeout: time.Second * 30, // TODO: load from env
