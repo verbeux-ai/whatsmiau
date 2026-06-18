@@ -1,6 +1,7 @@
 package whatsmiau
 
 import (
+	"math"
 	"testing"
 
 	"go.mau.fi/whatsmeow/types"
@@ -91,6 +92,24 @@ func TestPaginateContactsOutOfRange(t *testing.T) {
 	result := paginateContacts(items, 2, 1)
 	if len(result.Data) != 0 {
 		t.Fatalf("expected empty page, got %d items", len(result.Data))
+	}
+	if result.Total != 1 {
+		t.Fatalf("expected total 1, got %d", result.Total)
+	}
+	if result.TotalPages != 1 {
+		t.Fatalf("expected totalPages 1, got %d", result.TotalPages)
+	}
+}
+
+func TestPaginateContactsWithHugePageDoesNotOverflow(t *testing.T) {
+	items := []ContactListItem{{JID: "1@s.whatsapp.net", DisplayName: "A"}}
+
+	result := paginateContacts(items, math.MaxInt, 1)
+	if len(result.Data) != 0 {
+		t.Fatalf("expected empty page, got %d items", len(result.Data))
+	}
+	if result.Page != math.MaxInt {
+		t.Fatalf("expected page to be preserved, got %d", result.Page)
 	}
 	if result.Total != 1 {
 		t.Fatalf("expected total 1, got %d", result.Total)

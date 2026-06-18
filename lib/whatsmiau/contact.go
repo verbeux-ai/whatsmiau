@@ -47,9 +47,19 @@ func displayNameFromContact(jid string, info types.ContactInfo) string {
 
 func paginateContacts(items []ContactListItem, page, limit int) ContactListResult {
 	total := len(items)
-	totalPages := 0
-	if total > 0 {
-		totalPages = (total + limit - 1) / limit
+	totalPages := total / limit
+	if total%limit != 0 {
+		totalPages++
+	}
+
+	if page > totalPages && totalPages > 0 {
+		return ContactListResult{
+			Data:       []ContactListItem{},
+			Page:       page,
+			Limit:      limit,
+			Total:      total,
+			TotalPages: totalPages,
+		}
 	}
 
 	offset := (page - 1) * limit
@@ -86,7 +96,7 @@ func (s *Whatsmiau) ListContacts(ctx context.Context, instanceID string, page, l
 	if !ok || client == nil {
 		return nil, whatsmeow.ErrClientIsNil
 	}
-	if !client.IsConnected() || !client.IsLoggedIn() {
+	if !client.IsLoggedIn() {
 		return nil, whatsmeow.ErrClientIsNil
 	}
 	if client.Store == nil || client.Store.Contacts == nil {
@@ -98,28 +108,40 @@ func (s *Whatsmiau) ListContacts(ctx context.Context, instanceID string, page, l
 		return nil, err
 	}
 
-	items := make([]ContactListItem, 0, len(contacts))
+	type sortableContact struct {
+		item             ContactListItem
+		lowerDisplayName string
+	}
+
+	sortables := make([]sortableContact, 0, len(contacts))
 	for jid, info := range contacts {
 		jidValue := jid.ToNonAD().String()
-		items = append(items, ContactListItem{
-			JID:           jidValue,
-			FirstName:     info.FirstName,
-			FullName:      info.FullName,
-			PushName:      info.PushName,
-			BusinessName:  info.BusinessName,
-			RedactedPhone: info.RedactedPhone,
-			DisplayName:   displayNameFromContact(jidValue, info),
+		displayName := displayNameFromContact(jidValue, info)
+		sortables = append(sortables, sortableContact{
+			item: ContactListItem{
+				JID:           jidValue,
+				FirstName:     info.FirstName,
+				FullName:      info.FullName,
+				PushName:      info.PushName,
+				BusinessName:  info.BusinessName,
+				RedactedPhone: info.RedactedPhone,
+				DisplayName:   displayName,
+			},
+			lowerDisplayName: strings.ToLower(displayName),
 		})
 	}
 
-	sort.Slice(items, func(i, j int) bool {
-		left := strings.ToLower(items[i].DisplayName)
-		right := strings.ToLower(items[j].DisplayName)
-		if left == right {
-			return items[i].JID < items[j].JID
+	sort.Slice(sortables, func(i, j int) bool {
+		if sortables[i].lowerDisplayName == sortables[j].lowerDisplayName {
+			return sortables[i].item.JID < sortables[j].item.JID
 		}
-		return left < right
+		return sortables[i].lowerDisplayName < sortables[j].lowerDisplayName
 	})
+
+	items := make([]ContactListItem, len(sortables))
+	for i, sortable := range sortables {
+		items[i] = sortable.item
+	}
 
 	result := paginateContacts(items, page, limit)
 	return &result, nil
