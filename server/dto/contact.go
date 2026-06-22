@@ -9,7 +9,7 @@ type ListContactsRequest struct {
 type ContactResponse struct {
 	ID            string `json:"id"`
 	RemoteJID     string `json:"remoteJid"`
-	PushName      string `json:"pushName,omitempty"`
+	PushName      string `json:"pushName"`
 	ProfilePicURL string `json:"profilePicUrl"`
 	CreatedAt     string `json:"createdAt"`
 	UpdatedAt     string `json:"updatedAt"`
