@@ -112,13 +112,16 @@ func TestContactListReturnsPaginatedData(t *testing.T) {
 	controller.service = &fakeContactService{
 		result: &whatsmiau.ContactListResult{
 			Data: []whatsmiau.ContactListItem{{
-				JID:           "5511999999999@s.whatsapp.net",
-				FirstName:     "Joao",
-				FullName:      "Joao Silva",
+				ID:            "5511999999999@s.whatsapp.net",
+				RemoteJID:     "5511999999999@s.whatsapp.net",
 				PushName:      "Joao",
-				BusinessName:  "",
-				RedactedPhone: "",
-				DisplayName:   "Joao Silva",
+				ProfilePicURL: "",
+				CreatedAt:     "",
+				UpdatedAt:     "",
+				InstanceID:    "test",
+				IsGroup:       false,
+				IsSaved:       true,
+				Type:          "contact",
 			}},
 			Page:       2,
 			Limit:      1,
@@ -149,11 +152,29 @@ func TestContactListReturnsPaginatedData(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected contact object, got %#v", data[0])
 	}
-	if contact["jid"] != "5511999999999@s.whatsapp.net" {
-		t.Fatalf("expected jid in response, got %#v", contact["jid"])
+	if contact["id"] != "5511999999999@s.whatsapp.net" {
+		t.Fatalf("expected id in response, got %#v", contact["id"])
 	}
-	if contact["displayName"] != "Joao Silva" {
-		t.Fatalf("expected displayName in response, got %#v", contact["displayName"])
+	if contact["remoteJid"] != "5511999999999@s.whatsapp.net" {
+		t.Fatalf("expected remoteJid in response, got %#v", contact["remoteJid"])
+	}
+	if contact["pushName"] != "Joao" {
+		t.Fatalf("expected pushName in response, got %#v", contact["pushName"])
+	}
+	if contact["profilePicUrl"] != "" {
+		t.Fatalf("expected empty profilePicUrl in response, got %#v", contact["profilePicUrl"])
+	}
+	if contact["instanceId"] != "test" {
+		t.Fatalf("expected instanceId in response, got %#v", contact["instanceId"])
+	}
+	if contact["isGroup"] != false {
+		t.Fatalf("expected isGroup false in response, got %#v", contact["isGroup"])
+	}
+	if contact["isSaved"] != true {
+		t.Fatalf("expected isSaved true in response, got %#v", contact["isSaved"])
+	}
+	if contact["type"] != "contact" {
+		t.Fatalf("expected type contact in response, got %#v", contact["type"])
 	}
 
 	pagination, ok := body["pagination"].(map[string]any)

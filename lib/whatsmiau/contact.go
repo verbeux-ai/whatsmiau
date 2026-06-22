@@ -13,13 +13,16 @@ import (
 var ErrInvalidPagination = errors.New("invalid pagination")
 
 type ContactListItem struct {
-	JID           string
-	FirstName     string
-	FullName      string
+	ID            string
+	RemoteJID     string
 	PushName      string
-	BusinessName  string
-	RedactedPhone string
-	DisplayName   string
+	ProfilePicURL string
+	CreatedAt     string
+	UpdatedAt     string
+	InstanceID    string
+	IsGroup       bool
+	IsSaved       bool
+	Type          string
 }
 
 type ContactListResult struct {
@@ -119,13 +122,16 @@ func (s *Whatsmiau) ListContacts(ctx context.Context, instanceID string, page, l
 		displayName := displayNameFromContact(jidValue, info)
 		sortables = append(sortables, sortableContact{
 			item: ContactListItem{
-				JID:           jidValue,
-				FirstName:     info.FirstName,
-				FullName:      info.FullName,
+				ID:            jidValue,
+				RemoteJID:     jidValue,
 				PushName:      info.PushName,
-				BusinessName:  info.BusinessName,
-				RedactedPhone: info.RedactedPhone,
-				DisplayName:   displayName,
+				ProfilePicURL: "",
+				CreatedAt:     "",
+				UpdatedAt:     "",
+				InstanceID:    instanceID,
+				IsGroup:       false,
+				IsSaved:       true,
+				Type:          "contact",
 			},
 			lowerDisplayName: strings.ToLower(displayName),
 		})
@@ -133,7 +139,7 @@ func (s *Whatsmiau) ListContacts(ctx context.Context, instanceID string, page, l
 
 	sort.Slice(sortables, func(i, j int) bool {
 		if sortables[i].lowerDisplayName == sortables[j].lowerDisplayName {
-			return sortables[i].item.JID < sortables[j].item.JID
+			return sortables[i].item.RemoteJID < sortables[j].item.RemoteJID
 		}
 		return sortables[i].lowerDisplayName < sortables[j].lowerDisplayName
 	})

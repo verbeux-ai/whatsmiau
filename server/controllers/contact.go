@@ -96,13 +96,16 @@ func (s *Contact) List(ctx echo.Context) error {
 	}
 	for _, contact := range contacts.Data {
 		response.Data = append(response.Data, dto.ContactResponse{
-			JID:           contact.JID,
-			FirstName:     contact.FirstName,
-			FullName:      contact.FullName,
+			ID:            contact.ID,
+			RemoteJID:     contact.RemoteJID,
 			PushName:      contact.PushName,
-			BusinessName:  contact.BusinessName,
-			RedactedPhone: contact.RedactedPhone,
-			DisplayName:   contact.DisplayName,
+			ProfilePicURL: contact.ProfilePicURL,
+			CreatedAt:     contact.CreatedAt,
+			UpdatedAt:     contact.UpdatedAt,
+			InstanceID:    contact.InstanceID,
+			IsGroup:       contact.IsGroup,
+			IsSaved:       contact.IsSaved,
+			Type:          contact.Type,
 		})
 	}
 

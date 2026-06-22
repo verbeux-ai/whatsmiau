@@ -7,13 +7,16 @@ type ListContactsRequest struct {
 }
 
 type ContactResponse struct {
-	JID           string `json:"jid"`
-	FirstName     string `json:"firstName,omitempty"`
-	FullName      string `json:"fullName,omitempty"`
+	ID            string `json:"id"`
+	RemoteJID     string `json:"remoteJid"`
 	PushName      string `json:"pushName,omitempty"`
-	BusinessName  string `json:"businessName,omitempty"`
-	RedactedPhone string `json:"redactedPhone,omitempty"`
-	DisplayName   string `json:"displayName"`
+	ProfilePicURL string `json:"profilePicUrl"`
+	CreatedAt     string `json:"createdAt"`
+	UpdatedAt     string `json:"updatedAt"`
+	InstanceID    string `json:"instanceId"`
+	IsGroup       bool   `json:"isGroup"`
+	IsSaved       bool   `json:"isSaved"`
+	Type          string `json:"type"`
 }
 
 type ContactsPaginationResponse struct {

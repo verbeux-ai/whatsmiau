@@ -57,8 +57,13 @@ func TestListContacts(t *testing.T) {
 		if len(data) > 0 {
 			first, ok := data[0].(map[string]any)
 			require.True(t, ok, "contact item must be an object")
-			assert.NotEmpty(t, first["jid"])
-			assert.NotEmpty(t, first["displayName"])
+			assert.NotEmpty(t, first["id"])
+			assert.NotEmpty(t, first["remoteJid"])
+			assert.Equal(t, false, first["isGroup"])
+			assert.Equal(t, true, first["isSaved"])
+			assert.Equal(t, "contact", first["type"])
+			_, hasProfilePicURL := first["profilePicUrl"]
+			assert.True(t, hasProfilePicURL, "contact item must contain profilePicUrl")
 		}
 	})
 }

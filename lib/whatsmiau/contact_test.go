@@ -66,9 +66,9 @@ func TestDisplayNameFromContactFallbackOrder(t *testing.T) {
 
 func TestPaginateContacts(t *testing.T) {
 	items := []ContactListItem{
-		{JID: "1@s.whatsapp.net", DisplayName: "A"},
-		{JID: "2@s.whatsapp.net", DisplayName: "B"},
-		{JID: "3@s.whatsapp.net", DisplayName: "C"},
+		{ID: "1@s.whatsapp.net", RemoteJID: "1@s.whatsapp.net", PushName: "A"},
+		{ID: "2@s.whatsapp.net", RemoteJID: "2@s.whatsapp.net", PushName: "B"},
+		{ID: "3@s.whatsapp.net", RemoteJID: "3@s.whatsapp.net", PushName: "C"},
 	}
 
 	result := paginateContacts(items, 2, 2)
@@ -81,13 +81,13 @@ func TestPaginateContacts(t *testing.T) {
 	if len(result.Data) != 1 {
 		t.Fatalf("expected one item on second page, got %d", len(result.Data))
 	}
-	if result.Data[0].JID != "3@s.whatsapp.net" {
-		t.Fatalf("expected last item on second page, got %q", result.Data[0].JID)
+	if result.Data[0].RemoteJID != "3@s.whatsapp.net" {
+		t.Fatalf("expected last item on second page, got %q", result.Data[0].RemoteJID)
 	}
 }
 
 func TestPaginateContactsOutOfRange(t *testing.T) {
-	items := []ContactListItem{{JID: "1@s.whatsapp.net", DisplayName: "A"}}
+	items := []ContactListItem{{ID: "1@s.whatsapp.net", RemoteJID: "1@s.whatsapp.net", PushName: "A"}}
 
 	result := paginateContacts(items, 2, 1)
 	if len(result.Data) != 0 {
@@ -102,7 +102,7 @@ func TestPaginateContactsOutOfRange(t *testing.T) {
 }
 
 func TestPaginateContactsWithHugePageDoesNotOverflow(t *testing.T) {
-	items := []ContactListItem{{JID: "1@s.whatsapp.net", DisplayName: "A"}}
+	items := []ContactListItem{{ID: "1@s.whatsapp.net", RemoteJID: "1@s.whatsapp.net", PushName: "A"}}
 
 	result := paginateContacts(items, math.MaxInt, 1)
 	if len(result.Data) != 0 {
