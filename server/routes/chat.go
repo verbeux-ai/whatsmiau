@@ -20,10 +20,12 @@ func Chat(group *echo.Group) {
 func ChatEVO(group *echo.Group) {
 	redisInstance := instances.NewRedis(services.Redis())
 	controller := controllers.NewChats(redisInstance, whatsmiau.Get())
+	contactController := controllers.NewContacts(redisInstance, whatsmiau.Get())
 
 	// Evolution API Compatibility (partially REST)
 	group.POST("/markMessageAsRead/:instance", controller.ReadMessages)
 	group.POST("/sendPresence/:instance", controller.SendChatPresence)
 	group.POST("/whatsappNumbers/:instance", controller.NumberExists)
 	group.DELETE("/deleteMessageForEveryone/:instance", controller.DeleteMessageForEveryone)
+	group.GET("/findContacts/:nameInstance", contactController.List)
 }

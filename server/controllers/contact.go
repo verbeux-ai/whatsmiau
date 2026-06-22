@@ -39,7 +39,7 @@ func NewContacts(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.
 // @Tags         Contact
 // @Produce      json
 // @Security     ApiKeyAuth
-// @Param        instance  path      string                    true  "Instance ID"
+// @Param        nameInstance  path      string                    true  "Instance ID"
 // @Param        page      query     int                       true  "Page number (>= 1)"
 // @Param        limit     query     int                       true  "Page size (1-100)"
 // @Success      200       {object}  dto.ListContactsResponse
@@ -47,7 +47,7 @@ func NewContacts(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.
 // @Failure      404       {object}  utils.HTTPErrorResponse
 // @Failure      409       {object}  utils.HTTPErrorResponse
 // @Failure      500       {object}  utils.HTTPErrorResponse
-// @Router       /instance/{instance}/contacts [get]
+// @Router       /chat/findContacts/{nameInstance} [get]
 func (s *Contact) List(ctx echo.Context) error {
 	var request dto.ListContactsRequest
 	if err := ctx.Bind(&request); err != nil {

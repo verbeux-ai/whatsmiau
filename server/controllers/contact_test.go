@@ -55,11 +55,11 @@ func decodeErrorResponse(t *testing.T, rec *httptest.ResponseRecorder) map[strin
 
 func TestContactListValidationRequiresPageAndLimit(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/v1/instance/test/contacts", nil)
+	req := httptest.NewRequest(http.MethodGet, "/chat/findContacts/test", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	ctx.SetPath("/v1/instance/:instance/contacts")
-	ctx.SetParamNames("instance")
+	ctx.SetPath("/chat/findContacts/:nameInstance")
+	ctx.SetParamNames("nameInstance")
 	ctx.SetParamValues("test")
 
 	controller := NewContacts(&fakeInstanceRepository{}, nil)
@@ -78,11 +78,11 @@ func TestContactListValidationRequiresPageAndLimit(t *testing.T) {
 
 func TestContactListReturnsNotFoundForUnknownInstance(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/v1/instance/test/contacts?page=1&limit=10", nil)
+	req := httptest.NewRequest(http.MethodGet, "/chat/findContacts/test?page=1&limit=10", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	ctx.SetPath("/v1/instance/:instance/contacts")
-	ctx.SetParamNames("instance")
+	ctx.SetPath("/chat/findContacts/:nameInstance")
+	ctx.SetParamNames("nameInstance")
 	ctx.SetParamValues("test")
 
 	controller := NewContacts(&fakeInstanceRepository{listResult: []models.Instance{}}, nil)
@@ -101,11 +101,11 @@ func TestContactListReturnsNotFoundForUnknownInstance(t *testing.T) {
 
 func TestContactListReturnsPaginatedData(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/v1/instance/test/contacts?page=2&limit=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/chat/findContacts/test?page=2&limit=1", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	ctx.SetPath("/v1/instance/:instance/contacts")
-	ctx.SetParamNames("instance")
+	ctx.SetPath("/chat/findContacts/:nameInstance")
+	ctx.SetParamNames("nameInstance")
 	ctx.SetParamValues("test")
 
 	controller := NewContacts(&fakeInstanceRepository{listResult: []models.Instance{{ID: "test"}}}, nil)
@@ -188,11 +188,11 @@ func TestContactListReturnsPaginatedData(t *testing.T) {
 
 func TestContactListReturnsConflictForDisconnectedInstance(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/v1/instance/test/contacts?page=1&limit=10", nil)
+	req := httptest.NewRequest(http.MethodGet, "/chat/findContacts/test?page=1&limit=10", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	ctx.SetPath("/v1/instance/:instance/contacts")
-	ctx.SetParamNames("instance")
+	ctx.SetPath("/chat/findContacts/:nameInstance")
+	ctx.SetParamNames("nameInstance")
 	ctx.SetParamValues("test")
 
 	controller := NewContacts(&fakeInstanceRepository{listResult: []models.Instance{{ID: "test"}}}, nil)
@@ -213,11 +213,11 @@ func TestContactListReturnsConflictForDisconnectedInstance(t *testing.T) {
 
 func TestContactListReturnsInternalServerErrorOnStoreFailure(t *testing.T) {
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/v1/instance/test/contacts?page=1&limit=10", nil)
+	req := httptest.NewRequest(http.MethodGet, "/chat/findContacts/test?page=1&limit=10", nil)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
-	ctx.SetPath("/v1/instance/:instance/contacts")
-	ctx.SetParamNames("instance")
+	ctx.SetPath("/chat/findContacts/:nameInstance")
+	ctx.SetParamNames("nameInstance")
 	ctx.SetParamValues("test")
 
 	controller := NewContacts(&fakeInstanceRepository{listResult: []models.Instance{{ID: "test"}}}, nil)

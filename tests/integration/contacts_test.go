@@ -14,13 +14,13 @@ func TestListContacts(t *testing.T) {
 	id := instanceID(t)
 
 	t.Run("RequiresPagination", func(t *testing.T) {
-		resp := do(t, http.MethodGet, "/v1/instance/"+id+"/contacts", nil)
+		resp := do(t, http.MethodGet, "/chat/findContacts/"+id, nil)
 		defer drainClose(resp)
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
 	t.Run("RejectsLimitAboveMaximum", func(t *testing.T) {
-		resp := do(t, http.MethodGet, "/v1/instance/"+id+"/contacts?page=1&limit=101", nil)
+		resp := do(t, http.MethodGet, "/chat/findContacts/"+id+"?page=1&limit=101", nil)
 		defer drainClose(resp)
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
@@ -37,7 +37,7 @@ func TestListContacts(t *testing.T) {
 			t.Skipf("instance not connected (state=%s), skipping contacts list test", state)
 		}
 
-		resp := do(t, http.MethodGet, "/v1/instance/"+id+"/contacts?page=1&limit=10", nil)
+		resp := do(t, http.MethodGet, "/chat/findContacts/"+id+"?page=1&limit=10", nil)
 		defer drainClose(resp)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 

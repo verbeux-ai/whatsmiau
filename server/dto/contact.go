@@ -1,7 +1,7 @@
 package dto
 
 type ListContactsRequest struct {
-	InstanceID string `param:"instance" validate:"required"`
+	InstanceID string `param:"nameInstance" validate:"required"`
 	Page       *int   `query:"page" validate:"required,min=1"`
 	Limit      *int   `query:"limit" validate:"required,min=1,max=100"`
 }
