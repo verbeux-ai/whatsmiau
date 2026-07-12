@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"math/rand/v2"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
@@ -199,7 +200,21 @@ func (s *Manager) CreateInstance(ctx echo.Context) error {
 		return s.renderGridWithError(ctx, "instance_name_required")
 	}
 
-	if err := s.repo.Create(c, &models.Instance{ID: req.InstanceName}); err != nil {
+	instance := &models.Instance{ID: req.InstanceName}
+
+	if len(env.Env.ProxyAddresses) > 0 {
+		rd := rand.IntN(len(env.Env.ProxyAddresses))
+		proxyUrl := env.Env.ProxyAddresses[rd]
+
+		proxy, err := parseProxyURL(proxyUrl)
+		if err != nil {
+			zap.L().Error("invalid proxy url on env", zap.String("proxy", proxyUrl), zap.Error(err))
+			return s.renderGridWithError(ctx, "instance_create_error")
+		}
+		instance.InstanceProxy = *proxy
+	}
+
+	if err := s.repo.Create(c, instance); err != nil {
 		if errors.Is(err, instances.ErrorAlreadyExists) {
 			return s.renderGridWithError(ctx, "instance_exists:"+req.InstanceName)
 		}
