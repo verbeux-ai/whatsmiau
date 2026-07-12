@@ -21,12 +21,16 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var webhookEventOptions = map[whatsmiau.Wook]bool{
-	whatsmiau.WookMessagesUpsert:   true,
-	whatsmiau.WookMessagesUpdate:   true,
-	whatsmiau.WookContactsUpsert:   true,
-	whatsmiau.WookConnectionUpdate: true,
-	whatsmiau.WookMessagesDelete:   true,
+// Subscription names, not payload names: the emitter filters against these
+// screaming snake case keys, while the emitted payload carries the dotted
+// lowercase Wook* values.
+var webhookEventOptions = []string{
+	"MESSAGES_UPSERT",
+	"MESSAGES_UPDATE",
+	"MESSAGES_DELETE",
+	"MESSAGES_SET",
+	"CONTACTS_UPSERT",
+	"CONNECTION_UPDATE",
 }
 
 type ManagerTemplates struct {
@@ -42,9 +46,15 @@ var managerFuncMap = template.FuncMap{
 		}
 		return *b
 	},
-	"hasEvent": func(events []string, event whatsmiau.Wook) bool {
+	"derefEnabled": func(b *bool) bool {
+		if b == nil {
+			return true
+		}
+		return *b
+	},
+	"hasEvent": func(events []string, event string) bool {
 		for _, e := range events {
-			if whatsmiau.Wook(e) == event {
+			if e == event {
 				return true
 			}
 		}
@@ -395,15 +405,24 @@ func (s *Manager) UpdateInstance(ctx echo.Context) error {
 		return ctx.String(http.StatusOK, "")
 	}
 
+	webhookEnabled := req.WebhookEnabled != nil
 	webhookByEvents := req.WebhookByEvents != nil
 	webhookBase64 := req.WebhookBase64 != nil
 
+	// Unchecking every box sends no field at all, and the repository skips nil
+	// slices. An empty non-nil slice is what actually clears the selection.
+	events := req.WebhookEvents
+	if events == nil {
+		events = []string{}
+	}
+
 	toUpdate := &models.Instance{
 		Webhook: models.InstanceWebhook{
+			Enabled:  &webhookEnabled,
 			Url:      req.WebhookURL,
 			ByEvents: &webhookByEvents,
 			Base64:   &webhookBase64,
-			Events:   req.WebhookEvents,
+			Events:   events,
 		},
 		InstanceProxy: models.InstanceProxy{
 			ProxyHost:     req.ProxyHost,

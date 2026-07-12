@@ -16,6 +16,7 @@ type ManagerInstanceCard struct {
 
 type ManagerUpdateInstanceRequest struct {
 	WebhookURL      string   `form:"webhookUrl" validate:"omitempty,http_url"`
+	WebhookEnabled  *bool    `form:"webhookEnabled"`
 	WebhookBase64   *bool    `form:"webhookBase64"`
 	WebhookByEvents *bool    `form:"webhookByEvents"`
 	WebhookEvents   []string `form:"webhookEvents"`

@@ -51,19 +51,23 @@
                 </div>
             </div>
             <div class="checkbox-group">
-                <input type="checkbox" id="webhookBase64" name="webhookBase64" value="true" {{if and .Instance.Webhook.Base64 (deref .Instance.Webhook.Base64)}}checked{{end}}>
+                <input type="checkbox" id="webhookEnabled" name="webhookEnabled" value="true" {{if derefEnabled .Instance.Webhook.Enabled}}checked{{end}}>
+                <label for="webhookEnabled">Webhook ativo</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="webhookBase64" name="webhookBase64" value="true" {{if deref .Instance.Webhook.Base64}}checked{{end}}>
                 <label for="webhookBase64">Base64</label>
             </div>
             <div class="checkbox-group" style="margin-bottom:.75rem;">
-                <input type="checkbox" id="webhookByEvents" name="webhookByEvents" value="true" {{if and .Instance.Webhook.ByEvents (deref .Instance.Webhook.ByEvents)}}checked{{end}}>
+                <input type="checkbox" id="webhookByEvents" name="webhookByEvents" value="true" {{if deref .Instance.Webhook.ByEvents}}checked{{end}}>
                 <label for="webhookByEvents">Filtrar por eventos</label>
             </div>
             <div class="flags-grid">
                 {{$events := .Instance.Webhook.Events}}
-                {{range $ev, $_ := .WebhookEventOptions}}
+                {{range $ev := .WebhookEventOptions}}
                 <div class="checkbox-group">
-                    <input type="checkbox" name="webhookEvents" value="{{$ev}}" {{if hasEvent $events $ev}}checked{{end}}>
-                    <label>{{$ev}}</label>
+                    <input type="checkbox" id="event-{{$ev}}" name="webhookEvents" value="{{$ev}}" {{if hasEvent $events $ev}}checked{{end}}>
+                    <label for="event-{{$ev}}">{{$ev}}</label>
                 </div>
                 {{end}}
             </div>
