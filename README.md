@@ -195,13 +195,17 @@ If `API_KEY` is configured, the manager dashboard will require login. If no `API
 
 The application can send webhook events for the following actions:
 
-| Event             | Description                                         |
-|-------------------|-----------------------------------------------------|
-| `MESSAGES_UPSERT` | Triggered when a new message is received.           |
-| `MESSAGES_UPDATE` | Triggered when a message status changes (e.g., read). |
-| `MESSAGES_DELETE` | Triggered when a message is deleted for everyone.   |
-| `CONTACTS_UPSERT` | Triggered when a contact is created or updated.     |
-| `CONNECTION_UPDATE` | Triggered when connection state changes (connected, disconnected, failed). |
+Event identifiers use the Evolution-API-compatible dot-lower form and are defined as the `Wook*` constants in `lib/whatsmiau/models.go`.
+
+| Event                        | Description                                                                 |
+|------------------------------|-----------------------------------------------------------------------------|
+| `messages.upsert`            | Triggered when a new message is received.                                   |
+| `messages.update`            | Triggered when a message status changes (e.g., read).                       |
+| `messages.delete`            | Triggered when a message is deleted for everyone.                           |
+| `messages.set`               | Triggered while a full history sync is being applied.                       |
+| `contacts.upsert`            | Triggered when a contact is created or updated.                             |
+| `group-participants.update`  | Triggered when a group's participant list changes (add/remove/promote/demote). |
+| `connection.update`          | Triggered when connection state changes (connected, disconnected, failed).  |
 
 
 ## Contributors
