@@ -23,7 +23,10 @@ import (
 // @Param        instance  path      string                  true  "Instance ID"
 // @Param        body      body      dto.SendDocumentRequest  true  "Video parameters"
 // @Success      200       {object}  dto.SendDocumentResponse
-// @Router       /instance/{instance}/message/video [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/message/video [post]
 func (s *Message) SendVideo(ctx echo.Context) error {
 	var request dto.SendDocumentRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -44,13 +47,22 @@ func (s *Message) sendVideo(ctx echo.Context, request dto.SendDocumentRequest, g
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
+	quote, err := buildQuote(request.Quoted)
+	if err != nil {
+		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
+	}
+
 	sendData := &whatsmiau.SendVideoRequest{
-		InstanceID:  request.InstanceID,
-		MediaURL:    request.Media,
-		Caption:     request.Caption,
-		RemoteJID:   jid,
-		Mimetype:    request.Mimetype,
-		GifPlayback: gif,
+		InstanceID:       request.InstanceID,
+		MediaURL:         request.Media,
+		Caption:          request.Caption,
+		RemoteJID:        jid,
+		Mimetype:         request.Mimetype,
+		GifPlayback:      gif,
+		Quote:            quote,
+		MentionsEveryOne: request.MentionsEveryOne,
+		Mentioned:        request.Mentioned,
 	}
 
 	c := ctx.Request().Context()
@@ -85,7 +97,10 @@ func (s *Message) sendVideo(ctx echo.Context, request dto.SendDocumentRequest, g
 // @Param        instance  path      string             true  "Instance ID"
 // @Param        body      body      dto.SendPtvRequest  true  "PTV parameters"
 // @Success      200       {object}  dto.SendPtvResponse
-// @Router       /message/sendPtv/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/message/sendPtv/{instance} [post]
 func (s *Message) SendPtv(ctx echo.Context) error {
 	var request dto.SendPtvRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -113,10 +128,19 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 		time.Sleep(time.Millisecond * time.Duration(request.Delay))
 	}
 
+	quote, err := buildQuote(request.Quoted)
+	if err != nil {
+		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
+	}
+
 	res, err := s.whatsmiau.SendPtv(c, &whatsmiau.SendPtvRequest{
-		InstanceID: request.InstanceID,
-		VideoURL:   request.Video,
-		RemoteJID:  jid,
+		InstanceID:       request.InstanceID,
+		VideoURL:         request.Video,
+		RemoteJID:        jid,
+		Quote:            quote,
+		MentionsEveryOne: request.MentionsEveryOne,
+		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendPtv failed", zap.Error(err))
@@ -146,7 +170,11 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 // @Param        instance  path      string                 true  "Instance ID"
 // @Param        body      body      dto.SendStickerRequest  true  "Sticker parameters"
 // @Success      200       {object}  dto.SendStickerResponse
-// @Router       /message/sendSticker/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/message/sticker [post]
+// @Router       /v1/message/sendSticker/{instance} [post]
 func (s *Message) SendSticker(ctx echo.Context) error {
 	var request dto.SendStickerRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -166,10 +194,19 @@ func (s *Message) SendSticker(ctx echo.Context) error {
 	c := ctx.Request().Context()
 	time.Sleep(time.Millisecond * time.Duration(request.Delay))
 
+	quote, err := buildQuote(request.Quoted)
+	if err != nil {
+		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
+	}
+
 	res, err := s.whatsmiau.SendSticker(c, &whatsmiau.SendStickerRequest{
-		InstanceID: request.InstanceID,
-		StickerURL: request.Sticker,
-		RemoteJID:  jid,
+		InstanceID:       request.InstanceID,
+		StickerURL:       request.Sticker,
+		RemoteJID:        jid,
+		Quote:            quote,
+		MentionsEveryOne: request.MentionsEveryOne,
+		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendSticker failed", zap.Error(err))
@@ -199,7 +236,11 @@ func (s *Message) SendSticker(ctx echo.Context) error {
 // @Param        instance  path      string                  true  "Instance ID"
 // @Param        body      body      dto.SendLocationRequest  true  "Location parameters"
 // @Success      200       {object}  dto.SendLocationResponse
-// @Router       /message/sendLocation/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/message/location [post]
+// @Router       /v1/message/sendLocation/{instance} [post]
 func (s *Message) SendLocation(ctx echo.Context) error {
 	var request dto.SendLocationRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -219,13 +260,22 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 	c := ctx.Request().Context()
 	time.Sleep(time.Millisecond * time.Duration(request.Delay))
 
+	quote, err := buildQuote(request.Quoted)
+	if err != nil {
+		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
+	}
+
 	res, err := s.whatsmiau.SendLocation(c, &whatsmiau.SendLocationRequest{
-		InstanceID: request.InstanceID,
-		RemoteJID:  jid,
-		Latitude:   request.Latitude,
-		Longitude:  request.Longitude,
-		Name:       request.Name,
-		Address:    request.Address,
+		InstanceID:       request.InstanceID,
+		RemoteJID:        jid,
+		Latitude:         request.Latitude,
+		Longitude:        request.Longitude,
+		Name:             request.Name,
+		Address:          request.Address,
+		Quote:            quote,
+		MentionsEveryOne: request.MentionsEveryOne,
+		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendLocation failed", zap.Error(err))
@@ -255,7 +305,11 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 // @Param        instance  path      string                 true  "Instance ID"
 // @Param        body      body      dto.SendContactRequest  true  "Contact parameters"
 // @Success      200       {object}  dto.SendContactResponse
-// @Router       /message/sendContact/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/message/contact [post]
+// @Router       /v1/message/sendContact/{instance} [post]
 func (s *Message) SendContact(ctx echo.Context) error {
 	var request dto.SendContactRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -287,10 +341,19 @@ func (s *Message) SendContact(ctx echo.Context) error {
 	c := ctx.Request().Context()
 	time.Sleep(time.Millisecond * time.Duration(request.Delay))
 
+	quote, err := buildQuote(request.Quoted)
+	if err != nil {
+		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
+	}
+
 	res, err := s.whatsmiau.SendContact(c, &whatsmiau.SendContactRequest{
-		InstanceID: request.InstanceID,
-		RemoteJID:  jid,
-		Contacts:   contacts,
+		InstanceID:       request.InstanceID,
+		RemoteJID:        jid,
+		Contacts:         contacts,
+		Quote:            quote,
+		MentionsEveryOne: request.MentionsEveryOne,
+		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendContact failed", zap.Error(err))
@@ -325,7 +388,11 @@ func (s *Message) SendContact(ctx echo.Context) error {
 // @Param        instance  path      string              true  "Instance ID"
 // @Param        body      body      dto.SendPollRequest  true  "Poll parameters"
 // @Success      200       {object}  dto.SendPollResponse
-// @Router       /message/sendPoll/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/message/poll [post]
+// @Router       /v1/message/sendPoll/{instance} [post]
 func (s *Message) SendPoll(ctx echo.Context) error {
 	var request dto.SendPollRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -345,12 +412,21 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 	c := ctx.Request().Context()
 	time.Sleep(time.Millisecond * time.Duration(request.Delay))
 
+	quote, err := buildQuote(request.Quoted)
+	if err != nil {
+		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
+	}
+
 	res, err := s.whatsmiau.SendPoll(c, &whatsmiau.SendPollRequest{
-		InstanceID:      request.InstanceID,
-		RemoteJID:       jid,
-		Name:            request.Name,
-		SelectableCount: request.SelectableCount,
-		Values:          request.Values,
+		InstanceID:       request.InstanceID,
+		RemoteJID:        jid,
+		Name:             request.Name,
+		SelectableCount:  request.SelectableCount,
+		Values:           request.Values,
+		Quote:            quote,
+		MentionsEveryOne: request.MentionsEveryOne,
+		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendPoll failed", zap.Error(err))
@@ -380,7 +456,11 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 // @Param        instance  path      string                true  "Instance ID"
 // @Param        body      body      dto.SendStatusRequest  true  "Status parameters"
 // @Success      200       {object}  dto.SendStatusResponse
-// @Router       /message/sendStatus/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/message/status [post]
+// @Router       /v1/message/sendStatus/{instance} [post]
 func (s *Message) SendStatus(ctx echo.Context) error {
 	var request dto.SendStatusRequest
 	if err := ctx.Bind(&request); err != nil {

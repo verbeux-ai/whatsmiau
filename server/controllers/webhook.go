@@ -29,6 +29,22 @@ func NewWebhooks(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.
 	}
 }
 
+// Set configures outbound webhook delivery for an instance.
+// @Summary Configure an instance webhook
+// @Description Enables or updates the outbound webhook target. Call signaling is emitted only when the configured events include CALL; payloads never contain media, SDP, relay data, or call keys.
+// @Tags Webhooks
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Param instance path string true "Instance ID"
+// @Param body body dto.SetWebhookRequest true "Webhook configuration"
+// @Success 200 {object} dto.SetWebhookResponse
+// @Failure 400 {object} utils.HTTPErrorResponse
+// @Failure 401 {object} utils.AuthenticationErrorResponse
+// @Failure 404 {object} utils.HTTPErrorResponse
+// @Failure 422 {object} utils.HTTPErrorResponse
+// @Failure 500 {object} utils.HTTPErrorResponse
+// @Router /v1/webhook/set/{instance} [post]
 func (s *Webhook) Set(ctx echo.Context) error {
 	var request dto.SetWebhookRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -64,6 +80,19 @@ func (s *Webhook) Set(ctx echo.Context) error {
 	})
 }
 
+// Find returns the current outbound webhook configuration for an instance.
+// @Summary Get an instance webhook
+// @Tags Webhooks
+// @Produce json
+// @Security ApiKeyAuth
+// @Param instance path string true "Instance ID"
+// @Success 200 {object} dto.FindWebhookResponse
+// @Failure 400 {object} utils.HTTPErrorResponse
+// @Failure 401 {object} utils.AuthenticationErrorResponse
+// @Failure 404 {object} utils.HTTPErrorResponse
+// @Failure 422 {object} utils.HTTPErrorResponse
+// @Failure 500 {object} utils.HTTPErrorResponse
+// @Router /v1/webhook/find/{instance} [get]
 func (s *Webhook) Find(ctx echo.Context) error {
 	var request dto.FindWebhookRequest
 	if err := ctx.Bind(&request); err != nil {

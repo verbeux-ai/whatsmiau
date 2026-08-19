@@ -10,6 +10,7 @@ type Instance struct {
 	ReadStatus        bool            `json:"readStatus,omitempty"`
 	SyncFullHistory   bool            `json:"syncFullHistory,omitempty"`
 	SyncRecentHistory bool            `json:"syncRecentHistory,omitempty"`
+	SaveMedia         *bool           `json:"saveMedia,omitempty"`
 	RemoteJID         string          `json:"remoteJID,omitempty"`
 	Webhook           InstanceWebhook `json:"webhook,omitempty"`
 	InstanceProxy

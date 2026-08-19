@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/purpshell/meowcaller"
 	"github.com/puzpuzpuz/xsync/v4"
 	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
@@ -28,6 +29,8 @@ import (
 
 type Whatsmiau struct {
 	clients            *xsync.Map[string, *whatsmeow.Client]
+	callClients        *xsync.Map[string, *meowcaller.Client]
+	callBridges        *xsync.Map[string, *callBridge]
 	container          *sqlstore.Container
 	logger             waLog.Logger
 	repo               interfaces.InstanceRepository
@@ -46,10 +49,39 @@ type Whatsmiau struct {
 var instance *Whatsmiau
 var mu = &sync.Mutex{}
 
+const loadMiauConnectConcurrency = 10
+
+func runLoadMiauTasks[T any](items []T, task func(T)) {
+	semaphore := make(chan struct{}, loadMiauConnectConcurrency)
+	var wg sync.WaitGroup
+
+	for _, item := range items {
+		semaphore <- struct{}{}
+		wg.Add(1)
+		go func(item T) {
+			defer wg.Done()
+			defer func() { <-semaphore }()
+			task(item)
+		}(item)
+	}
+
+	wg.Wait()
+}
+
 func Get() *Whatsmiau {
 	mu.Lock()
 	defer mu.Unlock()
 	return instance
+}
+
+func (s *Whatsmiau) storeClient(id string, client *whatsmeow.Client) {
+	s.registerCallClient(id, client)
+	s.clients.Store(id, client)
+}
+
+func (s *Whatsmiau) deleteClient(id string) {
+	s.removeCallClient(id)
+	s.clients.Delete(id)
 }
 
 func LoadMiau(ctx context.Context, container *sqlstore.Container) {
@@ -81,8 +113,11 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	}
 
 	clients := xsync.NewMap[string, *whatsmeow.Client]()
+	callClients := xsync.NewMap[string, *meowcaller.Client]()
+	callBridges := xsync.NewMap[string, *callBridge]()
 
 	clientLog := waLog.Stdout("Client", level, false)
+	clientsToConnect := make([]*whatsmeow.Client, 0, len(deviceStore))
 	for _, device := range deviceStore {
 		client := whatsmeow.NewClient(device, clientLog)
 		if client.Store.ID == nil {
@@ -93,14 +128,11 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		instanceFound, ok := instanceByRemoteJid[client.Store.ID.String()]
 		if ok {
 			configProxy(client, instanceFound.InstanceProxy)
-			clients.Store(instanceFound.ID, client)
-			if err := client.Connect(); err != nil {
-				jid := ""
-				if client.Store != nil && client.Store.ID != nil {
-					jid = client.Store.ID.String()
-				}
-				zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", jid))
+			if env.Env.CallsEnabled {
+				callClients.Store(instanceFound.ID, meowcaller.NewClient(client))
 			}
+			clients.Store(instanceFound.ID, client)
+			clientsToConnect = append(clientsToConnect, client)
 			continue
 		}
 
@@ -118,6 +150,16 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		}
 	}
 
+	runLoadMiauTasks(clientsToConnect, func(client *whatsmeow.Client) {
+		if err := client.Connect(); err != nil {
+			jid := ""
+			if client.Store != nil && client.Store.ID != nil {
+				jid = client.Store.ID.String()
+			}
+			zap.L().Error("failed to connect connected device", zap.Error(err), zap.String("jid", jid))
+		}
+	})
+
 	var storage interfaces.Storage
 	if env.Env.GCSEnabled {
 		storage, err = gcs.New(env.Env.GCSBucket)
@@ -128,6 +170,8 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 
 	instance = &Whatsmiau{
 		clients:            clients,
+		callClients:        callClients,
+		callBridges:        callBridges,
 		container:          container,
 		logger:             clientLog,
 		repo:               repo,
@@ -156,6 +200,9 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		}
 		zap.L().Info("stating event handler", zap.String("id", id), zap.String("jid", jid))
 		client.AddEventHandler(instance.Handle(id))
+		if callClient, ok := callClients.Load(id); ok {
+			instance.attachIncomingCallHandler(id, callClient)
+		}
 		return true
 	})
 
@@ -296,6 +343,14 @@ func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.C
 
 	client, ok := s.clients.Load(id)
 	if !ok {
+		instanceList, err := s.repo.List(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if len(instanceList) == 0 {
+			return nil, instances.ErrorNotFound
+		}
+
 		device := s.container.NewDevice()
 
 		client = whatsmeow.NewClient(device, s.logger)
@@ -304,7 +359,7 @@ func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.C
 			setHistorySyncPayload(client)
 		}
 
-		s.clients.Store(id, client)
+		s.storeClient(id, client)
 	}
 
 	// trying recover existent connection
@@ -328,7 +383,7 @@ func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.C
 			return nil, nil
 		}
 
-		s.clients.Delete(id)
+		s.deleteClient(id)
 		if err := s.deleteDeviceIfExists(ctx, client); err != nil {
 			zap.L().Error("failed to hard logout", zap.Error(err))
 			return nil, err
@@ -341,7 +396,7 @@ func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.C
 		if inst := s.getInstanceCached(id); inst != nil && inst.SyncFullHistory {
 			setHistorySyncPayload(client)
 		}
-		s.clients.Store(id, client) // replaces old client
+		s.storeClient(id, client) // replaces old client
 	}
 
 	return client, nil
@@ -407,7 +462,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string, phone
 			if err := s.deleteDeviceIfExists(context.TODO(), client); err != nil {
 				zap.L().Error("failed to hard logout", zap.String("id", id), zap.Error(err))
 			}
-			s.clients.Delete(id)
+			s.deleteClient(id)
 			return
 		case evt, ok := <-qrChan:
 			if !ok || evt.Event == "error" || evt.Event == "timeout" { // closed qr chan
@@ -545,14 +600,49 @@ func (s *Whatsmiau) Status(id string) (Status, error) {
 }
 
 func (s *Whatsmiau) Logout(ctx context.Context, id string) error {
+	lock, _ := s.lockConnection.LoadOrStore(id, &sync.Mutex{})
+	lock.Lock()
+	defer lock.Unlock()
+
+	return s.logoutUnlocked(ctx, id)
+}
+
+func (s *Whatsmiau) logoutUnlocked(ctx context.Context, id string) error {
+	defer s.clearInstanceRuntimeState(id)
+
 	client, ok := s.clients.Load(id)
 	if !ok {
 		zap.L().Warn("logout: client does not exist", zap.String("id", id))
 		return nil
 	}
 
-	s.clients.Delete(id)
-	return s.deleteDeviceIfExists(ctx, client)
+	s.deleteClient(id)
+	if err := s.deleteDeviceIfExists(ctx, client); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Delete serializes runtime cleanup and Redis deletion with Connect/Restart.
+// Together with conditional Redis updates, this prevents late goroutines from
+// recreating an instance key after deletion.
+func (s *Whatsmiau) Delete(ctx context.Context, id string) error {
+	lock, _ := s.lockConnection.LoadOrStore(id, &sync.Mutex{})
+	lock.Lock()
+	defer lock.Unlock()
+
+	if err := s.logoutUnlocked(ctx, id); err != nil {
+		return err
+	}
+	return s.repo.Delete(ctx, id)
+}
+
+func (s *Whatsmiau) clearInstanceRuntimeState(id string) {
+	s.qrCache.Delete(id)
+	s.pairingCache.Delete(id)
+	s.observerRunning.Delete(id)
+	s.instanceCache.Delete(id)
+	s.connectPhoneNumber.Delete(id)
 }
 
 func (s *Whatsmiau) Disconnect(id string) error {
@@ -590,7 +680,7 @@ func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
 	if hadClient {
 		oldClient.RemoveEventHandlers()
 		oldClient.Disconnect()
-		s.clients.Delete(id)
+		s.deleteClient(id)
 	}
 
 	// Clear caches
@@ -621,7 +711,7 @@ func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
 	client := whatsmeow.NewClient(device, s.logger)
 	configProxy(client, instance.InstanceProxy)
 	client.AddEventHandler(s.Handle(id))
-	s.clients.Store(id, client)
+	s.storeClient(id, client)
 
 	if err := client.Connect(); err != nil {
 		zap.L().Error("restart: connect failed", zap.String("id", id), zap.Error(err))

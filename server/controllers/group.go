@@ -40,6 +40,12 @@ func mapGroupError(err error) (int, string) {
 		return http.StatusBadRequest, "invite link invalid"
 	case errors.Is(err, whatsmeow.ErrGroupInviteLinkUnauthorized):
 		return http.StatusForbidden, "unauthorized to access invite link"
+	case errors.Is(err, whatsmeow.ErrIQBadRequest):
+		return http.StatusBadRequest, "WhatsApp rejected the group operation"
+	case errors.Is(err, whatsmeow.ErrIQNotAuthorized), errors.Is(err, whatsmeow.ErrIQForbidden):
+		return http.StatusForbidden, "WhatsApp rejected the group permissions"
+	case errors.Is(err, whatsmiau.ErrGroupAddModeRequiresCommunity):
+		return http.StatusBadRequest, "group add mode requires a community parent"
 	case errors.Is(err, whatsmeow.ErrIQRateOverLimit):
 		return http.StatusTooManyRequests, "rate limit exceeded, try again later"
 	default:
@@ -59,8 +65,12 @@ func mapGroupError(err error) (int, string) {
 // @Failure      400       {object}  utils.HTTPErrorResponse
 // @Failure      422       {object}  utils.HTTPErrorResponse
 // @Failure      500       {object}  utils.HTTPErrorResponse
-// @Router       /instance/{instance}/group/create [post]
-// @Router       /group/create/{instance} [post]
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/create [post]
+// @Router       /v1/group/create/{instance} [post]
 func (s *Group) CreateGroup(ctx echo.Context) error {
 	var request dto.CreateGroupRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -94,8 +104,15 @@ func (s *Group) CreateGroup(ctx echo.Context) error {
 // @Param        instance  path      string                  true  "Instance ID"
 // @Param        body      body      dto.GroupSubjectRequest true  "Subject payload"
 // @Success      201       {object}  map[string]interface{}
-// @Router       /instance/{instance}/group/updateGroupSubject [post]
-// @Router       /group/updateGroupSubject/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/updateGroupSubject [post]
+// @Router       /v1/group/updateGroupSubject/{instance} [post]
 func (s *Group) UpdateGroupSubject(ctx echo.Context) error {
 	var request dto.GroupSubjectRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -130,8 +147,15 @@ func (s *Group) UpdateGroupSubject(ctx echo.Context) error {
 // @Param        instance  path      string                  true  "Instance ID"
 // @Param        body      body      dto.GroupPictureRequest true  "Picture payload (base64 or URL)"
 // @Success      201       {object}  whatsmiau.SetGroupPictureResponse
-// @Router       /instance/{instance}/group/updateGroupPicture [post]
-// @Router       /group/updateGroupPicture/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/updateGroupPicture [post]
+// @Router       /v1/group/updateGroupPicture/{instance} [post]
 func (s *Group) UpdateGroupPicture(ctx echo.Context) error {
 	var request dto.GroupPictureRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -167,8 +191,15 @@ func (s *Group) UpdateGroupPicture(ctx echo.Context) error {
 // @Param        instance  path      string                      true  "Instance ID"
 // @Param        body      body      dto.GroupDescriptionRequest true  "Description payload"
 // @Success      201       {object}  map[string]interface{}
-// @Router       /instance/{instance}/group/updateGroupDescription [post]
-// @Router       /group/updateGroupDescription/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/updateGroupDescription [post]
+// @Router       /v1/group/updateGroupDescription/{instance} [post]
 func (s *Group) UpdateGroupDescription(ctx echo.Context) error {
 	var request dto.GroupDescriptionRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -202,8 +233,15 @@ func (s *Group) UpdateGroupDescription(ctx echo.Context) error {
 // @Param        instance  path   string true  "Instance ID"
 // @Param        groupJid  query  string true  "Group JID"
 // @Success      200  {object}  whatsmiau.GroupInfoResponse
-// @Router       /instance/{instance}/group/findGroupInfos [get]
-// @Router       /group/findGroupInfos/{instance} [get]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/findGroupInfos [get]
+// @Router       /v1/group/findGroupInfos/{instance} [get]
 func (s *Group) FindGroupInfos(ctx echo.Context) error {
 	var request dto.GroupJidQuery
 	if err := ctx.Bind(&request); err != nil {
@@ -237,8 +275,15 @@ func (s *Group) FindGroupInfos(ctx echo.Context) error {
 // @Param        instance         path   string true  "Instance ID"
 // @Param        getParticipants  query  string false "Include participants (true/false)"
 // @Success      200  {array}  whatsmiau.GroupInfoResponse
-// @Router       /instance/{instance}/group/fetchAllGroups [get]
-// @Router       /group/fetchAllGroups/{instance} [get]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/fetchAllGroups [get]
+// @Router       /v1/group/fetchAllGroups/{instance} [get]
 func (s *Group) FetchAllGroups(ctx echo.Context) error {
 	var request dto.FetchAllGroupsQuery
 	if err := ctx.Bind(&request); err != nil {
@@ -268,8 +313,15 @@ func (s *Group) FetchAllGroups(ctx echo.Context) error {
 // @Param        instance  path   string true  "Instance ID"
 // @Param        groupJid  query  string true  "Group JID"
 // @Success      200  {object}  whatsmiau.FindParticipantsResponse
-// @Router       /instance/{instance}/group/participants [get]
-// @Router       /group/participants/{instance} [get]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/participants [get]
+// @Router       /v1/group/participants/{instance} [get]
 func (s *Group) FindParticipants(ctx echo.Context) error {
 	var request dto.GroupJidQuery
 	if err := ctx.Bind(&request); err != nil {
@@ -303,8 +355,15 @@ func (s *Group) FindParticipants(ctx echo.Context) error {
 // @Param        instance  path   string true  "Instance ID"
 // @Param        groupJid  query  string true  "Group JID"
 // @Success      200  {object}  whatsmiau.InviteCodeResponse
-// @Router       /instance/{instance}/group/inviteCode [get]
-// @Router       /group/inviteCode/{instance} [get]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/inviteCode [get]
+// @Router       /v1/group/inviteCode/{instance} [get]
 func (s *Group) InviteCode(ctx echo.Context) error {
 	var request dto.GroupJidQuery
 	if err := ctx.Bind(&request); err != nil {
@@ -338,8 +397,15 @@ func (s *Group) InviteCode(ctx echo.Context) error {
 // @Param        instance    path   string true  "Instance ID"
 // @Param        inviteCode  query  string true  "Invite code or full link"
 // @Success      200  {object}  whatsmiau.GroupInfoResponse
-// @Router       /instance/{instance}/group/inviteInfo [get]
-// @Router       /group/inviteInfo/{instance} [get]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/inviteInfo [get]
+// @Router       /v1/group/inviteInfo/{instance} [get]
 func (s *Group) InviteInfo(ctx echo.Context) error {
 	var request dto.GroupInviteCodeQuery
 	if err := ctx.Bind(&request); err != nil {
@@ -369,8 +435,15 @@ func (s *Group) InviteInfo(ctx echo.Context) error {
 // @Param        instance    path   string true  "Instance ID"
 // @Param        inviteCode  query  string true  "Invite code or full link"
 // @Success      200  {object}  whatsmiau.AcceptGroupInviteResponse
-// @Router       /instance/{instance}/group/acceptInviteCode [get]
-// @Router       /group/acceptInviteCode/{instance} [get]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/acceptInviteCode [get]
+// @Router       /v1/group/acceptInviteCode/{instance} [get]
 func (s *Group) AcceptInviteCode(ctx echo.Context) error {
 	var request dto.GroupInviteCodeQuery
 	if err := ctx.Bind(&request); err != nil {
@@ -401,8 +474,15 @@ func (s *Group) AcceptInviteCode(ctx echo.Context) error {
 // @Param        instance  path      string                     true  "Instance ID"
 // @Param        body      body      dto.GroupSendInviteRequest true  "Invite payload"
 // @Success      200       {object}  whatsmiau.SendGroupInviteResponse
-// @Router       /instance/{instance}/group/sendInvite [post]
-// @Router       /group/sendInvite/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/sendInvite [post]
+// @Router       /v1/group/sendInvite/{instance} [post]
 func (s *Group) SendInvite(ctx echo.Context) error {
 	var request dto.GroupSendInviteRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -439,8 +519,15 @@ func (s *Group) SendInvite(ctx echo.Context) error {
 // @Param        instance  path  string true  "Instance ID"
 // @Param        body      body  dto.GroupRevokeInviteRequest true  "Group payload"
 // @Success      201       {object}  whatsmiau.InviteCodeResponse
-// @Router       /instance/{instance}/group/revokeInviteCode [post]
-// @Router       /group/revokeInviteCode/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/revokeInviteCode [post]
+// @Router       /v1/group/revokeInviteCode/{instance} [post]
 func (s *Group) RevokeInviteCode(ctx echo.Context) error {
 	var request dto.GroupRevokeInviteRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -475,8 +562,15 @@ func (s *Group) RevokeInviteCode(ctx echo.Context) error {
 // @Param        instance  path  string true  "Instance ID"
 // @Param        body      body  dto.GroupUpdateParticipantRequest true  "Update payload"
 // @Success      201       {object}  whatsmiau.UpdateParticipantResponse
-// @Router       /instance/{instance}/group/updateParticipant [post]
-// @Router       /group/updateParticipant/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/updateParticipant [post]
+// @Router       /v1/group/updateParticipant/{instance} [post]
 func (s *Group) UpdateParticipant(ctx echo.Context) error {
 	var request dto.GroupUpdateParticipantRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -497,11 +591,61 @@ func (s *Group) UpdateParticipant(ctx echo.Context) error {
 		Participants: request.Participants,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.UpdateGroupParticipant failed", zap.Error(err))
+		zap.L().Error("Whatsmiau.UpdateGroupParticipant failed",
+			zap.Error(err),
+			zap.String("instance", request.InstanceID),
+			zap.String("group_jid", request.GroupJid),
+			zap.String("action", request.Action),
+			zap.Int("participant_count", len(request.Participants)),
+		)
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
 	return ctx.JSON(http.StatusCreated, resp)
+}
+
+// SetMemberAddMode godoc
+// @Summary      Toggle who can add members (admins only or all)
+// @Description  Accepts a regular group or subgroup JID. Community parent JIDs are rejected by WhatsApp.
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        instance  path  string true  "Instance ID"
+// @Param        body      body  dto.GroupSetMemberAddModeRequest true  "Mode payload"
+// @Success      201       {object}  map[string]interface{}
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/setMemberAddMode [post]
+// @Router       /v1/group/setMemberAddMode/{instance} [post]
+func (s *Group) SetMemberAddMode(ctx echo.Context) error {
+	var request dto.GroupSetMemberAddModeRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+	if err := validator.New().Struct(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
+	}
+	groupJid, err := parseGroupJID(request.GroupJid)
+	if err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid groupJid")
+	}
+
+	if err := s.whatsmiau.SetGroupMemberAddMode(ctx.Request().Context(), &whatsmiau.SetMemberAddModeRequest{
+		InstanceID: request.InstanceID,
+		GroupJID:   groupJid,
+		Mode:       request.Mode,
+	}); err != nil {
+		zap.L().Error("Whatsmiau.SetGroupMemberAddMode failed", zap.Error(err))
+		code, msg := mapGroupError(err)
+		return utils.HTTPFail(ctx, code, err, msg)
+	}
+	return ctx.JSON(http.StatusCreated, map[string]interface{}{})
 }
 
 // UpdateSetting godoc
@@ -513,8 +657,15 @@ func (s *Group) UpdateParticipant(ctx echo.Context) error {
 // @Param        instance  path  string true  "Instance ID"
 // @Param        body      body  dto.GroupUpdateSettingRequest true  "Setting payload"
 // @Success      201       {object}  map[string]interface{}
-// @Router       /instance/{instance}/group/updateSetting [post]
-// @Router       /group/updateSetting/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/updateSetting [post]
+// @Router       /v1/group/updateSetting/{instance} [post]
 func (s *Group) UpdateSetting(ctx echo.Context) error {
 	var request dto.GroupUpdateSettingRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -549,8 +700,15 @@ func (s *Group) UpdateSetting(ctx echo.Context) error {
 // @Param        instance  path  string true  "Instance ID"
 // @Param        body      body  dto.GroupToggleEphemeralRequest true  "Ephemeral payload"
 // @Success      201       {object}  map[string]interface{}
-// @Router       /instance/{instance}/group/toggleEphemeral [post]
-// @Router       /group/toggleEphemeral/{instance} [post]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/toggleEphemeral [post]
+// @Router       /v1/group/toggleEphemeral/{instance} [post]
 func (s *Group) ToggleEphemeral(ctx echo.Context) error {
 	var request dto.GroupToggleEphemeralRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -584,8 +742,15 @@ func (s *Group) ToggleEphemeral(ctx echo.Context) error {
 // @Param        instance  path   string true  "Instance ID"
 // @Param        groupJid  query  string true  "Group JID"
 // @Success      200       {object}  map[string]interface{}
-// @Router       /instance/{instance}/group/leaveGroup [delete]
-// @Router       /group/leaveGroup/{instance} [delete]
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      403       {object}  utils.HTTPErrorResponse
+// @Failure      404       {object}  utils.HTTPErrorResponse
+// @Failure      410       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      429       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/group/leaveGroup [delete]
+// @Router       /v1/group/leaveGroup/{instance} [delete]
 func (s *Group) LeaveGroup(ctx echo.Context) error {
 	var request dto.GroupLeaveRequest
 	if err := ctx.Bind(&request); err != nil {

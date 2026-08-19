@@ -22,10 +22,10 @@ It's designed to be compatible with the Evolution API, making it a flexible choi
 - **Environment-based Configuration:** Easily configure the application using environment variables.
 - **Structured Logging:** Implements structured logging with Zap for better monitoring and debugging.
 - **Group & Community Management:** Full support for WhatsApp group and community operations.
-- **Web Manager Dashboard:** Built-in web UI for managing instances, viewing QR codes, and monitoring status.
 - **All Evolution API Message Types:** Compatible with all Evolution API message types for sending and receiving.
 - **Message Reactions:** Support for sending and receiving emoji reactions.
 - **Message Deletion:** Ability to delete messages for everyone.
+- **Call Signaling:** Emits sanitized WhatsApp call signaling events for RTC integration work.
 
 ## Getting Started
 
@@ -118,7 +118,29 @@ The application is configured using environment variables. The following variabl
 | `PROXY_ADDRESSES` | A comma-separated list of proxy addresses. Example: `SOCKS5://user:pass@host:port,HTTP://host:port` | `` |
 | `PROXY_STRATEGY` | The strategy to use when selecting a proxy from the list (`RANDOM`). | `RANDOM` |
 | `PROXY_NO_MEDIA` | If set to `true`, media will not be sent through the proxy. | `false` |
-| `MANAGER_URL` | The public URL for the manager dashboard. | `` |
+| `CALLS_ENABLED` | Enables the experimental authenticated 1:1 call API. | `false` |
+| `CALL_DEBUG` | Logs sanitized incoming offer shapes for controlled protocol comparisons; no keys, ciphertexts, IDs, or JIDs. | `false` |
+
+## API Documentation
+
+WhatsMiau ships an English Swagger 2.0 contract for every application route:
+canonical endpoints, Evolution API compatibility aliases, instance management,
+messages, chats, groups, communities, webhooks, calls, and documentation
+delivery itself.
+
+- Open the Swagger UI at `GET /docs`. Use Swagger's **Authorize** dialog to
+  enter the regular `apikey` before sending “Try it out” API requests.
+- Download the machine-readable contract with `GET /v1/swagger.json` or
+  `GET /v1/swagger.yaml`, using the standard `apikey` header.
+- All `/v1` operations remain authenticated exclusively through `apikey`. A
+  Swagger UI page does not change that requirement; it only adds the header
+  when an operation is executed.
+- The Swagger UI and its read-only contract documents are public so the UI can
+  load before the key is entered. API operations and the `/v1` contract
+  downloads remain protected by the normal `apikey` middleware.
+
+Use HTTPS whenever the UI is exposed outside a trusted development network,
+because the API key is sent in request headers during “Try it out”.
 
 ## Versioning
 
@@ -158,51 +180,22 @@ curl -X POST 'http://localhost:8080/v1/message/sendText/my-instance' \
 -d ".{\"number\": \"1234567890\",\"textMessage\": {\"text\": \"Hello from WhatsMiau!\"}}"
 ```
 
-## API Documentation
-
-The API is fully documented using Swagger/OpenAPI. Once the server is running, you can access the interactive documentation at:
-
-```
-http://localhost:8080/swagger/index.html
-```
-
-No API key is required to access the documentation page.
-
-The Swagger UI allows you to explore all available routes, view request/response schemas, and test the API directly from your browser.
-
-## Manager Dashboard
-
-WhatsMiau includes a built-in web manager dashboard for managing your WhatsApp instances visually.
-
-### Access
-
-```
-http://localhost:8080/manager/
-```
-
-### Features
-
-- View all instances and their connection status
-- Generate and display QR codes for authentication
-- Pair with phone using pairing codes
-- Monitor instance health and activity
-
-### Authentication
-
-If `API_KEY` is configured, the manager dashboard will require login. If no `API_KEY` is set, the dashboard is accessible without authentication (useful for local development).
-
 ## Supported Events
 
-The application can send webhook events for the following actions:
+Webhook configuration and webhook payloads use different event identifiers to preserve Evolution API compatibility. Configure subscriptions with the uppercase value. The emitted payload uses the lowercase value in its `event` field.
 
-| Event             | Description                                         |
-|-------------------|-----------------------------------------------------|
-| `MESSAGES_UPSERT` | Triggered when a new message is received.           |
-| `MESSAGES_UPDATE` | Triggered when a message status changes (e.g., read). |
-| `MESSAGES_DELETE` | Triggered when a message is deleted for everyone.   |
-| `CONTACTS_UPSERT` | Triggered when a contact is created or updated.     |
-| `CONNECTION_UPDATE` | Triggered when connection state changes (connected, disconnected, failed). |
+| Configuration value | Payload `event` value | Description |
+|---------------------|-----------------------|-------------|
+| `MESSAGES_UPSERT` | `messages.upsert` | Triggered when a new message is received. |
+| `MESSAGES_UPDATE` | `messages.update` | Triggered when a message status changes, such as a read receipt. |
+| `MESSAGES_DELETE` | `messages.delete` | Triggered when a message is deleted for everyone. |
+| `MESSAGES_SET` | `messages.set` | Triggered during full-history synchronization when `syncFullHistory` is enabled. |
+| `CONTACTS_UPSERT` | `contacts.upsert` | Triggered when a contact is created or updated. |
+| `GROUP_PARTICIPANTS_UPDATE` | `group-participants.update` | Triggered when participants are added, removed, promoted, or demoted. |
+| `CONNECTION_UPDATE` | `connection.update` | Triggered when connection state changes. |
+| `CALL` | `call` | Triggered for call signaling; no media data, SDP, or call/session keys are included. |
 
+Payload-style values such as `messages.upsert` remain accepted in configuration for compatibility with older Manager UI versions. WhatsMiau stores and returns configured values as provided; it normalizes them only when matching subscriptions.
 
 ## Contributors
 

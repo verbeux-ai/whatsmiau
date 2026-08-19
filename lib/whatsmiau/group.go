@@ -42,6 +42,7 @@ type GroupInfoResponse struct {
 	IsCommunityAnnounce bool                       `json:"isCommunityAnnounce"`
 	LinkedParent        string                     `json:"linkedParent,omitempty"`
 	MemberAddMode       string                     `json:"memberAddMode,omitempty"`
+	GroupAddMode        string                     `json:"groupAddMode,omitempty"`
 	JoinApprovalMode    bool                       `json:"joinApprovalMode"`
 	Ephemeral           uint32                     `json:"ephemeral,omitempty"`
 	Participants        []GroupParticipantResponse `json:"participants,omitempty"`
@@ -71,6 +72,12 @@ func (s *Whatsmiau) buildGroupInfoResponse(ctx context.Context, instanceID strin
 	}
 	if !g.LinkedParentJID.IsEmpty() {
 		resp.LinkedParent = g.LinkedParentJID.String()
+	}
+	if g.IsParent {
+		resp.GroupAddMode = string(types.CommunityGroupAddModeAdmin)
+		if g.AllowNonAdminSubGroupCreation {
+			resp.GroupAddMode = string(types.CommunityGroupAddModeAllMember)
+		}
 	}
 	if g.ParticipantCount == 0 {
 		resp.Size = len(g.Participants)
@@ -491,7 +498,7 @@ func (s *Whatsmiau) UpdateGroupParticipant(ctx context.Context, req *UpdateParti
 		return nil, err
 	}
 
-	participants, err := client.UpdateGroupParticipants(ctx, *req.GroupJID, jids, action)
+	participants, err := client.UpdateGroupParticipantsWithCommunity(ctx, *req.GroupJID, jids, action)
 	if err != nil {
 		return nil, err
 	}
@@ -574,19 +581,14 @@ func (s *Whatsmiau) CreateCommunity(ctx context.Context, req *CreateCommunityReq
 	}
 
 	created, err := client.CreateGroup(ctx, whatsmeow.ReqCreateGroup{
-		Name: req.Subject,
+		Name:        req.Subject,
+		Description: req.Description,
 		GroupParent: types.GroupParent{
 			IsParent: true,
 		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create community: %w", err)
-	}
-
-	if req.Description != "" {
-		if err := client.SetGroupDescription(ctx, created.JID, req.Description); err != nil {
-			zap.L().Warn("community created but failed to set description", zap.Error(err), zap.String("community", created.JID.String()))
-		}
 	}
 
 	info, err := client.GetGroupInfo(ctx, created.JID)
@@ -762,13 +764,15 @@ func (s *Whatsmiau) SetCommunityJoinApprovalMode(ctx context.Context, req *SetJo
 	return client.SetGroupJoinApprovalMode(ctx, *req.CommunityJID, req.Mode)
 }
 
+// ---------- Group: Member add mode ----------
+
 type SetMemberAddModeRequest struct {
-	InstanceID   string
-	CommunityJID *types.JID
-	Mode         string
+	InstanceID string
+	GroupJID   *types.JID
+	Mode       string
 }
 
-func (s *Whatsmiau) SetCommunityMemberAddMode(ctx context.Context, req *SetMemberAddModeRequest) error {
+func (s *Whatsmiau) SetGroupMemberAddMode(ctx context.Context, req *SetMemberAddModeRequest) error {
 	client, ok := s.clients.Load(req.InstanceID)
 	if !ok {
 		return whatsmeow.ErrClientIsNil
@@ -783,7 +787,54 @@ func (s *Whatsmiau) SetCommunityMemberAddMode(ctx context.Context, req *SetMembe
 	default:
 		return fmt.Errorf("invalid mode: %s", req.Mode)
 	}
-	return client.SetGroupMemberAddMode(ctx, *req.CommunityJID, mode)
+	return client.SetGroupMemberAddMode(ctx, *req.GroupJID, mode)
+}
+
+type SetGroupAddModeRequest struct {
+	InstanceID  string
+	CommunityJID *types.JID
+	Mode        string
+}
+
+var ErrGroupAddModeRequiresCommunity = errors.New("group add mode requires a community parent")
+
+type groupAddModeClient interface {
+	GetGroupInfo(context.Context, types.JID) (*types.GroupInfo, error)
+	SetCommunityGroupAddMode(context.Context, types.JID, types.CommunityGroupAddMode) error
+}
+
+func parseGroupAddMode(mode string) (types.CommunityGroupAddMode, error) {
+	switch mode {
+	case "admin_add":
+		return types.CommunityGroupAddModeAdmin, nil
+	case "all_member_add":
+		return types.CommunityGroupAddModeAllMember, nil
+	default:
+		return "", fmt.Errorf("invalid mode: %s", mode)
+	}
+}
+
+func setGroupAddMode(ctx context.Context, client groupAddModeClient, communityJID types.JID, requestedMode string) error {
+	mode, err := parseGroupAddMode(requestedMode)
+	if err != nil {
+		return err
+	}
+	info, err := client.GetGroupInfo(ctx, communityJID)
+	if err != nil {
+		return fmt.Errorf("failed to get community info for group add mode %s: %w", communityJID, err)
+	}
+	if !info.IsParent {
+		return fmt.Errorf("%w: %s", ErrGroupAddModeRequiresCommunity, communityJID)
+	}
+	return client.SetCommunityGroupAddMode(ctx, communityJID, mode)
+}
+
+func (s *Whatsmiau) SetGroupAddMode(ctx context.Context, req *SetGroupAddModeRequest) error {
+	client, ok := s.clients.Load(req.InstanceID)
+	if !ok {
+		return whatsmeow.ErrClientIsNil
+	}
+	return setGroupAddMode(ctx, client, *req.CommunityJID, req.Mode)
 }
 
 // ---------- Community: Request participants ----------

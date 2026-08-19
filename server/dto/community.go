@@ -2,13 +2,13 @@ package dto
 
 type CreateCommunityRequest struct {
 	InstanceID  string `param:"instance" validate:"required" swaggerignore:"true"`
-	Subject     string `json:"subject" validate:"required,min=1,max=25"`
+	Subject     string `json:"subject" validate:"required,min=1,max=100"`
 	Description string `json:"description,omitempty"`
 }
 
 type CreateCommunitySubGroupRequest struct {
 	InstanceID   string   `param:"instance" validate:"required" swaggerignore:"true"`
-	Subject      string   `json:"subject" validate:"required,min=1,max=25"`
+	Subject      string   `json:"subject" validate:"required,min=1,max=100"`
 	ParentJid    string   `json:"parentJid" validate:"required"`
 	Participants []string `json:"participants" validate:"omitempty,dive,required"`
 }
@@ -30,15 +30,15 @@ type CommunitySetJoinApprovalModeRequest struct {
 	Mode         bool   `json:"mode"`
 }
 
-type CommunitySetMemberAddModeRequest struct {
-	InstanceID   string `param:"instance" validate:"required" swaggerignore:"true"`
-	CommunityJid string `json:"communityJid" validate:"required"`
-	Mode         string `json:"mode" validate:"required,oneof=admin_add all_member_add"`
-}
-
 type CommunityUpdateRequestParticipantsRequest struct {
 	InstanceID   string   `param:"instance" validate:"required" swaggerignore:"true"`
 	CommunityJid string   `json:"communityJid" validate:"required"`
 	Action       string   `json:"action" validate:"required,oneof=approve reject"`
 	Participants []string `json:"participants" validate:"omitempty,dive,required"`
+}
+
+type CommunitySetAddModeRequest struct {
+	InstanceID   string `param:"instance" validate:"required" swaggerignore:"true"`
+	CommunityJid string `json:"communityJid" validate:"required"`
+	Mode         string `json:"mode" validate:"required,oneof=admin_add all_member_add"`
 }

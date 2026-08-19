@@ -19,7 +19,7 @@ func Community(group *echo.Group) {
 	group.GET("/subGroups", controller.SubGroups)
 	group.GET("/linkedGroupsParticipants", controller.LinkedGroupsParticipants)
 	group.POST("/setJoinApprovalMode", controller.SetJoinApprovalMode)
-	group.POST("/setMemberAddMode", controller.SetMemberAddMode)
+	group.POST("/setGroupAddMode", controller.SetGroupAddMode)
 	group.GET("/requestParticipants", controller.RequestParticipants)
 	group.POST("/requestParticipants/update", controller.UpdateRequestParticipants)
 }

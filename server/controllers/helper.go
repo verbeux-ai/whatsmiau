@@ -5,7 +5,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/models"
+	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -88,4 +90,23 @@ func splitHostPort(h string) (string, string, error) {
 		return "", "", fmt.Errorf("expected host:port, got %s", h)
 	}
 	return parts[0], parts[1], nil
+}
+
+func buildQuote(q *dto.MessageRequestQuoted) (*whatsmiau.Quote, error) {
+	if q == nil || len(q.Key.Id) == 0 {
+		return nil, nil
+	}
+
+	quote := &whatsmiau.Quote{
+		MessageID: q.Key.Id,
+		Message:   q.Message.Conversation,
+	}
+	if q.Key.Participant != "" {
+		p, err := numberToJid(q.Key.Participant)
+		if err != nil {
+			return nil, fmt.Errorf("invalid quoted participant format")
+		}
+		quote.Participant = p
+	}
+	return quote, nil
 }

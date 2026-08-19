@@ -14,7 +14,7 @@ type CreateInstanceRequest struct {
 }
 
 type MigrationData struct {
-	Creds   json.RawMessage   `json:"creds" validate:"required"`
+	Creds   json.RawMessage   `json:"creds" validate:"required" swaggertype:"object"`
 	PreKeys []MigrationPreKey `json:"preKeys,omitempty"`
 }
 
@@ -43,6 +43,7 @@ type MigrationResult struct {
 type UpdateInstanceRequest struct {
 	ID           string `json:"id,omitempty" param:"id" validate:"required" swaggerignore:"true"`
 	GroupsIgnore *bool  `json:"groupsIgnore,omitempty"`
+	SaveMedia    *bool  `json:"saveMedia,omitempty"`
 	Webhook      struct {
 		Enabled *bool    `json:"enabled,omitempty"`
 		Base64  bool     `json:"base64,omitempty"`
@@ -117,8 +118,8 @@ type RestartInstanceRequest struct {
 }
 
 type RestartInstanceResponse struct {
-	ID       string                          `json:"id,omitempty"`
-	Status   string                          `json:"state,omitempty"`
+	ID       string                           `json:"id,omitempty"`
+	Status   string                           `json:"state,omitempty"`
 	Instance *RestartInstanceEvoCompatibility `json:"instance,omitempty"`
 }
 

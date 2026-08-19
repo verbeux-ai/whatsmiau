@@ -3,7 +3,7 @@ package dto
 import "github.com/verbeux-ai/whatsmiau/models"
 
 type SetWebhookRequest struct {
-	InstanceID string                `param:"instance" validate:"required"`
+	InstanceID string                `param:"instance" validate:"required" swaggerignore:"true"`
 	Webhook    SetWebhookRequestData `json:"webhook" validate:"required"`
 }
 

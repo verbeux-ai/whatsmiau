@@ -103,18 +103,28 @@ func (s *Whatsmiau) resolveJID(ctx context.Context, client *whatsmeow.Client, ji
 		return jid
 	}
 
+	resolved := resolveExistingJID(jid, resp)
+	if resolved != jid {
+		zap.L().Debug(
+			"resolveJID: contact JID resolved",
+			zap.Stringer("from", jid),
+			zap.Stringer("to", resolved),
+		)
+	}
+
+	return resolved
+}
+
+func resolveExistingJID(fallback types.JID, resp []types.IsOnWhatsAppResponse) types.JID {
 	for _, item := range resp {
-		if item.IsIn {
-			resolved := jid
-			resolved.User = item.JID.User
-			if resolved.User != jid.User {
-				zap.L().Debug("resolveJID: brazilian number resolved", zap.String("from", jid.User), zap.String("to", resolved.User))
-			}
-			return resolved
+		if item.IsIn && !item.JID.IsEmpty() {
+			// Since whatsmeow v1.3, the canonical JID may use @lid. Preserve
+			// the full JID: copying only User would reinterpret a LID as a PN.
+			return item.JID.ToNonAD()
 		}
 	}
 
-	return jid
+	return fallback
 }
 
 type DeleteMessageForEveryoneRequest struct {

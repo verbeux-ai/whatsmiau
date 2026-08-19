@@ -2,20 +2,15 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/env"
 )
 
 func Auth(ctx echo.Context, next echo.HandlerFunc) error {
-	if strings.HasPrefix(ctx.Request().URL.Path, "/swagger/") {
-		return next(ctx)
-	}
-
 	gotApikey := ctx.Request().Header.Get("apikey")
 	if len(env.Env.ApiKey) == 0 {
-		return next(ctx)
+		return echo.NewHTTPError(http.StatusUnauthorized, "API_KEY is required")
 	}
 
 	if gotApikey != env.Env.ApiKey {

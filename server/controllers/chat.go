@@ -39,8 +39,8 @@ func NewChats(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.Wha
 // @Failure      400       {object}  utils.HTTPErrorResponse
 // @Failure      422       {object}  utils.HTTPErrorResponse
 // @Failure      500       {object}  utils.HTTPErrorResponse
-// @Router       /instance/{instance}/chat/read-messages [post]
-// @Router       /chat/markMessageAsRead/{instance} [post]
+// @Router       /v1/instance/{instance}/chat/read-messages [post]
+// @Router       /v1/chat/markMessageAsRead/{instance} [post]
 func (s *Chat) ReadMessages(ctx echo.Context) error {
 	var request dto.ReadMessagesRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -89,8 +89,8 @@ func (s *Chat) ReadMessages(ctx echo.Context) error {
 // @Failure      400       {object}  utils.HTTPErrorResponse
 // @Failure      422       {object}  utils.HTTPErrorResponse
 // @Failure      500       {object}  utils.HTTPErrorResponse
-// @Router       /instance/{instance}/chat/presence [post]
-// @Router       /chat/sendPresence/{instance} [post]
+// @Router       /v1/instance/{instance}/chat/presence [post]
+// @Router       /v1/chat/sendPresence/{instance} [post]
 func (s *Chat) SendChatPresence(ctx echo.Context) error {
 	var request dto.SendChatPresenceRequest
 	if err := ctx.Bind(&request); err != nil {
@@ -160,7 +160,7 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 // @Failure      400       {object}  utils.HTTPErrorResponse
 // @Failure      422       {object}  utils.HTTPErrorResponse
 // @Failure      500       {object}  utils.HTTPErrorResponse
-// @Router       /chat/whatsappNumbers/{instance} [post]
+// @Router       /v1/chat/whatsappNumbers/{instance} [post]
 func (s *Chat) NumberExists(ctx echo.Context) error {
 	instanceID := ctx.Param("instance")
 	if instanceID == "" {
@@ -201,8 +201,8 @@ func (s *Chat) NumberExists(ctx echo.Context) error {
 // @Failure      400       {object}  utils.HTTPErrorResponse
 // @Failure      422       {object}  utils.HTTPErrorResponse
 // @Failure      500       {object}  utils.HTTPErrorResponse
-// @Router       /instance/{instance}/chat/deleteMessageForEveryone [delete]
-// @Router       /chat/deleteMessageForEveryone/{instance} [delete]
+// @Router       /v1/instance/{instance}/chat/deleteMessageForEveryone [delete]
+// @Router       /v1/chat/deleteMessageForEveryone/{instance} [delete]
 func (s *Chat) DeleteMessageForEveryone(ctx echo.Context) error {
 	var request dto.DeleteMessageForEveryoneRequest
 	if err := ctx.Bind(&request); err != nil {

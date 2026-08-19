@@ -57,7 +57,16 @@ func (s *Whatsmiau) getCtx(ctx context.Context, url string) (*http.Response, err
 }
 
 // fetchBytes downloads url contents into memory and guarantees the response body is closed.
+// Supports both HTTP(S) URLs and data: URIs (Base64).
 func (s *Whatsmiau) fetchBytes(ctx context.Context, url string) ([]byte, error) {
+	if strings.HasPrefix(url, "data:") {
+		_, _, decoded, err := extractFromBase64(url)
+		if err != nil {
+			return nil, fmt.Errorf("decode base64 media: %w", err)
+		}
+		return decoded, nil
+	}
+
 	res, err := s.getCtx(ctx, url)
 	if err != nil {
 		return nil, err
@@ -314,6 +323,13 @@ func extractExtFromFile(fileName, mimeType string, file *os.File) string {
 
 func canIgnoreMessage(msg *events.Message) bool {
 	return strings.Contains(msg.Info.Chat.String(), "status")
+}
+
+// shouldSaveMedia returns true if message media must be persisted in the file storage.
+// A nil SaveMedia means enabled, preserving the behavior of instances created before
+// this flag existed.
+func shouldSaveMedia(instance *models.Instance) bool {
+	return instance.SaveMedia == nil || *instance.SaveMedia
 }
 
 // canIgnoreGroup returns true if group can be ignored

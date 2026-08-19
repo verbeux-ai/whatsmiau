@@ -1,5 +1,62 @@
-basePath: /v1
+basePath: /
 definitions:
+  dto.CallActionResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  dto.CallOfferRequest:
+    properties:
+      number:
+        type: string
+    required:
+    - number
+    type: object
+  dto.CallOfferResponse:
+    properties:
+      ID:
+        type: string
+      Recipient:
+        type: string
+    type: object
+  dto.CallSessionResponse:
+    properties:
+      CanAnswer:
+        type: boolean
+      CanHangup:
+        type: boolean
+      CanReject:
+        type: boolean
+      CreatedAt:
+        type: string
+      Direction:
+        enum:
+        - incoming
+        - outgoing
+        type: string
+      ID:
+        type: string
+      Media:
+        enum:
+        - audio
+        type: string
+      Peer:
+        type: string
+      Reason:
+        type: string
+      State:
+        enum:
+        - calling
+        - ringing
+        - connecting
+        - active
+        - ended
+        - idle
+        type: string
+      UpdatedAt:
+        type: string
+    type: object
   dto.CommunityLinkGroupRequest:
     properties:
       childJid:
@@ -19,19 +76,6 @@ definitions:
     required:
     - communityJid
     type: object
-  dto.CommunitySetMemberAddModeRequest:
-    properties:
-      communityJid:
-        type: string
-      mode:
-        enum:
-        - admin_add
-        - all_member_add
-        type: string
-    required:
-    - communityJid
-    - mode
-    type: object
   dto.CommunityUpdateRequestParticipantsRequest:
     properties:
       action:
@@ -44,7 +88,6 @@ definitions:
       participants:
         items:
           type: string
-        minItems: 1
         type: array
     required:
     - action
@@ -87,6 +130,8 @@ definitions:
         type: boolean
       remoteJID:
         type: string
+      saveMedia:
+        type: boolean
       syncFullHistory:
         type: boolean
       syncRecentHistory:
@@ -104,7 +149,7 @@ definitions:
       description:
         type: string
       subject:
-        maxLength: 25
+        maxLength: 100
         minLength: 1
         type: string
     required:
@@ -117,10 +162,9 @@ definitions:
       participants:
         items:
           type: string
-        minItems: 1
         type: array
       subject:
-        maxLength: 25
+        maxLength: 100
         minLength: 1
         type: string
     required:
@@ -135,12 +179,11 @@ definitions:
       participants:
         items:
           type: string
-        minItems: 1
         type: array
       promoteParticipants:
         type: boolean
       subject:
-        maxLength: 25
+        maxLength: 100
         minLength: 1
         type: string
     required:
@@ -179,6 +222,8 @@ definitions:
         type: boolean
       remoteJID:
         type: string
+      saveMedia:
+        type: boolean
       syncFullHistory:
         type: boolean
       syncRecentHistory:
@@ -216,6 +261,8 @@ definitions:
         type: boolean
       remoteJID:
         type: string
+      saveMedia:
+        type: boolean
       syncFullHistory:
         type: boolean
       syncRecentHistory:
@@ -252,6 +299,11 @@ definitions:
         type: string
       senderTimestamp:
         type: string
+    type: object
+  dto.FindWebhookResponse:
+    properties:
+      webhook:
+        $ref: '#/definitions/models.InstanceWebhook'
     type: object
   dto.GroupDescriptionRequest:
     properties:
@@ -296,17 +348,43 @@ definitions:
     - groupJid
     - numbers
     type: object
+  dto.CommunitySetAddModeRequest:
+    properties:
+      communityJid:
+        type: string
+      mode:
+        enum:
+        - admin_add
+        - all_member_add
+        type: string
+    required:
+    - communityJid
+    - mode
+    type: object
   dto.GroupSubjectRequest:
     properties:
       groupJid:
         type: string
       subject:
-        maxLength: 25
+        maxLength: 100
         minLength: 1
         type: string
     required:
     - groupJid
     - subject
+    type: object
+  dto.GroupSetMemberAddModeRequest:
+    properties:
+      mode:
+        enum:
+        - admin_add
+        - all_member_add
+        type: string
+      groupJid:
+        type: string
+    required:
+    - groupJid
+    - mode
     type: object
   dto.GroupToggleEphemeralRequest:
     properties:
@@ -390,6 +468,8 @@ definitions:
         type: boolean
       remoteJID:
         type: string
+      saveMedia:
+        type: boolean
       syncFullHistory:
         type: boolean
       syncRecentHistory:
@@ -432,9 +512,7 @@ definitions:
   dto.MigrationData:
     properties:
       creds:
-        items:
-          type: integer
-        type: array
+        type: object
       preKeys:
         items:
           $ref: '#/definitions/dto.MigrationPreKey'
@@ -472,7 +550,13 @@ definitions:
     type: object
   dto.QuotedKey:
     properties:
+      fromMe:
+        type: boolean
       id:
+        type: string
+      participant:
+        type: string
+      remoteJid:
         type: string
     type: object
   dto.QuotedMessage:
@@ -502,6 +586,22 @@ definitions:
     required:
     - id
     - remoteJid
+    type: object
+  dto.RestartInstanceEvoCompatibility:
+    properties:
+      instanceName:
+        type: string
+      status:
+        type: string
+    type: object
+  dto.RestartInstanceResponse:
+    properties:
+      id:
+        type: string
+      instance:
+        $ref: '#/definitions/dto.RestartInstanceEvoCompatibility'
+      state:
+        type: string
     type: object
   dto.RootResponse:
     properties:
@@ -1185,6 +1285,37 @@ definitions:
       conversation:
         type: string
     type: object
+  dto.SetWebhookRequest:
+    properties:
+      webhook:
+        $ref: '#/definitions/dto.SetWebhookRequestData'
+    required:
+    - webhook
+    type: object
+  dto.SetWebhookRequestData:
+    properties:
+      base64:
+        type: boolean
+      byEvents:
+        type: boolean
+      enabled:
+        type: boolean
+      events:
+        items:
+          type: string
+        type: array
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      url:
+        type: string
+    type: object
+  dto.SetWebhookResponse:
+    properties:
+      webhook:
+        $ref: '#/definitions/models.InstanceWebhook'
+    type: object
   dto.StatusInstanceResponse:
     properties:
       id:
@@ -1203,6 +1334,8 @@ definitions:
     type: object
   dto.UpdateInstanceRequest:
     properties:
+      groupsIgnore:
+        type: boolean
       proxyHost:
         type: string
       proxyPassword:
@@ -1213,6 +1346,8 @@ definitions:
         type: string
       proxyUsername:
         type: string
+      saveMedia:
+        type: boolean
       webhook:
         properties:
           base64:
@@ -1255,6 +1390,8 @@ definitions:
         type: boolean
       remoteJID:
         type: string
+      saveMedia:
+        type: boolean
       syncFullHistory:
         type: boolean
       syncRecentHistory:
@@ -1281,10 +1418,19 @@ definitions:
       url:
         type: string
     type: object
+  utils.AuthenticationErrorResponse:
+    properties:
+      message:
+        example: Unauthorized
+        type: string
+    type: object
   utils.HTTPErrorResponse:
     properties:
       error:
-        type: string
+        description: |-
+          Error is a legacy opaque value. Go's JSON encoder does not serialize an
+          error message here, so clients should use Message and ErrorMessage.
+        type: object
       errorMessage:
         type: string
       message:
@@ -1314,6 +1460,8 @@ definitions:
         type: string
       ephemeral:
         type: integer
+      groupAddMode:
+        type: string
       id:
         type: string
       isCommunity:
@@ -1427,16 +1575,84 @@ info:
   contact:
     name: Verbeux AI
     url: https://github.com/verbeux-ai/whatsmiau
-  description: WhatsMiau - WhatsApp API compatible with Evolution API. Provides instance
-    management, messaging, and chat operations over WhatsApp Web.
+  description: Authenticated WhatsApp API compatible with Evolution API. The specification
+    covers the complete application route surface, including canonical routes, compatibility
+    aliases, calls and documentation delivery.
   license:
     name: MIT
   title: WhatsMiau API
   version: 0.3.2
 paths:
-  /:
+  /docs:
+    get:
+      description: Redirects to the generated Swagger UI. Use its Authorize dialog
+        to configure the standard apikey header before trying authenticated operations.
+      operationId: getDocs
+      produces:
+      - text/html
+      responses:
+        "302":
+          description: Redirect to Swagger UI
+          schema:
+            type: string
+      summary: Open the Swagger UI
+      tags:
+      - Documentation
+  /docs/{asset}:
+    get:
+      description: Serves Swagger UI assets. The API key is configured through Swagger's
+        built-in Authorize dialog and is sent only to authenticated API operations.
+      operationId: getDocsByAsset
+      parameters:
+      - description: Swagger UI asset name
+        in: path
+        name: asset
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: Swagger UI HTML, JavaScript, CSS, or image asset
+          schema:
+            type: string
+      summary: Serve a Swagger UI asset
+      tags:
+      - Documentation
+  /docs/swagger.json:
+    get:
+      description: The document is public so the Swagger UI can load before the user
+        enters a key. API operations remain protected by ApiKeyAuth.
+      operationId: getDocsSwaggerJson
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Swagger 2.0 document
+          schema:
+            type: object
+      summary: Download Swagger JSON for the UI
+      tags:
+      - Documentation
+  /docs/swagger.yaml:
+    get:
+      description: The document is public so the Swagger UI can load before the user
+        enters a key. API operations remain protected by ApiKeyAuth.
+      operationId: getDocsSwaggerYaml
+      produces:
+      - application/yaml
+      responses:
+        "200":
+          description: Swagger 2.0 YAML document
+          schema:
+            type: string
+      summary: Download Swagger YAML for the UI
+      tags:
+      - Documentation
+  /v1:
     get:
       description: Returns API status, version, and WhatsApp Web client version
+      operationId: getV1
       produces:
       - application/json
       responses:
@@ -1448,14 +1664,21 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: API health check and info
       tags:
       - Root
-  /chat/deleteMessageForEveryone/{instance}:
+  /v1/chat/deleteMessageForEveryone/{instance}:
     delete:
       consumes:
       - application/json
       description: Revokes a message in the chat so it is deleted for all participants.
+      operationId: deleteV1ChatDeleteMessageForEveryoneByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1480,6 +1703,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -1493,11 +1720,12 @@ paths:
       summary: Delete message for everyone
       tags:
       - Chat
-  /chat/markMessageAsRead/{instance}:
+  /v1/chat/markMessageAsRead/{instance}:
     post:
       consumes:
       - application/json
       description: Marks one or more messages as read in a WhatsApp conversation
+      operationId: postV1ChatMarkMessageAsReadByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1522,6 +1750,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -1535,12 +1767,13 @@ paths:
       summary: Mark messages as read
       tags:
       - Chat
-  /chat/sendPresence/{instance}:
+  /v1/chat/sendPresence/{instance}:
     post:
       consumes:
       - application/json
       description: Sends a presence status (composing/available) to a WhatsApp contact,
         with optional auto-stop delay
+      operationId: postV1ChatSendPresenceByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1565,6 +1798,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -1578,11 +1815,12 @@ paths:
       summary: Send chat presence (typing indicator)
       tags:
       - Chat
-  /chat/whatsappNumbers/{instance}:
+  /v1/chat/whatsappNumbers/{instance}:
     post:
       consumes:
       - application/json
       description: Checks whether the given phone numbers are registered on WhatsApp
+      operationId: postV1ChatWhatsappNumbersByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1608,6 +1846,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -1621,8 +1863,9 @@ paths:
       summary: Check if numbers exist on WhatsApp
       tags:
       - Chat
-  /group/acceptInviteCode/{instance}:
+  /v1/group/acceptInviteCode/{instance}:
     get:
+      operationId: getV1GroupAcceptInviteCodeByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1641,15 +1884,48 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.AcceptGroupInviteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Join a group using an invite code
       tags:
       - Group
-  /group/create/{instance}:
+  /v1/group/create/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupCreateByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1673,8 +1949,28 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
         "422":
           description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
         "500":
@@ -1686,8 +1982,9 @@ paths:
       summary: Create a WhatsApp group
       tags:
       - Group
-  /group/fetchAllGroups/{instance}:
+  /v1/group/fetchAllGroups/{instance}:
     get:
+      operationId: getV1GroupFetchAllGroupsByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1707,13 +2004,46 @@ paths:
             items:
               $ref: '#/definitions/whatsmiau.GroupInfoResponse'
             type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: List all joined groups
       tags:
       - Group
-  /group/findGroupInfos/{instance}:
+  /v1/group/findGroupInfos/{instance}:
     get:
+      operationId: getV1GroupFindGroupInfosByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1732,13 +2062,46 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get group info by JID
       tags:
       - Group
-  /group/inviteCode/{instance}:
+  /v1/group/inviteCode/{instance}:
     get:
+      operationId: getV1GroupInviteCodeByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1757,13 +2120,46 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.InviteCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get the group invite code (link)
       tags:
       - Group
-  /group/inviteInfo/{instance}:
+  /v1/group/inviteInfo/{instance}:
     get:
+      operationId: getV1GroupInviteInfoByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1782,13 +2178,46 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get info about an invite code (no join)
       tags:
       - Group
-  /group/leaveGroup/{instance}:
+  /v1/group/leaveGroup/{instance}:
     delete:
+      operationId: deleteV1GroupLeaveGroupByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1808,13 +2237,46 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Leave a group
       tags:
       - Group
-  /group/participants/{instance}:
+  /v1/group/participants/{instance}:
     get:
+      operationId: getV1GroupParticipantsByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1833,15 +2295,48 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.FindParticipantsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: List participants of a group
       tags:
       - Group
-  /group/revokeInviteCode/{instance}:
+  /v1/group/revokeInviteCode/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupRevokeInviteCodeByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1861,15 +2356,48 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.InviteCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Revoke current invite code and generate a new one
       tags:
       - Group
-  /group/sendInvite/{instance}:
+  /v1/group/sendInvite/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupSendInviteByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1889,15 +2417,110 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.SendGroupInviteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send group invite link via text to phone numbers
       tags:
       - Group
-  /group/toggleEphemeral/{instance}:
+  /v1/group/setMemberAddMode/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupSetMemberAddModeByInstance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Mode payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupSetMemberAddModeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle who can add members (admins only or all)
+      tags:
+      - Group
+  /v1/group/toggleEphemeral/{instance}:
+    post:
+      consumes:
+      - application/json
+      operationId: postV1GroupToggleEphemeralByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1918,15 +2541,48 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Toggle disappearing messages for the group
       tags:
       - Group
-  /group/updateGroupDescription/{instance}:
+  /v1/group/updateGroupDescription/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupUpdateGroupDescriptionByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1947,15 +2603,48 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group description
       tags:
       - Group
-  /group/updateGroupPicture/{instance}:
+  /v1/group/updateGroupPicture/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupUpdateGroupPictureByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -1975,15 +2664,48 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.SetGroupPictureResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group picture
       tags:
       - Group
-  /group/updateGroupSubject/{instance}:
+  /v1/group/updateGroupSubject/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupUpdateGroupSubjectByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -2004,15 +2726,48 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group subject (name)
       tags:
       - Group
-  /group/updateParticipant/{instance}:
+  /v1/group/updateParticipant/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupUpdateParticipantByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -2032,15 +2787,48 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.UpdateParticipantResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group participants (add/remove/promote/demote)
       tags:
       - Group
-  /group/updateSetting/{instance}:
+  /v1/group/updateSetting/{instance}:
     post:
       consumes:
       - application/json
+      operationId: postV1GroupUpdateSettingByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -2061,14 +2849,47 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group setting (announce/locked)
       tags:
       - Group
-  /instance:
+  /v1/instance:
     get:
       description: Returns all instances, optionally filtered by name or ID
+      operationId: getV1Instance
       parameters:
       - description: Filter by instance name
         in: query
@@ -2087,6 +2908,10 @@ paths:
             items:
               $ref: '#/definitions/dto.ListInstancesResponse'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -2105,6 +2930,7 @@ paths:
       - application/json
       description: Creates a new WhatsApp instance with the given name and optional
         configuration
+      operationId: postV1Instance
       parameters:
       - description: Instance creation parameters
         in: body
@@ -2123,6 +2949,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -2136,9 +2966,10 @@ paths:
       summary: Create a new WhatsApp instance
       tags:
       - Instance
-  /instance/{id}:
+  /v1/instance/{id}:
     delete:
       description: Disconnects and permanently removes the specified instance
+      operationId: deleteV1InstanceById
       parameters:
       - description: Instance ID
         in: path
@@ -2152,6 +2983,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.DeleteInstanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -2165,10 +3000,11 @@ paths:
       summary: Delete an instance
       tags:
       - Instance
-  /instance/{id}/connect:
+  /v1/instance/{id}/connect:
     post:
       description: Initiates connection for an instance. Returns a base64-encoded
         QR code PNG if not yet connected, or a connected status message.
+      operationId: postV1InstanceByIdConnect
       parameters:
       - description: Instance ID
         in: path
@@ -2182,6 +3018,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.ConnectInstanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -2199,10 +3039,11 @@ paths:
       summary: Connect an instance (get QR code)
       tags:
       - Instance
-  /instance/{id}/logout:
+  /v1/instance/{id}/logout:
     post:
       description: Disconnects the WhatsApp session for the given instance without
         deleting it
+      operationId: postV1InstanceByIdLogout
       parameters:
       - description: Instance ID
         in: path
@@ -2216,6 +3057,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.DeleteInstanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -2233,9 +3078,53 @@ paths:
       summary: Logout an instance
       tags:
       - Instance
-  /instance/{id}/status:
+  /v1/instance/{id}/restart:
+    post:
+      description: Disconnects and reconnects the WhatsApp websocket without logging
+        out
+      operationId: postV1InstanceByIdRestart
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RestartInstanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Restart an instance connection
+      tags:
+      - Instance
+  /v1/instance/{id}/status:
     get:
       description: Returns the current connection state of the specified instance
+      operationId: getV1InstanceByIdStatus
       parameters:
       - description: Instance ID
         in: path
@@ -2249,6 +3138,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.StatusInstanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -2266,11 +3159,229 @@ paths:
       summary: Get instance connection state
       tags:
       - Instance
-  /instance/{instance}/chat/deleteMessageForEveryone:
+  /v1/instance/{instance}/calls:
+    get:
+      operationId: getV1InstanceByInstanceCalls
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.CallSessionResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List calls
+      tags:
+      - Calls
+    post:
+      consumes:
+      - application/json
+      operationId: postV1InstanceByInstanceCalls
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Call target
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CallOfferRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CallOfferResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Place an audio call
+      tags:
+      - Calls
+  /v1/instance/{instance}/calls/{callID}/answer:
+    post:
+      description: Answers only a currently ringing incoming call. The call session
+        capability flags indicate whether this action is allowed.
+      operationId: postV1InstanceByInstanceCallsByCallIDAnswer
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Call ID
+        in: path
+        name: callID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CallActionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Answer an incoming call
+      tags:
+      - Calls
+  /v1/instance/{instance}/calls/{callID}/audio:
+    get:
+      description: 'Upgrades to WebSocket. Each client-to-call and call-to-client
+        binary message must be exactly 3,840 bytes: 960 little-endian float32 PCM
+        samples, mono, 16 kHz (60 ms). No SDP, relay data, encrypted media, or call
+        keys cross this boundary.'
+      operationId: getV1InstanceByInstanceCallsByCallIDAudio
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Call ID
+        in: path
+        name: callID
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "101":
+          description: WebSocket Switching Protocols
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Open the call audio WebSocket
+      tags:
+      - Calls
+  /v1/instance/{instance}/calls/{callID}/hangup:
+    post:
+      operationId: postV1InstanceByInstanceCallsByCallIDHangup
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Call ID
+        in: path
+        name: callID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CallActionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Hang up a call
+      tags:
+      - Calls
+  /v1/instance/{instance}/calls/{callID}/reject:
+    post:
+      operationId: postV1InstanceByInstanceCallsByCallIDReject
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Call ID
+        in: path
+        name: callID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CallActionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Reject an incoming call
+      tags:
+      - Calls
+  /v1/instance/{instance}/chat/deleteMessageForEveryone:
     delete:
       consumes:
       - application/json
       description: Revokes a message in the chat so it is deleted for all participants.
+      operationId: deleteV1InstanceByInstanceChatDeleteMessageForEveryone
       parameters:
       - description: Instance ID
         in: path
@@ -2295,6 +3406,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -2308,12 +3423,13 @@ paths:
       summary: Delete message for everyone
       tags:
       - Chat
-  /instance/{instance}/chat/presence:
+  /v1/instance/{instance}/chat/presence:
     post:
       consumes:
       - application/json
       description: Sends a presence status (composing/available) to a WhatsApp contact,
         with optional auto-stop delay
+      operationId: postV1InstanceByInstanceChatPresence
       parameters:
       - description: Instance ID
         in: path
@@ -2338,6 +3454,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -2351,11 +3471,12 @@ paths:
       summary: Send chat presence (typing indicator)
       tags:
       - Chat
-  /instance/{instance}/chat/read-messages:
+  /v1/instance/{instance}/chat/read-messages:
     post:
       consumes:
       - application/json
       description: Marks one or more messages as read in a WhatsApp conversation
+      operationId: postV1InstanceByInstanceChatReadMessages
       parameters:
       - description: Instance ID
         in: path
@@ -2380,6 +3501,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -2393,10 +3518,11 @@ paths:
       summary: Mark messages as read
       tags:
       - Chat
-  /instance/{instance}/community/create:
+  /v1/instance/{instance}/community/create:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceCommunityCreate
       parameters:
       - description: Instance ID
         in: path
@@ -2416,15 +3542,48 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Create a WhatsApp community (parent group)
       tags:
       - Community
-  /instance/{instance}/community/createSubGroup:
+  /v1/instance/{instance}/community/createSubGroup:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceCommunityCreateSubGroup
       parameters:
       - description: Instance ID
         in: path
@@ -2444,15 +3603,48 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Create a new group already linked to a community
       tags:
       - Community
-  /instance/{instance}/community/linkGroup:
+  /v1/instance/{instance}/community/linkGroup:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceCommunityLinkGroup
       parameters:
       - description: Instance ID
         in: path
@@ -2473,13 +3665,46 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Link an existing group to a community
       tags:
       - Community
-  /instance/{instance}/community/linkedGroupsParticipants:
+  /v1/instance/{instance}/community/linkedGroupsParticipants:
     get:
+      operationId: getV1InstanceByInstanceCommunityLinkedGroupsParticipants
       parameters:
       - description: Instance ID
         in: path
@@ -2500,13 +3725,46 @@ paths:
             items:
               $ref: '#/definitions/whatsmiau.LinkedParticipantResponse'
             type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: List participants across all linked groups of a community
       tags:
       - Community
-  /instance/{instance}/community/requestParticipants:
+  /v1/instance/{instance}/community/requestParticipants:
     get:
+      operationId: getV1InstanceByInstanceCommunityRequestParticipants
       parameters:
       - description: Instance ID
         in: path
@@ -2527,15 +3785,48 @@ paths:
             items:
               $ref: '#/definitions/whatsmiau.RequestParticipantResponse'
             type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: List pending join requests
       tags:
       - Community
-  /instance/{instance}/community/requestParticipants/update:
+  /v1/instance/{instance}/community/requestParticipants/update:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceCommunityRequestParticipantsUpdate
       parameters:
       - description: Instance ID
         in: path
@@ -2555,15 +3846,112 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.UpdateParticipantResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Approve or reject pending join requests
       tags:
       - Community
-  /instance/{instance}/community/setJoinApprovalMode:
+  /v1/instance/{instance}/community/setGroupAddMode:
     post:
       consumes:
       - application/json
+      description: Use admin_add to restrict adding/linking groups to community admins,
+        or all_member_add to allow any community member.
+      operationId: postV1InstanceByInstanceCommunitySetGroupAddMode
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Community group-add mode payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommunitySetAddModeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Set who can add groups to a community
+      tags:
+      - Community
+  /v1/instance/{instance}/community/setJoinApprovalMode:
+    post:
+      consumes:
+      - application/json
+      operationId: postV1InstanceByInstanceCommunitySetJoinApprovalMode
       parameters:
       - description: Instance ID
         in: path
@@ -2584,42 +3972,46 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Toggle join-approval mode for a community
       tags:
       - Community
-  /instance/{instance}/community/setMemberAddMode:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Instance ID
-        in: path
-        name: instance
-        required: true
-        type: string
-      - description: Mode payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CommunitySetMemberAddModeRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - ApiKeyAuth: []
-      summary: Toggle who can add members (admins only or all)
-      tags:
-      - Community
-  /instance/{instance}/community/subGroups:
+  /v1/instance/{instance}/community/subGroups:
     get:
+      operationId: getV1InstanceByInstanceCommunitySubGroups
       parameters:
       - description: Instance ID
         in: path
@@ -2640,15 +4032,48 @@ paths:
             items:
               $ref: '#/definitions/whatsmiau.SubGroupResponse'
             type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: List subgroups of a community
       tags:
       - Community
-  /instance/{instance}/community/unlinkGroup:
+  /v1/instance/{instance}/community/unlinkGroup:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceCommunityUnlinkGroup
       parameters:
       - description: Instance ID
         in: path
@@ -2669,13 +4094,46 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Remove a group from a community
       tags:
       - Community
-  /instance/{instance}/group/acceptInviteCode:
+  /v1/instance/{instance}/group/acceptInviteCode:
     get:
+      operationId: getV1InstanceByInstanceGroupAcceptInviteCode
       parameters:
       - description: Instance ID
         in: path
@@ -2694,15 +4152,48 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.AcceptGroupInviteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Join a group using an invite code
       tags:
       - Group
-  /instance/{instance}/group/create:
+  /v1/instance/{instance}/group/create:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupCreate
       parameters:
       - description: Instance ID
         in: path
@@ -2726,8 +4217,28 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
         "422":
           description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
         "500":
@@ -2739,8 +4250,9 @@ paths:
       summary: Create a WhatsApp group
       tags:
       - Group
-  /instance/{instance}/group/fetchAllGroups:
+  /v1/instance/{instance}/group/fetchAllGroups:
     get:
+      operationId: getV1InstanceByInstanceGroupFetchAllGroups
       parameters:
       - description: Instance ID
         in: path
@@ -2760,13 +4272,46 @@ paths:
             items:
               $ref: '#/definitions/whatsmiau.GroupInfoResponse'
             type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: List all joined groups
       tags:
       - Group
-  /instance/{instance}/group/findGroupInfos:
+  /v1/instance/{instance}/group/findGroupInfos:
     get:
+      operationId: getV1InstanceByInstanceGroupFindGroupInfos
       parameters:
       - description: Instance ID
         in: path
@@ -2785,13 +4330,46 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get group info by JID
       tags:
       - Group
-  /instance/{instance}/group/inviteCode:
+  /v1/instance/{instance}/group/inviteCode:
     get:
+      operationId: getV1InstanceByInstanceGroupInviteCode
       parameters:
       - description: Instance ID
         in: path
@@ -2810,13 +4388,46 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.InviteCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get the group invite code (link)
       tags:
       - Group
-  /instance/{instance}/group/inviteInfo:
+  /v1/instance/{instance}/group/inviteInfo:
     get:
+      operationId: getV1InstanceByInstanceGroupInviteInfo
       parameters:
       - description: Instance ID
         in: path
@@ -2835,13 +4446,46 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.GroupInfoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get info about an invite code (no join)
       tags:
       - Group
-  /instance/{instance}/group/leaveGroup:
+  /v1/instance/{instance}/group/leaveGroup:
     delete:
+      operationId: deleteV1InstanceByInstanceGroupLeaveGroup
       parameters:
       - description: Instance ID
         in: path
@@ -2861,13 +4505,46 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Leave a group
       tags:
       - Group
-  /instance/{instance}/group/participants:
+  /v1/instance/{instance}/group/participants:
     get:
+      operationId: getV1InstanceByInstanceGroupParticipants
       parameters:
       - description: Instance ID
         in: path
@@ -2886,15 +4563,48 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.FindParticipantsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: List participants of a group
       tags:
       - Group
-  /instance/{instance}/group/revokeInviteCode:
+  /v1/instance/{instance}/group/revokeInviteCode:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupRevokeInviteCode
       parameters:
       - description: Instance ID
         in: path
@@ -2914,15 +4624,48 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.InviteCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Revoke current invite code and generate a new one
       tags:
       - Group
-  /instance/{instance}/group/sendInvite:
+  /v1/instance/{instance}/group/sendInvite:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupSendInvite
       parameters:
       - description: Instance ID
         in: path
@@ -2942,15 +4685,110 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/whatsmiau.SendGroupInviteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send group invite link via text to phone numbers
       tags:
       - Group
-  /instance/{instance}/group/toggleEphemeral:
+  /v1/instance/{instance}/group/setMemberAddMode:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupSetMemberAddMode
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Mode payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.GroupSetMemberAddModeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle who can add members (admins only or all)
+      tags:
+      - Group
+  /v1/instance/{instance}/group/toggleEphemeral:
+    post:
+      consumes:
+      - application/json
+      operationId: postV1InstanceByInstanceGroupToggleEphemeral
       parameters:
       - description: Instance ID
         in: path
@@ -2971,15 +4809,48 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Toggle disappearing messages for the group
       tags:
       - Group
-  /instance/{instance}/group/updateGroupDescription:
+  /v1/instance/{instance}/group/updateGroupDescription:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupUpdateGroupDescription
       parameters:
       - description: Instance ID
         in: path
@@ -3000,15 +4871,48 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group description
       tags:
       - Group
-  /instance/{instance}/group/updateGroupPicture:
+  /v1/instance/{instance}/group/updateGroupPicture:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupUpdateGroupPicture
       parameters:
       - description: Instance ID
         in: path
@@ -3028,15 +4932,48 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.SetGroupPictureResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group picture
       tags:
       - Group
-  /instance/{instance}/group/updateGroupSubject:
+  /v1/instance/{instance}/group/updateGroupSubject:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupUpdateGroupSubject
       parameters:
       - description: Instance ID
         in: path
@@ -3057,15 +4994,48 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group subject (name)
       tags:
       - Group
-  /instance/{instance}/group/updateParticipant:
+  /v1/instance/{instance}/group/updateParticipant:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupUpdateParticipant
       parameters:
       - description: Instance ID
         in: path
@@ -3085,15 +5055,48 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/whatsmiau.UpdateParticipantResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group participants (add/remove/promote/demote)
       tags:
       - Group
-  /instance/{instance}/group/updateSetting:
+  /v1/instance/{instance}/group/updateSetting:
     post:
       consumes:
       - application/json
+      operationId: postV1InstanceByInstanceGroupUpdateSetting
       parameters:
       - description: Instance ID
         in: path
@@ -3114,17 +5117,50 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update group setting (announce/locked)
       tags:
       - Group
-  /instance/{instance}/message/audio:
+  /v1/instance/{instance}/message/audio:
     post:
       consumes:
       - application/json
       description: Sends an audio file (by URL) as a WhatsApp voice message to the
         specified number
+      operationId: postV1InstanceByInstanceMessageAudio
       parameters:
       - description: Instance ID
         in: path
@@ -3148,6 +5184,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3161,11 +5201,12 @@ paths:
       summary: Send an audio message
       tags:
       - Message
-  /instance/{instance}/message/buttons:
+  /v1/instance/{instance}/message/buttons:
     post:
       consumes:
       - application/json
       description: Sends an interactive buttons message (reply type) or PIX payment
+      operationId: postV1InstanceByInstanceMessageButtons
       parameters:
       - description: Instance ID
         in: path
@@ -3189,6 +5230,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3202,11 +5247,58 @@ paths:
       summary: Send a buttons message
       tags:
       - Message
-  /instance/{instance}/message/document:
+  /v1/instance/{instance}/message/contact:
+    post:
+      consumes:
+      - application/json
+      description: Sends contact cards (vCard) to a WhatsApp number
+      operationId: postV1InstanceByInstanceMessageContact
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Contact parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendContactRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendContactResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send one or more contacts
+      tags:
+      - Message
+  /v1/instance/{instance}/message/document:
     post:
       consumes:
       - application/json
       description: Sends a document file by URL to a WhatsApp number
+      operationId: postV1InstanceByInstanceMessageDocument
       parameters:
       - description: Instance ID
         in: path
@@ -3230,6 +5322,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3243,11 +5339,12 @@ paths:
       summary: Send a document
       tags:
       - Message
-  /instance/{instance}/message/image:
+  /v1/instance/{instance}/message/image:
     post:
       consumes:
       - application/json
       description: Sends an image file by URL to a WhatsApp number
+      operationId: postV1InstanceByInstanceMessageImage
       parameters:
       - description: Instance ID
         in: path
@@ -3271,6 +5368,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3284,11 +5385,12 @@ paths:
       summary: Send an image
       tags:
       - Message
-  /instance/{instance}/message/list:
+  /v1/instance/{instance}/message/list:
     post:
       consumes:
       - application/json
       description: Sends an interactive list message with selectable options
+      operationId: postV1InstanceByInstanceMessageList
       parameters:
       - description: Instance ID
         in: path
@@ -3312,6 +5414,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3325,11 +5431,196 @@ paths:
       summary: Send a list message
       tags:
       - Message
-  /instance/{instance}/message/text:
+  /v1/instance/{instance}/message/location:
+    post:
+      consumes:
+      - application/json
+      description: Sends a geographic location to a WhatsApp number
+      operationId: postV1InstanceByInstanceMessageLocation
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Location parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendLocationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendLocationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a location message
+      tags:
+      - Message
+  /v1/instance/{instance}/message/poll:
+    post:
+      consumes:
+      - application/json
+      description: Sends a multiple-choice poll to a WhatsApp number
+      operationId: postV1InstanceByInstanceMessagePoll
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Poll parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendPollRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendPollResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a poll
+      tags:
+      - Message
+  /v1/instance/{instance}/message/status:
+    post:
+      consumes:
+      - application/json
+      description: Sends a status (text/image/audio/video) to status@broadcast
+      operationId: postV1InstanceByInstanceMessageStatus
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Status parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendStatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a status broadcast
+      tags:
+      - Message
+  /v1/instance/{instance}/message/sticker:
+    post:
+      consumes:
+      - application/json
+      description: Sends a WebP sticker to a WhatsApp number
+      operationId: postV1InstanceByInstanceMessageSticker
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Sticker parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SendStickerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SendStickerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Send a sticker
+      tags:
+      - Message
+  /v1/instance/{instance}/message/text:
     post:
       consumes:
       - application/json
       description: Sends a text message to a WhatsApp number via the specified instance
+      operationId: postV1InstanceByInstanceMessageText
       parameters:
       - description: Instance ID
         in: path
@@ -3353,6 +5644,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3366,11 +5661,12 @@ paths:
       summary: Send a text message
       tags:
       - Message
-  /instance/{instance}/message/video:
+  /v1/instance/{instance}/message/video:
     post:
       consumes:
       - application/json
       description: Sends a video file by URL to a WhatsApp number
+      operationId: postV1InstanceByInstanceMessageVideo
       parameters:
       - description: Instance ID
         in: path
@@ -3390,15 +5686,32 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.SendDocumentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send a video
       tags:
       - Message
-  /instance/connect/{id}:
+  /v1/instance/connect/{id}:
     get:
       description: Initiates connection for an instance. Returns a base64-encoded
         QR code PNG if not yet connected, or a connected status message.
+      operationId: getV1InstanceConnectById
       parameters:
       - description: Instance ID
         in: path
@@ -3412,6 +5725,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.ConnectInstanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -3429,10 +5746,11 @@ paths:
       summary: Connect an instance (get QR code)
       tags:
       - Instance
-  /instance/connect/{id}/image:
+  /v1/instance/connect/{id}/image:
     get:
       description: Returns the QR code as a raw PNG image buffer. Returns 204 No Content
         if already connected.
+      operationId: getV1InstanceConnectByIdImage
       parameters:
       - description: Instance ID
         in: path
@@ -3448,6 +5766,10 @@ paths:
             type: file
         "204":
           description: Instance already connected
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -3465,9 +5787,10 @@ paths:
       summary: Get QR code as PNG image
       tags:
       - Instance
-  /instance/connectionState/{id}:
+  /v1/instance/connectionState/{id}:
     get:
       description: Returns the current connection state of the specified instance
+      operationId: getV1InstanceConnectionStateById
       parameters:
       - description: Instance ID
         in: path
@@ -3481,6 +5804,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.StatusInstanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -3498,12 +5825,13 @@ paths:
       summary: Get instance connection state
       tags:
       - Instance
-  /instance/create:
+  /v1/instance/create:
     post:
       consumes:
       - application/json
       description: Creates a new WhatsApp instance with the given name and optional
         configuration
+      operationId: postV1InstanceCreate
       parameters:
       - description: Instance creation parameters
         in: body
@@ -3522,6 +5850,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3535,9 +5867,10 @@ paths:
       summary: Create a new WhatsApp instance
       tags:
       - Instance
-  /instance/delete/{id}:
+  /v1/instance/delete/{id}:
     delete:
       description: Disconnects and permanently removes the specified instance
+      operationId: deleteV1InstanceDeleteById
       parameters:
       - description: Instance ID
         in: path
@@ -3551,6 +5884,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.DeleteInstanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3564,9 +5901,10 @@ paths:
       summary: Delete an instance
       tags:
       - Instance
-  /instance/fetchInstances:
+  /v1/instance/fetchInstances:
     get:
       description: Returns all instances, optionally filtered by name or ID
+      operationId: getV1InstanceFetchInstances
       parameters:
       - description: Filter by instance name
         in: query
@@ -3585,6 +5923,10 @@ paths:
             items:
               $ref: '#/definitions/dto.ListInstancesResponse'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3598,10 +5940,11 @@ paths:
       summary: List instances
       tags:
       - Instance
-  /instance/logout/{id}:
+  /v1/instance/logout/{id}:
     delete:
       description: Disconnects the WhatsApp session for the given instance without
         deleting it
+      operationId: deleteV1InstanceLogoutById
       parameters:
       - description: Instance ID
         in: path
@@ -3615,6 +5958,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.DeleteInstanceResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -3632,11 +5979,55 @@ paths:
       summary: Logout an instance
       tags:
       - Instance
-  /instance/update/{id}:
+  /v1/instance/restart/{id}:
+    post:
+      description: Disconnects and reconnects the WhatsApp websocket without logging
+        out
+      operationId: postV1InstanceRestartById
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RestartInstanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Restart an instance connection
+      tags:
+      - Instance
+  /v1/instance/update/{id}:
     put:
       consumes:
       - application/json
       description: Updates webhook and proxy settings for the given instance
+      operationId: putV1InstanceUpdateById
       parameters:
       - description: Instance ID
         in: path
@@ -3660,6 +6051,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -3677,11 +6072,12 @@ paths:
       summary: Update an existing instance
       tags:
       - Instance
-  /message/sendButtons/{instance}:
+  /v1/message/sendButtons/{instance}:
     post:
       consumes:
       - application/json
       description: Sends an interactive buttons message (reply type) or PIX payment
+      operationId: postV1MessageSendButtonsByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3705,6 +6101,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3718,11 +6118,12 @@ paths:
       summary: Send a buttons message
       tags:
       - Message
-  /message/sendContact/{instance}:
+  /v1/message/sendContact/{instance}:
     post:
       consumes:
       - application/json
       description: Sends contact cards (vCard) to a WhatsApp number
+      operationId: postV1MessageSendContactByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3742,16 +6143,33 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.SendContactResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send one or more contacts
       tags:
       - Message
-  /message/sendList/{instance}:
+  /v1/message/sendList/{instance}:
     post:
       consumes:
       - application/json
       description: Sends an interactive list message with selectable options
+      operationId: postV1MessageSendListByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3775,6 +6193,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3788,11 +6210,12 @@ paths:
       summary: Send a list message
       tags:
       - Message
-  /message/sendLocation/{instance}:
+  /v1/message/sendLocation/{instance}:
     post:
       consumes:
       - application/json
       description: Sends a geographic location to a WhatsApp number
+      operationId: postV1MessageSendLocationByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3812,16 +6235,33 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.SendLocationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send a location message
       tags:
       - Message
-  /message/sendMedia/{instance}:
+  /v1/message/sendMedia/{instance}:
     post:
       consumes:
       - application/json
       description: Sends a media file (image or document) based on the mediatype field
+      operationId: postV1MessageSendMediaByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3845,6 +6285,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3858,11 +6302,12 @@ paths:
       summary: Send a media message (Evolution API)
       tags:
       - Message
-  /message/sendPoll/{instance}:
+  /v1/message/sendPoll/{instance}:
     post:
       consumes:
       - application/json
       description: Sends a multiple-choice poll to a WhatsApp number
+      operationId: postV1MessageSendPollByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3882,16 +6327,33 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.SendPollResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send a poll
       tags:
       - Message
-  /message/sendPtv/{instance}:
+  /v1/message/sendPtv/{instance}:
     post:
       consumes:
       - application/json
       description: Sends a round/circle video note to a WhatsApp number
+      operationId: postV1MessageSendPtvByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3911,17 +6373,34 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.SendPtvResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send a round video note (PTV)
       tags:
       - Message
-  /message/sendReaction/{instance}:
+  /v1/message/sendReaction/{instance}:
     post:
       consumes:
       - application/json
       description: Sends an emoji reaction to a specific message identified by its
         key
+      operationId: postV1MessageSendReactionByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3945,6 +6424,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -3958,11 +6441,12 @@ paths:
       summary: Send a reaction to a message
       tags:
       - Message
-  /message/sendStatus/{instance}:
+  /v1/message/sendStatus/{instance}:
     post:
       consumes:
       - application/json
       description: Sends a status (text/image/audio/video) to status@broadcast
+      operationId: postV1MessageSendStatusByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -3982,16 +6466,33 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.SendStatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send a status broadcast
       tags:
       - Message
-  /message/sendSticker/{instance}:
+  /v1/message/sendSticker/{instance}:
     post:
       consumes:
       - application/json
       description: Sends a WebP sticker to a WhatsApp number
+      operationId: postV1MessageSendStickerByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -4011,16 +6512,33 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.SendStickerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Send a sticker
       tags:
       - Message
-  /message/sendText/{instance}:
+  /v1/message/sendText/{instance}:
     post:
       consumes:
       - application/json
       description: Sends a text message to a WhatsApp number via the specified instance
+      operationId: postV1MessageSendTextByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -4044,6 +6562,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -4057,12 +6579,13 @@ paths:
       summary: Send a text message
       tags:
       - Message
-  /message/sendWhatsAppAudio/{instance}:
+  /v1/message/sendWhatsAppAudio/{instance}:
     post:
       consumes:
       - application/json
       description: Sends an audio file (by URL) as a WhatsApp voice message to the
         specified number
+      operationId: postV1MessageSendWhatsAppAudioByInstance
       parameters:
       - description: Instance ID
         in: path
@@ -4086,6 +6609,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -4099,6 +6626,140 @@ paths:
       summary: Send an audio message
       tags:
       - Message
+  /v1/swagger.json:
+    get:
+      operationId: getV1SwaggerJson
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Swagger 2.0 document
+          schema:
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Download the Swagger JSON contract
+      tags:
+      - Documentation
+  /v1/swagger.yaml:
+    get:
+      operationId: getV1SwaggerYaml
+      produces:
+      - application/yaml
+      responses:
+        "200":
+          description: Swagger 2.0 YAML document
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Download the Swagger YAML contract
+      tags:
+      - Documentation
+  /v1/webhook/find/{instance}:
+    get:
+      operationId: getV1WebhookFindByInstance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.FindWebhookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get an instance webhook
+      tags:
+      - Webhooks
+  /v1/webhook/set/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Enables or updates the outbound webhook target. Call signaling
+        is emitted only when the configured events include CALL; payloads never contain
+        media, SDP, relay data, or call keys.
+      operationId: postV1WebhookSetByInstance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Webhook configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SetWebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SetWebhookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Configure an instance webhook
+      tags:
+      - Webhooks
+schemes:
+- http
+- https
 securityDefinitions:
   ApiKeyAuth:
     in: header

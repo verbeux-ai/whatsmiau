@@ -16,6 +16,7 @@ const (
 	WookMessagesDelete          Wook = "messages.delete"
 	WookMessagesSet             Wook = "messages.set"
 	WookGroupParticipantsUpdate Wook = "group-participants.update"
+	WookCall                    Wook = "call"
 )
 
 type WookEvent[data any] struct {
@@ -305,6 +306,24 @@ type WookConnectionUpdateData struct {
 	ProfilePictureUrl string `json:"profilePictureUrl,omitempty"`
 	State             string `json:"state"`
 	StatusReason      int    `json:"statusReason,omitempty"`
+}
+
+// WookCallData contains call signaling metadata only. It intentionally omits
+// binary call nodes, session keys and media data.
+type WookCallData struct {
+	CallID            string `json:"callId,omitempty"`
+	From              string `json:"from,omitempty"`
+	CallCreator       string `json:"callCreator,omitempty"`
+	CallCreatorAlt    string `json:"callCreatorAlt,omitempty"`
+	GroupJID          string `json:"groupJid,omitempty"`
+	Status            string `json:"status,omitempty"`
+	Media             string `json:"media,omitempty"`
+	IsVideo           *bool  `json:"isVideo,omitempty"`
+	IsGroup           bool   `json:"isGroup,omitempty"`
+	RemotePlatform    string `json:"remotePlatform,omitempty"`
+	RemoteVersion     string `json:"remoteVersion,omitempty"`
+	Reason            string `json:"reason,omitempty"`
+	RTCMediaAvailable bool   `json:"rtcMediaAvailable"`
 }
 
 type WookGroupParticipantsUpdateData struct {

@@ -2,7 +2,7 @@ package dto
 
 type CreateGroupRequest struct {
 	InstanceID          string   `param:"instance" validate:"required" swaggerignore:"true"`
-	Subject             string   `json:"subject" validate:"required,min=1,max=25"`
+	Subject             string   `json:"subject" validate:"required,min=1,max=100"`
 	Description         string   `json:"description,omitempty"`
 	Participants        []string `json:"participants" validate:"omitempty,dive,required"`
 	PromoteParticipants bool     `json:"promoteParticipants,omitempty"`
@@ -11,7 +11,7 @@ type CreateGroupRequest struct {
 type GroupSubjectRequest struct {
 	InstanceID string `param:"instance" validate:"required" swaggerignore:"true"`
 	GroupJid   string `json:"groupJid" validate:"required"`
-	Subject    string `json:"subject" validate:"required,min=1,max=25"`
+	Subject    string `json:"subject" validate:"required,min=1,max=100"`
 }
 
 type GroupPictureRequest struct {
@@ -60,6 +60,12 @@ type GroupUpdateSettingRequest struct {
 	InstanceID string `param:"instance" validate:"required" swaggerignore:"true"`
 	GroupJid   string `json:"groupJid" validate:"required"`
 	Action     string `json:"action" validate:"required,oneof=announcement not_announcement locked unlocked"`
+}
+
+type GroupSetMemberAddModeRequest struct {
+	InstanceID string `param:"instance" validate:"required" swaggerignore:"true"`
+	GroupJid   string `json:"groupJid" validate:"required"`
+	Mode       string `json:"mode" validate:"required,oneof=admin_add all_member_add"`
 }
 
 type GroupToggleEphemeralRequest struct {

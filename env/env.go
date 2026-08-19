@@ -34,7 +34,12 @@ type E struct {
 	ProxyStrategy  string   `env:"PROXY_STRATEGY" envDefault:"RANDOM"` // todo: implement BALANCED
 	ProxyNoMedia   bool     `env:"PROXY_NO_MEDIA" envDefault:"false"`
 
-	ManagerURL string `env:"MANAGER_URL" envDefault:""`
+	// CallsEnabled enables the experimental 1:1 call API. It is deliberately
+	// disabled by default because WhatsApp calls are protocol-sensitive.
+	CallsEnabled bool `env:"CALLS_ENABLED" envDefault:"false"`
+	// CallDebug emits sanitized incoming offer shapes for controlled protocol
+	// tests. It never logs call keys, encrypted payloads, call IDs, or JIDs.
+	CallDebug bool `env:"CALL_DEBUG" envDefault:"false"`
 }
 
 var Env E

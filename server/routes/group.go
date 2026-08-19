@@ -26,6 +26,7 @@ func Group(group *echo.Group) {
 	group.POST("/revokeInviteCode", controller.RevokeInviteCode)
 	group.POST("/updateParticipant", controller.UpdateParticipant)
 	group.POST("/updateSetting", controller.UpdateSetting)
+	group.POST("/setMemberAddMode", controller.SetMemberAddMode)
 	group.POST("/toggleEphemeral", controller.ToggleEphemeral)
 	group.DELETE("/leaveGroup", controller.LeaveGroup)
 }
@@ -49,6 +50,7 @@ func GroupEVO(group *echo.Group) {
 	group.POST("/revokeInviteCode/:instance", controller.RevokeInviteCode)
 	group.POST("/updateParticipant/:instance", controller.UpdateParticipant)
 	group.POST("/updateSetting/:instance", controller.UpdateSetting)
+	group.POST("/setMemberAddMode/:instance", controller.SetMemberAddMode)
 	group.POST("/toggleEphemeral/:instance", controller.ToggleEphemeral)
 	group.DELETE("/leaveGroup/:instance", controller.LeaveGroup)
 }

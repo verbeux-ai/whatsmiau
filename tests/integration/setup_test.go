@@ -88,6 +88,10 @@ func groupURLQuery(t *testing.T, action, query string) string {
 	return fmt.Sprintf("/v1/instance/%s/group/%s?%s", instanceID(t), action, query)
 }
 
+func groupEvolutionURL(t *testing.T, action string) string {
+	return fmt.Sprintf("/v1/group/%s/%s", action, instanceID(t))
+}
+
 func communityURL(t *testing.T, action string) string {
 	return fmt.Sprintf("/v1/instance/%s/community/%s", instanceID(t), action)
 }

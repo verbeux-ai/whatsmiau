@@ -36,20 +36,18 @@ func (s *RedisInstance) Create(ctx context.Context, instance *models.Instance) e
 		return ErrInstanceIDEmpty
 	}
 
-	result, err := s.List(ctx, instance.ID)
-	if err != nil {
-		return err
-	}
-
-	if len(result) > 0 {
-		return ErrorAlreadyExists
-	}
-
 	data, err := json.Marshal(instance)
 	if err != nil {
 		return err
 	}
-	return s.db.Set(ctx, s.key(instance.ID), data, redis.KeepTTL).Err()
+	created, err := s.db.SetNX(ctx, s.key(instance.ID), data, 0).Result()
+	if err != nil {
+		return err
+	}
+	if !created {
+		return ErrorAlreadyExists
+	}
+	return nil
 }
 
 func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.Instance) (*models.Instance, error) {
@@ -98,6 +96,10 @@ func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.
 		oldInstance.GroupsIgnore = toUpdate.GroupsIgnore
 	}
 
+	if toUpdate.SaveMedia != nil {
+		oldInstance.SaveMedia = toUpdate.SaveMedia
+	}
+
 	if toUpdate.ProxyHost != "" {
 		oldInstance.InstanceProxy = toUpdate.InstanceProxy
 	}
@@ -122,7 +124,17 @@ func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.
 		return nil, err
 	}
 
-	return &oldInstance, s.db.Set(ctx, s.key(id), data, redis.KeepTTL).Err()
+	err = s.db.SetArgs(ctx, s.key(id), data, redis.SetArgs{
+		Mode:    "XX",
+		KeepTTL: true,
+	}).Err()
+	if errors.Is(err, redis.Nil) {
+		return nil, ErrorNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &oldInstance, nil
 }
 
 func (s *RedisInstance) List(ctx context.Context, id string) ([]models.Instance, error) {
@@ -183,14 +195,12 @@ func (s *RedisInstance) Delete(ctx context.Context, id string) error {
 		return ErrInstanceIDEmpty
 	}
 
-	result, err := s.List(ctx, id)
+	deleted, err := s.db.Del(ctx, s.key(id)).Result()
 	if err != nil {
 		return err
 	}
-
-	if len(result) <= 0 {
+	if deleted == 0 {
 		return ErrorNotFound
 	}
-
-	return s.db.Del(ctx, s.key(id)).Err()
+	return nil
 }
