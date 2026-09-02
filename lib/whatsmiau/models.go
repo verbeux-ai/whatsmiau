@@ -128,7 +128,7 @@ type ContactsArrayMessageRaw struct {
 type ContactMessageRaw struct {
 	VCard        string     `json:"vcard,omitempty"`
 	DisplayName  string     `json:"displayName,omitempty"`
-	DecodedVcard vcard.Card `json:"decodedVcard,omitempty"`
+	DecodedVcard vcard.Card `json:"decodedVcard,omitempty" swaggerignore:"true"`
 }
 
 type WookListMessageRaw struct {
