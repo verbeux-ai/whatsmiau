@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
@@ -384,4 +386,80 @@ func buildProfilePictureResponse(jid *types.JID, url string) dto.FetchProfilePic
 		resp.ProfilePictureUrl = &url
 	}
 	return resp
+}
+
+// SyncChatMessages godoc
+// @Summary      Sync chat messages on demand
+// @Description  Requests message history for a chat from the user's primary device (on-demand history sync). The phone must be online. Optionally filters by date (since). History is returned backwards from the anchor (or the most recent messages when no anchor is provided). A single request returns at most 500 messages. Recommended not to be used for bulk history extraction.
+// @Tags         Chat
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Param        instance  path      string                        true  "Instance ID"
+// @Param        body      body      dto.SyncChatMessagesRequest   true  "Sync parameters"
+// @Success      200       {array}   whatsmiau.WookMessageData     "Messages synced from the chat"
+// @Failure      400       {object}  utils.HTTPErrorResponse
+// @Failure      409       {object}  utils.HTTPErrorResponse
+// @Failure      422       {object}  utils.HTTPErrorResponse
+// @Failure      500       {object}  utils.HTTPErrorResponse
+// @Failure      504       {object}  utils.HTTPErrorResponse
+// @Router       /v1/instance/{instance}/chat/syncMessages [post]
+// @Router       /v1/chat/syncMessages/{instance} [post]
+func (s *Chat) SyncChatMessages(ctx echo.Context) error {
+	var request dto.SyncChatMessagesRequest
+	if err := ctx.Bind(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusUnprocessableEntity, err, "failed to bind request body")
+	}
+
+	if err := validator.New().Struct(&request); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
+	}
+
+	chat, err := numberToJid(request.Number)
+	if err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number")
+	}
+
+	var since *time.Time
+	if request.Since != "" {
+		parsed, parseErr := parseSyncSince(request.Since)
+		if parseErr != nil {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, parseErr, "invalid since (use YYYY-MM-DD or RFC3339)")
+		}
+		since = &parsed
+	}
+
+	messages, err := s.whatsmiau.SyncChatMessages(ctx.Request().Context(), &whatsmiau.SyncChatMessagesRequest{
+		InstanceID: request.InstanceID,
+		Chat:       *chat,
+		Count:      request.Count,
+		Since:      since,
+		ID:         request.ID,
+		FromMe:     request.FromMe,
+	})
+	if err != nil {
+		zap.L().Error("Whatsmiau.SyncChatMessages failed", zap.Error(err))
+		switch {
+		case errors.Is(err, whatsmiau.ErrSyncTimeout):
+			return utils.HTTPFail(ctx, http.StatusGatewayTimeout, err, "phone did not respond in time")
+		case errors.Is(err, whatsmeow.ErrClientIsNil):
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "instance not found")
+		case strings.Contains(err.Error(), "client not connected"):
+			return utils.HTTPFail(ctx, http.StatusConflict, err, "client not connected")
+		default:
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to sync chat messages")
+		}
+	}
+
+	if messages == nil {
+		messages = []whatsmiau.WookMessageData{}
+	}
+	return ctx.JSON(http.StatusOK, messages)
+}
+
+func parseSyncSince(input string) (time.Time, error) {
+	if t, err := time.Parse("2006-01-02", input); err == nil {
+		return t, nil
+	}
+	return time.Parse(time.RFC3339, input)
 }
