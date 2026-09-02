@@ -406,6 +406,85 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/chat/syncMessages/{instance}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Requests message history for a chat from the user's primary device (on-demand history sync). The phone must be online. Optionally filters by date (since). History is returned backwards from the anchor (or the most recent messages when no anchor is provided). A single request returns at most 500 messages. Recommended not to be used for bulk history extraction.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Sync chat messages on demand",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Sync parameters",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.SyncChatMessagesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages synced from the chat",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/whatsmiau.WookMessageData"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "504": {
+                        "description": "Gateway Timeout",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/chat/updateMessage/{instance}": {
             "post": {
                 "security": [
@@ -3368,6 +3447,85 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/instance/{instance}/chat/syncMessages": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Requests message history for a chat from the user's primary device (on-demand history sync). The phone must be online. Optionally filters by date (since). History is returned backwards from the anchor (or the most recent messages when no anchor is provided). A single request returns at most 500 messages. Recommended not to be used for bulk history extraction.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Sync chat messages on demand",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "instance",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Sync parameters",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.SyncChatMessagesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages synced from the chat",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/whatsmiau.WookMessageData"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "504": {
+                        "description": "Gateway Timeout",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }
@@ -9405,6 +9563,32 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.SyncChatMessagesRequest": {
+            "type": "object",
+            "required": [
+                "id",
+                "number"
+            ],
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "fromMe": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "number": {
+                    "type": "string"
+                },
+                "since": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.UpdateInstanceRequest": {
             "type": "object",
             "properties": {
@@ -9427,7 +9611,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "readMessages": {
-                  "type": "boolean"
+                    "type": "boolean"
                 },
                 "rejectCall": {
                     "type": "boolean"
@@ -9629,6 +9813,53 @@ const docTemplate = `{
                 }
             }
         },
+        "whatsmiau.ContactMessageRaw": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "vcard": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.ContactsArrayMessageRaw": {
+            "type": "object",
+            "properties": {
+                "contacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/whatsmiau.ContactMessageRaw"
+                    }
+                },
+                "displayName": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.ContextInfoDisappearingMode": {
+            "type": "object",
+            "properties": {
+                "initiatedByMe": {
+                    "type": "boolean"
+                },
+                "initiator": {
+                    "type": "string"
+                },
+                "trigger": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.FileContextInfo": {
+            "type": "object",
+            "properties": {
+                "disappearingMode": {
+                    "$ref": "#/definitions/whatsmiau.ContextInfoDisappearingMode"
+                }
+            }
+        },
         "whatsmiau.FindParticipantsResponse": {
             "type": "object",
             "properties": {
@@ -9750,6 +9981,20 @@ const docTemplate = `{
                 }
             }
         },
+        "whatsmiau.ReactionMessageRaw": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "$ref": "#/definitions/whatsmiau.WookKey"
+                },
+                "senderTimestampMs": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
         "whatsmiau.RequestParticipantResponse": {
             "type": "object",
             "properties": {
@@ -9825,6 +10070,722 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/whatsmiau.GroupParticipantResponse"
                     }
+                }
+            }
+        },
+        "whatsmiau.WookAudioMessageRaw": {
+            "type": "object",
+            "properties": {
+                "contextInfo": {
+                    "$ref": "#/definitions/whatsmiau.FileContextInfo"
+                },
+                "directPath": {
+                    "type": "string"
+                },
+                "fileEncSha256": {
+                    "type": "string"
+                },
+                "fileLength": {
+                    "type": "string"
+                },
+                "fileSha256": {
+                    "type": "string"
+                },
+                "mediaKey": {
+                    "type": "string"
+                },
+                "mediaKeyTimestamp": {
+                    "type": "string"
+                },
+                "mimetype": {
+                    "type": "string"
+                },
+                "ptt": {
+                    "type": "boolean"
+                },
+                "seconds": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "viewOnce": {
+                    "type": "boolean"
+                },
+                "waveform": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookDocumentMessageRaw": {
+            "type": "object",
+            "properties": {
+                "caption": {
+                    "type": "string"
+                },
+                "contactVcard": {
+                    "type": "boolean"
+                },
+                "directPath": {
+                    "type": "string"
+                },
+                "fileEncSha256": {
+                    "type": "string"
+                },
+                "fileLength": {
+                    "type": "string"
+                },
+                "fileName": {
+                    "type": "string"
+                },
+                "fileSha256": {
+                    "type": "string"
+                },
+                "jpegThumbnail": {
+                    "type": "string"
+                },
+                "mediaKey": {
+                    "type": "string"
+                },
+                "mediaKeyTimestamp": {
+                    "type": "string"
+                },
+                "mimetype": {
+                    "type": "string"
+                },
+                "pageCount": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookEncCommentMessageRaw": {
+            "type": "object",
+            "properties": {
+                "encIv": {
+                    "type": "string"
+                },
+                "encPayload": {
+                    "type": "string"
+                },
+                "targetMessageKey": {
+                    "$ref": "#/definitions/whatsmiau.WookKey"
+                }
+            }
+        },
+        "whatsmiau.WookImageMessageRaw": {
+            "type": "object",
+            "properties": {
+                "caption": {
+                    "type": "string"
+                },
+                "contextInfo": {
+                    "$ref": "#/definitions/whatsmiau.FileContextInfo"
+                },
+                "directPath": {
+                    "type": "string"
+                },
+                "fileEncSha256": {
+                    "type": "string"
+                },
+                "fileLength": {
+                    "type": "string"
+                },
+                "fileSha256": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "jpegThumbnail": {
+                    "type": "string"
+                },
+                "mediaKey": {
+                    "type": "string"
+                },
+                "mediaKeyTimestamp": {
+                    "type": "string"
+                },
+                "mimetype": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "viewOnce": {
+                    "type": "boolean"
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "whatsmiau.WookKey": {
+            "type": "object",
+            "properties": {
+                "addressingMode": {
+                    "type": "string"
+                },
+                "fromMe": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "participant": {
+                    "type": "string"
+                },
+                "remoteJid": {
+                    "type": "string"
+                },
+                "remoteLid": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookListMessageRaw": {
+            "type": "object",
+            "properties": {
+                "buttonText": {
+                    "type": "string"
+                },
+                "contextInfo": {
+                    "$ref": "#/definitions/whatsmiau.WookListMessageRawListContextInfo"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "footerText": {
+                    "type": "string"
+                },
+                "listType": {
+                    "type": "string"
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/whatsmiau.WookListSection"
+                    }
+                },
+                "singleSelectReply": {
+                    "$ref": "#/definitions/whatsmiau.WookListMessageRawListSingleSelectReply"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookListMessageRawListContextInfo": {
+            "type": "object",
+            "properties": {
+                "participant": {
+                    "type": "string"
+                },
+                "quotedMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookListMessageRawListContextInfoMessage"
+                },
+                "stanzaId": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookListMessageRawListContextInfoMessage": {
+            "type": "object",
+            "properties": {
+                "listMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookListMessageRawListContextInfoMessageList"
+                }
+            }
+        },
+        "whatsmiau.WookListMessageRawListContextInfoMessageList": {
+            "type": "object",
+            "properties": {
+                "buttonText": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "footerText": {
+                    "type": "string"
+                },
+                "listType": {
+                    "type": "string"
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/whatsmiau.WookListSection"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookListMessageRawListSingleSelectReply": {
+            "type": "object",
+            "properties": {
+                "selectedRowId": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookListRow": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "rowId": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookListSection": {
+            "type": "object",
+            "properties": {
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/whatsmiau.WookListRow"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookLiveLocationMessageRaw": {
+            "type": "object",
+            "properties": {
+                "accuracyInMeters": {
+                    "type": "integer"
+                },
+                "caption": {
+                    "type": "string"
+                },
+                "degreesClockwiseFromMagneticNorth": {
+                    "type": "integer"
+                },
+                "degreesLatitude": {
+                    "type": "number"
+                },
+                "degreesLongitude": {
+                    "type": "number"
+                },
+                "jpegThumbnail": {
+                    "type": "string"
+                },
+                "sequenceNumber": {
+                    "type": "integer"
+                },
+                "speedInMps": {
+                    "type": "number"
+                },
+                "timeOffset": {
+                    "type": "integer"
+                }
+            }
+        },
+        "whatsmiau.WookLocationMessageRaw": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "degreesLatitude": {
+                    "type": "number"
+                },
+                "degreesLongitude": {
+                    "type": "number"
+                },
+                "jpegThumbnail": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookMessageContextInfo": {
+            "type": "object",
+            "properties": {
+                "conversionData": {
+                    "type": "string"
+                },
+                "conversionDelaySeconds": {
+                    "type": "integer"
+                },
+                "conversionSource": {
+                    "type": "string"
+                },
+                "disappearingMode": {
+                    "$ref": "#/definitions/whatsmiau.ContextInfoDisappearingMode"
+                },
+                "entryPointConversionApp": {
+                    "type": "string"
+                },
+                "entryPointConversionDelaySeconds": {
+                    "type": "integer"
+                },
+                "entryPointConversionSource": {
+                    "type": "string"
+                },
+                "ephemeralSettingTimestamp": {
+                    "type": "string"
+                },
+                "expiration": {
+                    "type": "integer"
+                },
+                "externalAdReply": {
+                    "$ref": "#/definitions/whatsmiau.WookMessageContextInfoExternalAdReply"
+                },
+                "mentionedJid": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "participant": {
+                    "type": "string"
+                },
+                "quotedMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookMessageRaw"
+                },
+                "stanzaId": {
+                    "type": "string"
+                },
+                "trustBannerAction": {
+                    "type": "integer"
+                }
+            }
+        },
+        "whatsmiau.WookMessageContextInfoExternalAdReply": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "containsAutoReply": {
+                    "type": "boolean"
+                },
+                "ctwaClid": {
+                    "type": "string"
+                },
+                "mediaType": {
+                    "type": "string"
+                },
+                "renderLargerThumbnail": {
+                    "type": "boolean"
+                },
+                "showAdAttribution": {
+                    "type": "boolean"
+                },
+                "sourceId": {
+                    "type": "string"
+                },
+                "sourceType": {
+                    "type": "string"
+                },
+                "sourceUrl": {
+                    "type": "string"
+                },
+                "thumbnail": {
+                    "type": "string"
+                },
+                "thumbnailUrl": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookMessageData": {
+            "type": "object",
+            "properties": {
+                "contextInfo": {
+                    "$ref": "#/definitions/whatsmiau.WookMessageContextInfo"
+                },
+                "instanceId": {
+                    "type": "string"
+                },
+                "key": {
+                    "$ref": "#/definitions/whatsmiau.WookKey"
+                },
+                "message": {
+                    "$ref": "#/definitions/whatsmiau.WookMessageRaw"
+                },
+                "messageTimestamp": {
+                    "type": "integer"
+                },
+                "messageType": {
+                    "type": "string"
+                },
+                "pollUpdates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/whatsmiau.WookPollUpdate"
+                    }
+                },
+                "pushName": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookMessageRaw": {
+            "type": "object",
+            "properties": {
+                "audioMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookAudioMessageRaw"
+                },
+                "base64": {
+                    "type": "string"
+                },
+                "contactMessage": {
+                    "$ref": "#/definitions/whatsmiau.ContactMessageRaw"
+                },
+                "contactsArrayMessage": {
+                    "$ref": "#/definitions/whatsmiau.ContactsArrayMessageRaw"
+                },
+                "conversation": {
+                    "type": "string"
+                },
+                "documentMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookDocumentMessageRaw"
+                },
+                "encCommentMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookEncCommentMessageRaw"
+                },
+                "imageMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookImageMessageRaw"
+                },
+                "listResponseMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookListMessageRaw"
+                },
+                "liveLocationMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookLiveLocationMessageRaw"
+                },
+                "locationMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookLocationMessageRaw"
+                },
+                "mediaUrl": {
+                    "description": "Sent when connect with some storage",
+                    "type": "string"
+                },
+                "pollCreationMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookPollCreationMessageRaw"
+                },
+                "pollUpdateMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookPollUpdateMessageRaw"
+                },
+                "ptvMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookPtvMessageRaw"
+                },
+                "reactionMessage": {
+                    "$ref": "#/definitions/whatsmiau.ReactionMessageRaw"
+                },
+                "stickerMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookStickerMessageRaw"
+                },
+                "videoMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookVideoMessageRaw"
+                }
+            }
+        },
+        "whatsmiau.WookPollCreationMessageRaw": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/whatsmiau.WookPollOption"
+                    }
+                },
+                "selectableOptionsCount": {
+                    "type": "integer"
+                }
+            }
+        },
+        "whatsmiau.WookPollOption": {
+            "type": "object",
+            "properties": {
+                "optionName": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookPollUpdate": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "voters": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "whatsmiau.WookPollUpdateMessageRaw": {
+            "type": "object",
+            "properties": {
+                "pollCreationMessageKey": {
+                    "$ref": "#/definitions/whatsmiau.WookKey"
+                },
+                "senderTimestampMs": {
+                    "type": "string"
+                },
+                "vote": {
+                    "$ref": "#/definitions/whatsmiau.WookPollVote"
+                }
+            }
+        },
+        "whatsmiau.WookPollVote": {
+            "type": "object",
+            "properties": {
+                "encIv": {
+                    "type": "string"
+                },
+                "encPayload": {
+                    "type": "string"
+                },
+                "selectedOptions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "whatsmiau.WookPtvMessageRaw": {
+            "type": "object",
+            "properties": {
+                "directPath": {
+                    "type": "string"
+                },
+                "fileEncSha256": {
+                    "type": "string"
+                },
+                "fileLength": {
+                    "type": "string"
+                },
+                "fileSha256": {
+                    "type": "string"
+                },
+                "jpegThumbnail": {
+                    "type": "string"
+                },
+                "mediaKey": {
+                    "type": "string"
+                },
+                "mimetype": {
+                    "type": "string"
+                },
+                "seconds": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookStickerMessageRaw": {
+            "type": "object",
+            "properties": {
+                "directPath": {
+                    "type": "string"
+                },
+                "fileEncSha256": {
+                    "type": "string"
+                },
+                "fileLength": {
+                    "type": "string"
+                },
+                "fileSha256": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "isAnimated": {
+                    "type": "boolean"
+                },
+                "mediaKey": {
+                    "type": "string"
+                },
+                "mediaKeyTimestamp": {
+                    "type": "string"
+                },
+                "mimetype": {
+                    "type": "string"
+                },
+                "pngThumbnail": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "whatsmiau.WookVideoMessageRaw": {
+            "type": "object",
+            "properties": {
+                "caption": {
+                    "type": "string"
+                },
+                "fileEncSha256": {
+                    "type": "string"
+                },
+                "fileLength": {
+                    "type": "string"
+                },
+                "fileSha256": {
+                    "type": "string"
+                },
+                "gifPlayback": {
+                    "type": "boolean"
+                },
+                "jpegThumbnail": {
+                    "type": "string"
+                },
+                "mediaKey": {
+                    "type": "string"
+                },
+                "mimetype": {
+                    "type": "string"
+                },
+                "seconds": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         }
