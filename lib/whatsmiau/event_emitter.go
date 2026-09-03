@@ -228,7 +228,6 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 					case w.ch <- hs:
 					default:
 					}
-					s.pendingSyncs.Delete(id)
 				}
 				return
 			}
