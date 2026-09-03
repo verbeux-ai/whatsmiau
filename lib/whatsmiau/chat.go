@@ -15,6 +15,13 @@ type ReadMessageRequest struct {
 	InstanceID string     `json:"instance_id"`
 	RemoteJID  *types.JID `json:"remote_jid"`
 	Sender     *types.JID `json:"sender"`
+	// Played sends a "played" receipt instead of a "read" one: the blue
+	// microphone on a voice note, as opposed to the blue ticks on the chat.
+	// WhatsApp treats them as two different receipts, and marking an audio
+	// message as read never turns its microphone blue.
+	//
+	// Only meaningful for audio/PTT messages; WhatsApp ignores it elsewhere.
+	Played bool `json:"played"`
 }
 
 func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
@@ -28,7 +35,14 @@ func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
 		sender = *data.Sender
 	}
 
-	return client.MarkRead(context.TODO(), data.MessageIDs, time.Now(), *data.RemoteJID, sender)
+	// MarkRead defaults to types.ReceiptTypeRead and only overrides it from
+	// this variadic, so "played" is unreachable unless it is passed here.
+	var receiptType []types.ReceiptType
+	if data.Played {
+		receiptType = append(receiptType, types.ReceiptTypePlayed)
+	}
+
+	return client.MarkRead(context.TODO(), data.MessageIDs, time.Now(), *data.RemoteJID, sender, receiptType...)
 }
 
 type ChatPresenceRequest struct {

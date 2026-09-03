@@ -9,6 +9,9 @@ type ReadMessagesRequestItem struct {
 	//FromMe    bool   `json:"fromMe"` ignored
 	Sender string `json:"sender"` // required if group
 	ID     string `json:"id" validate:"required"`
+	// Played marks a voice note as heard (blue microphone) instead of merely
+	// read (blue ticks). Audio and PTT messages only.
+	Played bool `json:"played"`
 }
 
 type SendPresenceRequestPresence string
