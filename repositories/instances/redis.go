@@ -105,6 +105,10 @@ func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.
 		oldInstance.AlwaysOnline = toUpdate.AlwaysOnline
 	}
 
+	if toUpdate.MsgCall != nil {
+		oldInstance.MsgCall = toUpdate.MsgCall
+	}
+
 	if toUpdate.RejectCall != nil {
 		oldInstance.RejectCall = toUpdate.RejectCall
 	}

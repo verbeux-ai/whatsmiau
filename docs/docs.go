@@ -9598,6 +9598,9 @@ const docTemplate = `{
                 "groupsIgnore": {
                     "type": "boolean"
                 },
+                "msgCall": {
+                    "type": "string"
+                },
                 "proxyHost": {
                     "type": "string"
                 },
