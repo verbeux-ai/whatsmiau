@@ -44,6 +44,8 @@ type Whatsmiau struct {
 	httpClient         *http.Client
 	fileStorage        interfaces.Storage
 	handlerSemaphore   chan struct{}
+	pendingSyncs       *xsync.Map[string, *pendingSyncWaiter]
+	syncLocks          *xsync.Map[string, *sync.Mutex]
 }
 
 var instance *Whatsmiau
@@ -187,6 +189,8 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		},
 		fileStorage:      storage,
 		handlerSemaphore: make(chan struct{}, env.Env.HandlerSemaphoreSize),
+		pendingSyncs:     xsync.NewMap[string, *pendingSyncWaiter](),
+		syncLocks:        xsync.NewMap[string, *sync.Mutex](),
 	}
 
 	go instance.startEmitter()

@@ -86,3 +86,12 @@ type FetchProfilePictureResponse struct {
 	Wuid              string  `json:"wuid"`
 	ProfilePictureUrl *string `json:"profilePictureUrl"`
 }
+
+type SyncChatMessagesRequest struct {
+	InstanceID string `param:"instance" validate:"required" swaggerignore:"true"`
+	Number     string `json:"number" validate:"required"`
+	ID         string `json:"id" validate:"required"`
+	Count      int    `json:"count" validate:"omitempty,min=1,max=100"`
+	Since      string `json:"since,omitempty"`
+	FromMe     *bool  `json:"fromMe,omitempty"`
+}
