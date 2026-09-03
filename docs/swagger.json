@@ -2000,6 +2000,9 @@
         },
         "dto.UpdateInstanceRequest": {
             "properties": {
+                "alwaysOnline": {
+                    "type": "boolean"
+                },
                 "groupsIgnore": {
                     "type": "boolean"
                 },

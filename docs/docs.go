@@ -9592,6 +9592,9 @@ const docTemplate = `{
         "dto.UpdateInstanceRequest": {
             "type": "object",
             "properties": {
+                "alwaysOnline": {
+                    "type": "boolean"
+                },
                 "groupsIgnore": {
                     "type": "boolean"
                 },
