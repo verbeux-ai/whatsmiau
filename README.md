@@ -33,7 +33,7 @@ To get a local copy up and running follow these simple steps.
 
 ### Prerequisites
 
-- Go 1.24 or higher
+- Go 1.26 or higher
 - Redis
 - SQLite
 
