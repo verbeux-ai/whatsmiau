@@ -219,7 +219,9 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			}
 
 			if hs, ok := evt.(*events.HistorySync); ok && hs.Data != nil && hs.Data.GetSyncType() == waHistorySync.HistorySync_ON_DEMAND {
-				if w, ok := s.pendingSyncs.Load(id); ok && historySyncMatchesChat(hs, w.chat) {
+				if w, ok := s.pendingSyncs.Load(id); ok &&
+					historySyncMatchesChat(hs, w.chat) &&
+					historySyncMatchesSend(hs, w.sendID) {
 					// Non-blocking send: a stale duplicate blob arriving after a
 					// timeout must not stall this event goroutine.
 					select {

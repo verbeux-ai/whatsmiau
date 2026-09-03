@@ -23,8 +23,9 @@ const (
 var ErrSyncTimeout = errors.New("timeout: phone did not respond in time")
 
 type pendingSyncWaiter struct {
-	chat types.JID
-	ch   chan *events.HistorySync
+	chat   types.JID
+	sendID string
+	ch     chan *events.HistorySync
 }
 
 type SyncChatMessagesRequest struct {
@@ -46,6 +47,14 @@ func historySyncMatchesChat(evt *events.HistorySync, chat types.JID) bool {
 		}
 	}
 	return false
+}
+
+func historySyncMatchesSend(evt *events.HistorySync, sendID string) bool {
+	if evt == nil || evt.Notification == nil || sendID == "" {
+		return true
+	}
+	respID := evt.Notification.GetPeerDataRequestSessionID()
+	return respID == "" || respID == sendID
 }
 
 func (s *Whatsmiau) SyncChatMessages(ctx context.Context, req *SyncChatMessagesRequest) ([]WookMessageData, error) {
@@ -100,10 +109,7 @@ func (s *Whatsmiau) SyncChatMessages(ctx context.Context, req *SyncChatMessagesR
 			},
 		}
 
-		waiter := &pendingSyncWaiter{chat: chatJID, ch: make(chan *events.HistorySync, 1)}
-		s.pendingSyncs.Store(req.InstanceID, waiter)
-
-		_, err := client.SendPeerMessage(ctx, msg)
+		resp, err := client.SendPeerMessage(ctx, msg)
 		if err != nil {
 			s.pendingSyncs.Delete(req.InstanceID)
 
@@ -112,6 +118,9 @@ func (s *Whatsmiau) SyncChatMessages(ctx context.Context, req *SyncChatMessagesR
 			}
 			return nil, err
 		}
+
+		waiter := &pendingSyncWaiter{chat: chatJID, sendID: resp.ID, ch: make(chan *events.HistorySync, 1)}
+		s.pendingSyncs.Store(req.InstanceID, waiter)
 
 		// Wait for the phone to respond.
 		var evt *events.HistorySync
