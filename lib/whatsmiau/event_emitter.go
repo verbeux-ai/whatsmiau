@@ -207,6 +207,11 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
+			// Apply alwaysOnline presence on connect, regardless of webhook state
+			if _, ok := evt.(*events.Connected); ok && instance.AlwaysOnline != nil {
+				s.ApplyPresence(id, *instance.AlwaysOnline)
+			}
+
 			// Handle lifecycle events regardless of webhook enabled state
 			if _, ok := evt.(*events.LoggedOut); ok {
 				s.handleLoggedOut(id)

@@ -46,6 +46,7 @@ type UpdateInstanceRequest struct {
 	SaveMedia    *bool  `json:"saveMedia,omitempty"`
 	ReadMessages *bool  `json:"readMessages,omitempty"`
 	RejectCall   *bool  `json:"rejectCall,omitempty"`
+	AlwaysOnline *bool  `json:"alwaysOnline,omitempty"`
 	Webhook      struct {
 		Enabled *bool    `json:"enabled,omitempty"`
 		Base64  bool     `json:"base64,omitempty"`
