@@ -730,6 +730,21 @@ func (s *Whatsmiau) InvalidateInstanceCache(id string) {
 	s.instanceCache.Delete(id)
 }
 
+func (s *Whatsmiau) ApplyPresence(id string, online bool) {
+	client, ok := s.clients.Load(id)
+	if !ok || !client.IsConnected() {
+		return
+	}
+
+	state := types.PresenceUnavailable
+	if online {
+		state = types.PresenceAvailable
+	}
+	if err := client.SendPresence(context.Background(), state); err != nil {
+		zap.L().Error("failed to send presence", zap.String("instance", id), zap.Error(err))
+	}
+}
+
 func (s *Whatsmiau) GetJidLid(ctx context.Context, id string, jid types.JID) (string, string) {
 	newJid, newLid := s.extractJidLid(ctx, id, jid)
 	if strings.HasSuffix(newJid, "@lid") {
