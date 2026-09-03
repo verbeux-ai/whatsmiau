@@ -157,6 +157,9 @@ func (s *Instance) Update(ctx echo.Context) error {
 	if request.AlwaysOnline != nil {
 		toUpdate.AlwaysOnline = request.AlwaysOnline
 	}
+	if request.MsgCall != nil {
+		toUpdate.MsgCall = request.MsgCall
+	}
 	if request.RejectCall != nil {
 		toUpdate.RejectCall = request.RejectCall
 	}

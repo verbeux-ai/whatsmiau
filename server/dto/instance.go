@@ -41,12 +41,13 @@ type MigrationResult struct {
 }
 
 type UpdateInstanceRequest struct {
-	ID           string `json:"id,omitempty" param:"id" validate:"required" swaggerignore:"true"`
-	GroupsIgnore *bool  `json:"groupsIgnore,omitempty"`
-	SaveMedia    *bool  `json:"saveMedia,omitempty"`
-	ReadMessages *bool  `json:"readMessages,omitempty"`
-	RejectCall   *bool  `json:"rejectCall,omitempty"`
-	AlwaysOnline *bool  `json:"alwaysOnline,omitempty"`
+	ID           string  `json:"id,omitempty" param:"id" validate:"required" swaggerignore:"true"`
+	GroupsIgnore *bool   `json:"groupsIgnore,omitempty"`
+	SaveMedia    *bool   `json:"saveMedia,omitempty"`
+	ReadMessages *bool   `json:"readMessages,omitempty"`
+	RejectCall   *bool   `json:"rejectCall,omitempty"`
+	MsgCall      *string `json:"msgCall,omitempty"`
+	AlwaysOnline *bool   `json:"alwaysOnline,omitempty"`
 	Webhook      struct {
 		Enabled *bool    `json:"enabled,omitempty"`
 		Base64  bool     `json:"base64,omitempty"`
