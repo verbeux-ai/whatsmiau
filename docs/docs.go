@@ -413,7 +413,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Requests message history for a chat from the user's primary device (on-demand history sync). The phone must be online. Optionally filters by date (since). History is returned backwards from the anchor (or the most recent messages when no anchor is provided). A single request returns at most 500 messages. Recommended not to be used for bulk history extraction.",
+                "description": "Requests message history for a chat from the user's primary device (on-demand history sync). The primary device (phone) must have a server-connected WhatsApp session — history is served from its local message store. The ` + "`" + `id` + "`" + ` anchor is required: history is returned backwards from it, ` + "`" + `count` + "`" + ` messages per page (default 50). Optionally paginates back to a target date with ` + "`" + `since` + "`" + `. A single request returns at most 500 messages. Recommended not to be used for bulk history extraction.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3461,7 +3461,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Requests message history for a chat from the user's primary device (on-demand history sync). The phone must be online. Optionally filters by date (since). History is returned backwards from the anchor (or the most recent messages when no anchor is provided). A single request returns at most 500 messages. Recommended not to be used for bulk history extraction.",
+                "description": "Requests message history for a chat from the user's primary device (on-demand history sync). The primary device (phone) must have a server-connected WhatsApp session — history is served from its local message store. The ` + "`" + `id` + "`" + ` anchor is required: history is returned backwards from it, ` + "`" + `count` + "`" + ` messages per page (default 50). Optionally paginates back to a target date with ` + "`" + `since` + "`" + `. A single request returns at most 500 messages. Recommended not to be used for bulk history extraction.",
                 "consumes": [
                     "application/json"
                 ],
