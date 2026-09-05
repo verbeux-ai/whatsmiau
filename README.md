@@ -205,3 +205,6 @@ Payload-style values such as `messages.upsert` remain accepted in configuration 
 
 ## Did you like project?
 Donate: https://buy.stripe.com/8x28wI5vKfPbe9b8ih1VK0f
+
+
+<!-- Security scan triggered at 2026-09-05 07:39:53 -->
