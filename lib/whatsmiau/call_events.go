@@ -1,11 +1,13 @@
 package whatsmiau
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/verbeux-ai/whatsmiau/models"
 	waBinary "go.mau.fi/whatsmeow/binary"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"go.uber.org/zap"
@@ -19,6 +21,34 @@ func (s *Whatsmiau) handleCallOfferEvent(id string, instance *models.Instance, e
 	data.RemotePlatform = event.RemotePlatform
 	data.RemoteVersion = event.RemoteVersion
 	s.emitCallEvent(id, instance, data, event.Timestamp, eventMap)
+
+	if instance.RejectCall != nil && *instance.RejectCall {
+		if event.From.IsEmpty() {
+			return
+		}
+		client, ok := s.clients.Load(id)
+		if !ok {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		if err := client.RejectCall(ctx, event.From, event.CallID); err != nil {
+			zap.L().Error("failed to reject call", zap.String("instance", id), zap.Error(err))
+			return
+		}
+
+		// Send the configured auto-reply to the caller only after the call was
+		// successfully rejected by this client (avoids replying to a call that
+		// was actually answered on another device or already ended).
+		if instance.MsgCall != nil && *instance.MsgCall != "" {
+			text := *instance.MsgCall
+			if _, err := client.SendMessage(ctx, event.From, &waE2E.Message{Conversation: &text}); err != nil {
+				zap.L().Error("failed to send call reject message", zap.String("instance", id), zap.Error(err))
+			}
+		}
+	}
 }
 
 func (s *Whatsmiau) handleCallOfferNoticeEvent(id string, instance *models.Instance, event *events.CallOfferNotice, eventMap map[webhookConfigEvent]bool) {

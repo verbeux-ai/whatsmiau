@@ -67,6 +67,19 @@ definitions:
     - childJid
     - parentJid
     type: object
+  dto.CommunitySetAddModeRequest:
+    properties:
+      communityJid:
+        type: string
+      mode:
+        enum:
+        - admin_add
+        - all_member_add
+        type: string
+    required:
+    - communityJid
+    - mode
+    type: object
   dto.CommunitySetJoinApprovalModeRequest:
     properties:
       communityJid:
@@ -124,8 +137,6 @@ definitions:
         type: string
       readMessages:
         type: boolean
-      readStatus:
-        type: boolean
       rejectCall:
         type: boolean
       remoteJID:
@@ -133,8 +144,6 @@ definitions:
       saveMedia:
         type: boolean
       syncFullHistory:
-        type: boolean
-      syncRecentHistory:
         type: boolean
       webhook:
         $ref: '#/definitions/models.InstanceWebhook'
@@ -216,8 +225,6 @@ definitions:
         type: string
       readMessages:
         type: boolean
-      readStatus:
-        type: boolean
       rejectCall:
         type: boolean
       remoteJID:
@@ -225,8 +232,6 @@ definitions:
       saveMedia:
         type: boolean
       syncFullHistory:
-        type: boolean
-      syncRecentHistory:
         type: boolean
       webhook:
         $ref: '#/definitions/models.InstanceWebhook'
@@ -255,8 +260,6 @@ definitions:
         type: string
       readMessages:
         type: boolean
-      readStatus:
-        type: boolean
       rejectCall:
         type: boolean
       remoteJID:
@@ -264,8 +267,6 @@ definitions:
       saveMedia:
         type: boolean
       syncFullHistory:
-        type: boolean
-      syncRecentHistory:
         type: boolean
       webhook:
         $ref: '#/definitions/models.InstanceWebhook'
@@ -298,6 +299,20 @@ definitions:
       senderKeyHash:
         type: string
       senderTimestamp:
+        type: string
+    type: object
+  dto.FetchProfilePictureRequest:
+    properties:
+      number:
+        type: string
+    required:
+    - number
+    type: object
+  dto.FetchProfilePictureResponse:
+    properties:
+      profilePictureUrl:
+        type: string
+      wuid:
         type: string
     type: object
   dto.FindWebhookResponse:
@@ -348,9 +363,9 @@ definitions:
     - groupJid
     - numbers
     type: object
-  dto.CommunitySetAddModeRequest:
+  dto.GroupSetMemberAddModeRequest:
     properties:
-      communityJid:
+      groupJid:
         type: string
       mode:
         enum:
@@ -358,7 +373,7 @@ definitions:
         - all_member_add
         type: string
     required:
-    - communityJid
+    - groupJid
     - mode
     type: object
   dto.GroupSubjectRequest:
@@ -372,19 +387,6 @@ definitions:
     required:
     - groupJid
     - subject
-    type: object
-  dto.GroupSetMemberAddModeRequest:
-    properties:
-      mode:
-        enum:
-        - admin_add
-        - all_member_add
-        type: string
-      groupJid:
-        type: string
-    required:
-    - groupJid
-    - mode
     type: object
   dto.GroupToggleEphemeralRequest:
     properties:
@@ -462,8 +464,6 @@ definitions:
         type: string
       readMessages:
         type: boolean
-      readStatus:
-        type: boolean
       rejectCall:
         type: boolean
       remoteJID:
@@ -471,8 +471,6 @@ definitions:
       saveMedia:
         type: boolean
       syncFullHistory:
-        type: boolean
-      syncRecentHistory:
         type: boolean
       webhook:
         $ref: '#/definitions/models.InstanceWebhook'
@@ -1296,8 +1294,6 @@ definitions:
     properties:
       base64:
         type: boolean
-      byEvents:
-        type: boolean
       enabled:
         type: boolean
       events:
@@ -1332,10 +1328,32 @@ definitions:
       state:
         type: string
     type: object
+  dto.SyncChatMessagesRequest:
+    properties:
+      count:
+        maximum: 100
+        minimum: 1
+        type: integer
+      fromMe:
+        type: boolean
+      id:
+        type: string
+      number:
+        type: string
+      since:
+        type: string
+    required:
+    - id
+    - number
+    type: object
   dto.UpdateInstanceRequest:
     properties:
+      alwaysOnline:
+        type: boolean
       groupsIgnore:
         type: boolean
+      msgCall:
+        type: string
       proxyHost:
         type: string
       proxyPassword:
@@ -1346,6 +1364,10 @@ definitions:
         type: string
       proxyUsername:
         type: string
+      readMessages:
+        type: boolean
+      rejectCall:
+        type: boolean
       saveMedia:
         type: boolean
       webhook:
@@ -1384,8 +1406,6 @@ definitions:
         type: string
       readMessages:
         type: boolean
-      readStatus:
-        type: boolean
       rejectCall:
         type: boolean
       remoteJID:
@@ -1394,16 +1414,55 @@ definitions:
         type: boolean
       syncFullHistory:
         type: boolean
-      syncRecentHistory:
-        type: boolean
       webhook:
         $ref: '#/definitions/models.InstanceWebhook'
+    type: object
+  dto.UpdateMessageKey:
+    properties:
+      fromMe:
+        type: boolean
+      id:
+        type: string
+      participant:
+        type: string
+      remoteJid:
+        type: string
+    required:
+    - fromMe
+    - id
+    - remoteJid
+    type: object
+  dto.UpdateMessageRequest:
+    properties:
+      key:
+        $ref: '#/definitions/dto.UpdateMessageKey'
+      number:
+        type: string
+      text:
+        type: string
+    required:
+    - key
+    - number
+    - text
+    type: object
+  dto.UpdateMessageResponse:
+    properties:
+      instanceId:
+        type: string
+      key:
+        $ref: '#/definitions/dto.MessageResponseKey'
+      message:
+        $ref: '#/definitions/dto.SendTextResponseMessage'
+      messageTimestamp:
+        type: integer
+      messageType:
+        type: string
+      status:
+        type: string
     type: object
   models.InstanceWebhook:
     properties:
       base64:
-        type: boolean
-      byEvents:
         type: boolean
       enabled:
         type: boolean
@@ -1440,6 +1499,36 @@ definitions:
     properties:
       groupJid:
         type: string
+    type: object
+  whatsmiau.ContactMessageRaw:
+    properties:
+      displayName:
+        type: string
+      vcard:
+        type: string
+    type: object
+  whatsmiau.ContactsArrayMessageRaw:
+    properties:
+      contacts:
+        items:
+          $ref: '#/definitions/whatsmiau.ContactMessageRaw'
+        type: array
+      displayName:
+        type: string
+    type: object
+  whatsmiau.ContextInfoDisappearingMode:
+    properties:
+      initiatedByMe:
+        type: boolean
+      initiator:
+        type: string
+      trigger:
+        type: string
+    type: object
+  whatsmiau.FileContextInfo:
+    properties:
+      disappearingMode:
+        $ref: '#/definitions/whatsmiau.ContextInfoDisappearingMode'
     type: object
   whatsmiau.FindParticipantsResponse:
     properties:
@@ -1520,6 +1609,15 @@ definitions:
       lid:
         type: string
     type: object
+  whatsmiau.ReactionMessageRaw:
+    properties:
+      key:
+        $ref: '#/definitions/whatsmiau.WookKey'
+      senderTimestampMs:
+        type: string
+      text:
+        type: string
+    type: object
   whatsmiau.RequestParticipantResponse:
     properties:
       jid:
@@ -1569,6 +1667,475 @@ definitions:
         items:
           $ref: '#/definitions/whatsmiau.GroupParticipantResponse'
         type: array
+    type: object
+  whatsmiau.WookAudioMessageRaw:
+    properties:
+      contextInfo:
+        $ref: '#/definitions/whatsmiau.FileContextInfo'
+      directPath:
+        type: string
+      fileEncSha256:
+        type: string
+      fileLength:
+        type: string
+      fileSha256:
+        type: string
+      mediaKey:
+        type: string
+      mediaKeyTimestamp:
+        type: string
+      mimetype:
+        type: string
+      ptt:
+        type: boolean
+      seconds:
+        type: integer
+      url:
+        type: string
+      viewOnce:
+        type: boolean
+      waveform:
+        type: string
+    type: object
+  whatsmiau.WookDocumentMessageRaw:
+    properties:
+      caption:
+        type: string
+      contactVcard:
+        type: boolean
+      directPath:
+        type: string
+      fileEncSha256:
+        type: string
+      fileLength:
+        type: string
+      fileName:
+        type: string
+      fileSha256:
+        type: string
+      jpegThumbnail:
+        type: string
+      mediaKey:
+        type: string
+      mediaKeyTimestamp:
+        type: string
+      mimetype:
+        type: string
+      pageCount:
+        type: integer
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  whatsmiau.WookEncCommentMessageRaw:
+    properties:
+      encIv:
+        type: string
+      encPayload:
+        type: string
+      targetMessageKey:
+        $ref: '#/definitions/whatsmiau.WookKey'
+    type: object
+  whatsmiau.WookImageMessageRaw:
+    properties:
+      caption:
+        type: string
+      contextInfo:
+        $ref: '#/definitions/whatsmiau.FileContextInfo'
+      directPath:
+        type: string
+      fileEncSha256:
+        type: string
+      fileLength:
+        type: string
+      fileSha256:
+        type: string
+      height:
+        type: integer
+      jpegThumbnail:
+        type: string
+      mediaKey:
+        type: string
+      mediaKeyTimestamp:
+        type: string
+      mimetype:
+        type: string
+      url:
+        type: string
+      viewOnce:
+        type: boolean
+      width:
+        type: integer
+    type: object
+  whatsmiau.WookKey:
+    properties:
+      addressingMode:
+        type: string
+      fromMe:
+        type: boolean
+      id:
+        type: string
+      participant:
+        type: string
+      remoteJid:
+        type: string
+      remoteLid:
+        type: string
+    type: object
+  whatsmiau.WookListMessageRaw:
+    properties:
+      buttonText:
+        type: string
+      contextInfo:
+        $ref: '#/definitions/whatsmiau.WookListMessageRawListContextInfo'
+      description:
+        type: string
+      footerText:
+        type: string
+      listType:
+        type: string
+      sections:
+        items:
+          $ref: '#/definitions/whatsmiau.WookListSection'
+        type: array
+      singleSelectReply:
+        $ref: '#/definitions/whatsmiau.WookListMessageRawListSingleSelectReply'
+      title:
+        type: string
+    type: object
+  whatsmiau.WookListMessageRawListContextInfo:
+    properties:
+      participant:
+        type: string
+      quotedMessage:
+        $ref: '#/definitions/whatsmiau.WookListMessageRawListContextInfoMessage'
+      stanzaId:
+        type: string
+    type: object
+  whatsmiau.WookListMessageRawListContextInfoMessage:
+    properties:
+      listMessage:
+        $ref: '#/definitions/whatsmiau.WookListMessageRawListContextInfoMessageList'
+    type: object
+  whatsmiau.WookListMessageRawListContextInfoMessageList:
+    properties:
+      buttonText:
+        type: string
+      description:
+        type: string
+      footerText:
+        type: string
+      listType:
+        type: string
+      sections:
+        items:
+          $ref: '#/definitions/whatsmiau.WookListSection'
+        type: array
+      title:
+        type: string
+    type: object
+  whatsmiau.WookListMessageRawListSingleSelectReply:
+    properties:
+      selectedRowId:
+        type: string
+    type: object
+  whatsmiau.WookListRow:
+    properties:
+      description:
+        type: string
+      rowId:
+        type: string
+      title:
+        type: string
+    type: object
+  whatsmiau.WookListSection:
+    properties:
+      rows:
+        items:
+          $ref: '#/definitions/whatsmiau.WookListRow'
+        type: array
+      title:
+        type: string
+    type: object
+  whatsmiau.WookLiveLocationMessageRaw:
+    properties:
+      accuracyInMeters:
+        type: integer
+      caption:
+        type: string
+      degreesClockwiseFromMagneticNorth:
+        type: integer
+      degreesLatitude:
+        type: number
+      degreesLongitude:
+        type: number
+      jpegThumbnail:
+        type: string
+      sequenceNumber:
+        type: integer
+      speedInMps:
+        type: number
+      timeOffset:
+        type: integer
+    type: object
+  whatsmiau.WookLocationMessageRaw:
+    properties:
+      address:
+        type: string
+      degreesLatitude:
+        type: number
+      degreesLongitude:
+        type: number
+      jpegThumbnail:
+        type: string
+      name:
+        type: string
+      url:
+        type: string
+    type: object
+  whatsmiau.WookMessageContextInfo:
+    properties:
+      conversionData:
+        type: string
+      conversionDelaySeconds:
+        type: integer
+      conversionSource:
+        type: string
+      disappearingMode:
+        $ref: '#/definitions/whatsmiau.ContextInfoDisappearingMode'
+      entryPointConversionApp:
+        type: string
+      entryPointConversionDelaySeconds:
+        type: integer
+      entryPointConversionSource:
+        type: string
+      ephemeralSettingTimestamp:
+        type: string
+      expiration:
+        type: integer
+      externalAdReply:
+        $ref: '#/definitions/whatsmiau.WookMessageContextInfoExternalAdReply'
+      mentionedJid:
+        items:
+          type: string
+        type: array
+      participant:
+        type: string
+      quotedMessage:
+        $ref: '#/definitions/whatsmiau.WookMessageRaw'
+      stanzaId:
+        type: string
+      trustBannerAction:
+        type: integer
+    type: object
+  whatsmiau.WookMessageContextInfoExternalAdReply:
+    properties:
+      body:
+        type: string
+      containsAutoReply:
+        type: boolean
+      ctwaClid:
+        type: string
+      mediaType:
+        type: string
+      renderLargerThumbnail:
+        type: boolean
+      showAdAttribution:
+        type: boolean
+      sourceId:
+        type: string
+      sourceType:
+        type: string
+      sourceUrl:
+        type: string
+      thumbnail:
+        type: string
+      thumbnailUrl:
+        type: string
+      title:
+        type: string
+    type: object
+  whatsmiau.WookMessageData:
+    properties:
+      contextInfo:
+        $ref: '#/definitions/whatsmiau.WookMessageContextInfo'
+      instanceId:
+        type: string
+      key:
+        $ref: '#/definitions/whatsmiau.WookKey'
+      message:
+        $ref: '#/definitions/whatsmiau.WookMessageRaw'
+      messageTimestamp:
+        type: integer
+      messageType:
+        type: string
+      pollUpdates:
+        items:
+          $ref: '#/definitions/whatsmiau.WookPollUpdate'
+        type: array
+      pushName:
+        type: string
+      source:
+        type: string
+      status:
+        type: string
+    type: object
+  whatsmiau.WookMessageRaw:
+    properties:
+      audioMessage:
+        $ref: '#/definitions/whatsmiau.WookAudioMessageRaw'
+      base64:
+        type: string
+      contactMessage:
+        $ref: '#/definitions/whatsmiau.ContactMessageRaw'
+      contactsArrayMessage:
+        $ref: '#/definitions/whatsmiau.ContactsArrayMessageRaw'
+      conversation:
+        type: string
+      documentMessage:
+        $ref: '#/definitions/whatsmiau.WookDocumentMessageRaw'
+      encCommentMessage:
+        $ref: '#/definitions/whatsmiau.WookEncCommentMessageRaw'
+      imageMessage:
+        $ref: '#/definitions/whatsmiau.WookImageMessageRaw'
+      listResponseMessage:
+        $ref: '#/definitions/whatsmiau.WookListMessageRaw'
+      liveLocationMessage:
+        $ref: '#/definitions/whatsmiau.WookLiveLocationMessageRaw'
+      locationMessage:
+        $ref: '#/definitions/whatsmiau.WookLocationMessageRaw'
+      mediaUrl:
+        description: Sent when connect with some storage
+        type: string
+      pollCreationMessage:
+        $ref: '#/definitions/whatsmiau.WookPollCreationMessageRaw'
+      pollUpdateMessage:
+        $ref: '#/definitions/whatsmiau.WookPollUpdateMessageRaw'
+      ptvMessage:
+        $ref: '#/definitions/whatsmiau.WookPtvMessageRaw'
+      reactionMessage:
+        $ref: '#/definitions/whatsmiau.ReactionMessageRaw'
+      stickerMessage:
+        $ref: '#/definitions/whatsmiau.WookStickerMessageRaw'
+      videoMessage:
+        $ref: '#/definitions/whatsmiau.WookVideoMessageRaw'
+    type: object
+  whatsmiau.WookPollCreationMessageRaw:
+    properties:
+      name:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/whatsmiau.WookPollOption'
+        type: array
+      selectableOptionsCount:
+        type: integer
+    type: object
+  whatsmiau.WookPollOption:
+    properties:
+      optionName:
+        type: string
+    type: object
+  whatsmiau.WookPollUpdate:
+    properties:
+      name:
+        type: string
+      voters:
+        items:
+          type: string
+        type: array
+    type: object
+  whatsmiau.WookPollUpdateMessageRaw:
+    properties:
+      pollCreationMessageKey:
+        $ref: '#/definitions/whatsmiau.WookKey'
+      senderTimestampMs:
+        type: string
+      vote:
+        $ref: '#/definitions/whatsmiau.WookPollVote'
+    type: object
+  whatsmiau.WookPollVote:
+    properties:
+      encIv:
+        type: string
+      encPayload:
+        type: string
+      selectedOptions:
+        items:
+          type: string
+        type: array
+    type: object
+  whatsmiau.WookPtvMessageRaw:
+    properties:
+      directPath:
+        type: string
+      fileEncSha256:
+        type: string
+      fileLength:
+        type: string
+      fileSha256:
+        type: string
+      jpegThumbnail:
+        type: string
+      mediaKey:
+        type: string
+      mimetype:
+        type: string
+      seconds:
+        type: integer
+      url:
+        type: string
+    type: object
+  whatsmiau.WookStickerMessageRaw:
+    properties:
+      directPath:
+        type: string
+      fileEncSha256:
+        type: string
+      fileLength:
+        type: string
+      fileSha256:
+        type: string
+      height:
+        type: integer
+      isAnimated:
+        type: boolean
+      mediaKey:
+        type: string
+      mediaKeyTimestamp:
+        type: string
+      mimetype:
+        type: string
+      pngThumbnail:
+        type: string
+      url:
+        type: string
+      width:
+        type: integer
+    type: object
+  whatsmiau.WookVideoMessageRaw:
+    properties:
+      caption:
+        type: string
+      fileEncSha256:
+        type: string
+      fileLength:
+        type: string
+      fileSha256:
+        type: string
+      gifPlayback:
+        type: boolean
+      jpegThumbnail:
+        type: string
+      mediaKey:
+        type: string
+      mimetype:
+        type: string
+      seconds:
+        type: integer
+      url:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -1720,6 +2287,54 @@ paths:
       summary: Delete message for everyone
       tags:
       - Chat
+  /v1/chat/fetchProfilePictureUrl/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Returns the full-size profile picture URL for a number or group
+        JID, mirroring Evolution API's POST /chat/fetchProfilePictureUrl. profilePictureUrl
+        is null when the target has no picture or hid it.
+      operationId: postV1ChatFetchProfilePictureUrlByInstance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Number or JID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.FetchProfilePictureRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.FetchProfilePictureResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Fetch profile picture URL
+      tags:
+      - Chat
   /v1/chat/markMessageAsRead/{instance}:
     post:
       consumes:
@@ -1813,6 +2428,115 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Send chat presence (typing indicator)
+      tags:
+      - Chat
+  /v1/chat/syncMessages/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: 'Requests message history for a chat from the user''s primary device
+        (on-demand history sync). The primary device (phone) must have a server-connected
+        WhatsApp session — history is served from its local message store. The `id`
+        anchor is required: history is returned backwards from it, `count` messages
+        per page (default 50). Optionally paginates back to a target date with `since`.
+        A single request returns at most 500 messages. Recommended not to be used
+        for bulk history extraction.'
+      operationId: postV1ChatSyncMessagesByInstance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Sync parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SyncChatMessagesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Messages synced from the chat
+          schema:
+            items:
+              $ref: '#/definitions/whatsmiau.WookMessageData'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "504":
+          description: Gateway Timeout
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Sync chat messages on demand
+      tags:
+      - Chat
+  /v1/chat/updateMessage/{instance}:
+    post:
+      consumes:
+      - application/json
+      description: Edits a previously sent text message, mirroring Evolution API's
+        POST /chat/updateMessage
+      operationId: postV1ChatUpdateMessageByInstance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Message edit parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UpdateMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Edit a message
       tags:
       - Chat
   /v1/chat/whatsappNumbers/{instance}:
@@ -2458,6 +3182,8 @@ paths:
     post:
       consumes:
       - application/json
+      description: Accepts a regular group or subgroup JID. Community parent JIDs
+        are rejected by WhatsApp.
       operationId: postV1GroupSetMemberAddModeByInstance
       parameters:
       - description: Instance ID
@@ -3516,6 +4242,68 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Mark messages as read
+      tags:
+      - Chat
+  /v1/instance/{instance}/chat/syncMessages:
+    post:
+      consumes:
+      - application/json
+      description: 'Requests message history for a chat from the user''s primary device
+        (on-demand history sync). The primary device (phone) must have a server-connected
+        WhatsApp session — history is served from its local message store. The `id`
+        anchor is required: history is returned backwards from it, `count` messages
+        per page (default 50). Optionally paginates back to a target date with `since`.
+        A single request returns at most 500 messages. Recommended not to be used
+        for bulk history extraction.'
+      operationId: postV1InstanceByInstanceChatSyncMessages
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance
+        required: true
+        type: string
+      - description: Sync parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SyncChatMessagesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Messages synced from the chat
+          schema:
+            items:
+              $ref: '#/definitions/whatsmiau.WookMessageData'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "504":
+          description: Gateway Timeout
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Sync chat messages on demand
       tags:
       - Chat
   /v1/instance/{instance}/community/create:
@@ -4726,6 +5514,8 @@ paths:
     post:
       consumes:
       - application/json
+      description: Accepts a regular group or subgroup JID. Community parent JIDs
+        are rejected by WhatsApp.
       operationId: postV1InstanceByInstanceGroupSetMemberAddMode
       parameters:
       - description: Instance ID

@@ -207,6 +207,11 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
+			// Apply alwaysOnline presence on connect, regardless of webhook state
+			if _, ok := evt.(*events.Connected); ok && instance.AlwaysOnline != nil {
+				s.ApplyPresence(id, *instance.AlwaysOnline)
+			}
+
 			// Handle lifecycle events regardless of webhook enabled state
 			if _, ok := evt.(*events.LoggedOut); ok {
 				s.handleLoggedOut(id)
@@ -216,6 +221,20 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				if offer, ok := evt.(*events.CallOffer); ok {
 					s.debugCallOfferShape(id, offer.Data)
 				}
+			}
+
+			if hs, ok := evt.(*events.HistorySync); ok && hs.Data != nil && hs.Data.GetSyncType() == waHistorySync.HistorySync_ON_DEMAND {
+				if w, ok := s.pendingSyncs.Load(id); ok &&
+					historySyncMatchesChat(hs, w.chat) &&
+					historySyncMatchesSend(hs, w.sendID) {
+					// Non-blocking send: a stale duplicate blob arriving after a
+					// timeout must not stall this event goroutine.
+					select {
+					case w.ch <- hs:
+					default:
+					}
+				}
+				return
 			}
 
 			if instance.Webhook.Enabled != nil && !*instance.Webhook.Enabled {
@@ -295,6 +314,14 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		if pm := e.Message.GetProtocolMessage(); pm != nil && pm.GetType() == waE2E.ProtocolMessage_REVOKE {
 			s.handleMessageDeleteEvent(id, instance, e, eventMap)
 			return
+		}
+	}
+
+	if instance.ReadMessages != nil && *instance.ReadMessages && !e.Info.IsFromMe {
+		if client, ok := s.clients.Load(id); ok {
+			if err := client.MarkRead(context.Background(), []types.MessageID{e.Info.ID}, e.Info.Timestamp, e.Info.Chat, e.Info.Sender); err != nil {
+				zap.L().Error("failed to mark message as read", zap.String("instance", id), zap.Error(err))
+			}
 		}
 	}
 

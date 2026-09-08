@@ -151,6 +151,18 @@ func (s *Instance) Update(ctx echo.Context) error {
 	if request.SaveMedia != nil {
 		toUpdate.SaveMedia = request.SaveMedia
 	}
+	if request.ReadMessages != nil {
+		toUpdate.ReadMessages = request.ReadMessages
+	}
+	if request.AlwaysOnline != nil {
+		toUpdate.AlwaysOnline = request.AlwaysOnline
+	}
+	if request.MsgCall != nil {
+		toUpdate.MsgCall = request.MsgCall
+	}
+	if request.RejectCall != nil {
+		toUpdate.RejectCall = request.RejectCall
+	}
 
 	instance, err := s.repo.Update(c, request.ID, toUpdate)
 	if err != nil {
@@ -163,6 +175,11 @@ func (s *Instance) Update(ctx echo.Context) error {
 
 	// Invalidate in-memory cache so settings like GroupsIgnore take effect immediately
 	s.whatsmiau.InvalidateInstanceCache(request.ID)
+
+	// Apply presence right away so the toggle takes effect without waiting for a reconnect
+	if request.AlwaysOnline != nil {
+		s.whatsmiau.ApplyPresence(request.ID, *request.AlwaysOnline)
+	}
 
 	return ctx.JSON(http.StatusCreated, dto.UpdateInstanceResponse{
 		Instance: instance,

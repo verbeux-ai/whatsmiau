@@ -8,12 +8,11 @@ type SetWebhookRequest struct {
 }
 
 type SetWebhookRequestData struct {
-	Enabled  *bool             `json:"enabled,omitempty"`
-	URL      string            `json:"url,omitempty"`
-	Headers  map[string]string `json:"headers,omitempty"`
-	ByEvents *bool             `json:"byEvents,omitempty"`
-	Base64   *bool             `json:"base64,omitempty"`
-	Events   []string          `json:"events,omitempty"`
+	Enabled *bool             `json:"enabled,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Base64  *bool             `json:"base64,omitempty"`
+	Events  []string          `json:"events,omitempty"`
 }
 
 type SetWebhookResponse struct {

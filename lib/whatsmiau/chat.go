@@ -1,6 +1,7 @@
 package whatsmiau
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,6 +16,13 @@ type ReadMessageRequest struct {
 	InstanceID string     `json:"instance_id"`
 	RemoteJID  *types.JID `json:"remote_jid"`
 	Sender     *types.JID `json:"sender"`
+	// Played sends a "played" receipt instead of a "read" one: the blue
+	// microphone on a voice note, as opposed to the blue ticks on the chat.
+	// WhatsApp treats them as two different receipts, and marking an audio
+	// message as read never turns its microphone blue.
+	//
+	// Only meaningful for audio/PTT messages; WhatsApp ignores it elsewhere.
+	Played bool `json:"played"`
 }
 
 func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
@@ -28,7 +36,14 @@ func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
 		sender = *data.Sender
 	}
 
-	return client.MarkRead(context.TODO(), data.MessageIDs, time.Now(), *data.RemoteJID, sender)
+	// MarkRead defaults to types.ReceiptTypeRead and only overrides it from
+	// this variadic, so "played" is unreachable unless it is passed here.
+	var receiptType []types.ReceiptType
+	if data.Played {
+		receiptType = append(receiptType, types.ReceiptTypePlayed)
+	}
+
+	return client.MarkRead(context.TODO(), data.MessageIDs, time.Now(), *data.RemoteJID, sender, receiptType...)
 }
 
 type ChatPresenceRequest struct {
@@ -162,4 +177,31 @@ func (s *Whatsmiau) DeleteMessageForEveryone(ctx context.Context, req *DeleteMes
 	msg := client.BuildRevoke(chat, sender, types.MessageID(req.MessageID))
 	_, err := client.SendMessage(ctx, chat, msg)
 	return err
+}
+
+// FetchProfilePictureURL returns the full-size ('image') profile picture URL
+// for a user or group JID, mirroring Evolution API's POST /chat/fetchProfilePictureUrl.
+// It returns ("", nil) when the target has no picture or hid its picture; the
+// caller maps that to a null field, keeping the contract Evolution-compatible.
+func (s *Whatsmiau) FetchProfilePictureURL(ctx context.Context, instanceID string, jid types.JID) (string, error) {
+	client, ok := s.clients.Load(instanceID)
+	if !ok {
+		return "", whatsmeow.ErrClientIsNil
+	}
+	if !client.IsConnected() {
+		return "", fmt.Errorf("client not connected")
+	}
+
+	pic, err := client.GetProfilePictureInfo(ctx, jid, &whatsmeow.GetProfilePictureParams{Preview: false})
+	if errors.Is(err, whatsmeow.ErrProfilePictureNotSet) || errors.Is(err, whatsmeow.ErrProfilePictureUnauthorized) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if pic == nil || pic.URL == "" {
+		return "", nil
+	}
+
+	return pic.URL, nil
 }

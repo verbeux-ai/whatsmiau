@@ -44,6 +44,8 @@ type Whatsmiau struct {
 	httpClient         *http.Client
 	fileStorage        interfaces.Storage
 	handlerSemaphore   chan struct{}
+	pendingSyncs       *xsync.Map[string, *pendingSyncWaiter]
+	syncLocks          *xsync.Map[string, *sync.Mutex]
 }
 
 var instance *Whatsmiau
@@ -187,6 +189,8 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		},
 		fileStorage:      storage,
 		handlerSemaphore: make(chan struct{}, env.Env.HandlerSemaphoreSize),
+		pendingSyncs:     xsync.NewMap[string, *pendingSyncWaiter](),
+		syncLocks:        xsync.NewMap[string, *sync.Mutex](),
 	}
 
 	go instance.startEmitter()
@@ -724,6 +728,21 @@ func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
 
 func (s *Whatsmiau) InvalidateInstanceCache(id string) {
 	s.instanceCache.Delete(id)
+}
+
+func (s *Whatsmiau) ApplyPresence(id string, online bool) {
+	client, ok := s.clients.Load(id)
+	if !ok || !client.IsConnected() {
+		return
+	}
+
+	state := types.PresenceUnavailable
+	if online {
+		state = types.PresenceAvailable
+	}
+	if err := client.SendPresence(context.Background(), state); err != nil {
+		zap.L().Error("failed to send presence", zap.String("instance", id), zap.Error(err))
+	}
 }
 
 func (s *Whatsmiau) GetJidLid(ctx context.Context, id string, jid types.JID) (string, string) {

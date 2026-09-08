@@ -113,6 +113,55 @@ func buildSendTextMessage(data *SendText, mentionedJID []string, everyone bool) 
 	}
 }
 
+type EditMessageKey struct {
+	ID          string
+	RemoteJID   string
+	FromMe      bool
+	Participant string
+}
+
+type UpdateMessage struct {
+	Text       string          `json:"text"`
+	InstanceID string          `json:"instance_id"`
+	RemoteJID  *types.JID      `json:"remote_jid"`
+	Key        *EditMessageKey `json:"key"`
+}
+
+type UpdateMessageResponse struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *Whatsmiau) UpdateMessage(ctx context.Context, data *UpdateMessage) (*UpdateMessageResponse, error) {
+	client, ok := s.clients.Load(data.InstanceID)
+	if !ok {
+		return nil, whatsmeow.ErrClientIsNil
+	}
+	if client.Store == nil || client.Store.ID == nil {
+		return nil, fmt.Errorf("device is not connected")
+	}
+	if data.RemoteJID == nil {
+		return nil, fmt.Errorf("remote_jid is required")
+	}
+	if data.Key == nil || len(data.Key.ID) == 0 {
+		return nil, fmt.Errorf("key.id is required")
+	}
+
+	chat := s.resolveJID(ctx, client, *data.RemoteJID)
+
+	res, err := client.SendMessage(ctx, chat, client.BuildEdit(chat, types.MessageID(data.Key.ID), &waE2E.Message{
+		Conversation: proto.String(data.Text),
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	return &UpdateMessageResponse{
+		ID:        res.ID,
+		CreatedAt: res.Timestamp,
+	}, nil
+}
+
 // resolveMentions builds the mention metadata for a message. mentionsEveryOne
 // only applies to group chats and uses the native "@everyone" mechanism
 // (ContextInfo.NonJIDMentions = 1), the same approach mautrix-whatsapp uses

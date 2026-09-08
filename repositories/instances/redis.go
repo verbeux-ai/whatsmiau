@@ -74,9 +74,6 @@ func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.
 	if toUpdate.Webhook.Url != "" {
 		oldInstance.Webhook.Url = toUpdate.Webhook.Url
 	}
-	if toUpdate.Webhook.ByEvents != nil {
-		oldInstance.Webhook.ByEvents = toUpdate.Webhook.ByEvents
-	}
 	if toUpdate.Webhook.Base64 != nil {
 		oldInstance.Webhook.Base64 = toUpdate.Webhook.Base64
 	}
@@ -98,6 +95,22 @@ func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.
 
 	if toUpdate.SaveMedia != nil {
 		oldInstance.SaveMedia = toUpdate.SaveMedia
+	}
+
+	if toUpdate.ReadMessages != nil {
+		oldInstance.ReadMessages = toUpdate.ReadMessages
+	}
+
+	if toUpdate.AlwaysOnline != nil {
+		oldInstance.AlwaysOnline = toUpdate.AlwaysOnline
+	}
+
+	if toUpdate.MsgCall != nil {
+		oldInstance.MsgCall = toUpdate.MsgCall
+	}
+
+	if toUpdate.RejectCall != nil {
+		oldInstance.RejectCall = toUpdate.RejectCall
 	}
 
 	if toUpdate.ProxyHost != "" {

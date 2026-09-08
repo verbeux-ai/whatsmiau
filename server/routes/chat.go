@@ -15,6 +15,7 @@ func Chat(group *echo.Group) {
 	group.POST("/presence", controller.SendChatPresence)
 	group.POST("/read-messages", controller.ReadMessages)
 	group.DELETE("/deleteMessageForEveryone", controller.DeleteMessageForEveryone)
+	group.POST("/syncMessages", controller.SyncChatMessages)
 }
 
 func ChatEVO(group *echo.Group) {
@@ -25,5 +26,8 @@ func ChatEVO(group *echo.Group) {
 	group.POST("/markMessageAsRead/:instance", controller.ReadMessages)
 	group.POST("/sendPresence/:instance", controller.SendChatPresence)
 	group.POST("/whatsappNumbers/:instance", controller.NumberExists)
+	group.POST("/updateMessage/:instance", controller.UpdateMessage)
+	group.POST("/fetchProfilePictureUrl/:instance", controller.FetchProfilePicture)
 	group.DELETE("/deleteMessageForEveryone/:instance", controller.DeleteMessageForEveryone)
+	group.POST("/syncMessages/:instance", controller.SyncChatMessages)
 }

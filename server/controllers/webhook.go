@@ -59,12 +59,11 @@ func (s *Webhook) Set(ctx echo.Context) error {
 	instance, err := s.repo.Update(c, request.InstanceID, &models.Instance{
 		ID: request.InstanceID,
 		Webhook: models.InstanceWebhook{
-			Enabled:  request.Webhook.Enabled,
-			Url:      request.Webhook.URL,
-			ByEvents: request.Webhook.ByEvents,
-			Base64:   request.Webhook.Base64,
-			Headers:  request.Webhook.Headers,
-			Events:   request.Webhook.Events,
+			Enabled: request.Webhook.Enabled,
+			Url:     request.Webhook.URL,
+			Base64:  request.Webhook.Base64,
+			Headers: request.Webhook.Headers,
+			Events:  request.Webhook.Events,
 		},
 	})
 	if err != nil {
