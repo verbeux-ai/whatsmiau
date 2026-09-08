@@ -37,7 +37,7 @@ func NewChats(repository interfaces.InstanceRepository, whatsmiau *whatsmiau.Wha
 
 // ReadMessages godoc
 // @Summary      Mark messages as read
-// @Description  Marks one or more messages as read in a WhatsApp conversation
+// @Description  Marks one or more messages as read in a WhatsApp conversation. Set "played" on an item to send a played receipt instead, which is what turns a voice note's microphone blue.
 // @Tags         Chat
 // @Accept       json
 // @Produce      json
@@ -60,29 +60,80 @@ func (s *Chat) ReadMessages(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
 	}
 
-	result := make(map[string][]string)
-	for _, msg := range request.ReadMessages {
-		result[msg.RemoteJid] = append(result[msg.RemoteJid], msg.ID)
-	}
-
-	for remoteJid, msgs := range result {
-		number, err := numberToJid(remoteJid)
+	for _, batch := range groupReadMessages(request.ReadMessages) {
+		number, err := numberToJid(batch.remoteJid)
 		if err != nil {
 			zap.L().Error("error converting number to jid", zap.Error(err))
 			continue
 		}
 
+		// Without this the sender was always nil and ReadMessage fell back to
+		// the chat JID — harmless in a direct chat, wrong in a group, where
+		// the receipt has to name the participant who sent the message.
+		var sender *types.JID
+		if batch.sender != "" {
+			sender, err = numberToJid(batch.sender)
+			if err != nil {
+				zap.L().Error("error converting sender to jid", zap.Error(err))
+				continue
+			}
+		}
+
 		if err := s.whatsmiau.ReadMessage(&whatsmiau.ReadMessageRequest{
-			MessageIDs: msgs,
+			MessageIDs: batch.ids,
 			InstanceID: request.InstanceID,
 			RemoteJID:  number,
-			Sender:     nil,
+			Sender:     sender,
+			Played:     batch.played,
 		}); err != nil {
 			zap.L().Error("Whatsmiau.ReadMessages failed", zap.Error(err))
 		}
 	}
 
 	return ctx.JSON(http.StatusOK, map[string]interface{}{})
+}
+
+// readBatch is one MarkRead call: the message ids that share a chat, a sender
+// and a receipt type.
+type readBatch struct {
+	remoteJid string
+	sender    string
+	played    bool
+	ids       []string
+}
+
+// groupReadMessages packs a read request into as few MarkRead calls as the
+// receipts allow, preserving the order the caller sent.
+//
+// Grouping by chat alone would merge messages that need different receipts:
+// a voice note being marked played and a text being marked read share the
+// chat but not the receipt type, and inside a group the sender differs per
+// message. All three belong in the key.
+func groupReadMessages(items []dto.ReadMessagesRequestItem) []readBatch {
+	type key struct {
+		remoteJid string
+		sender    string
+		played    bool
+	}
+
+	position := make(map[key]int, len(items))
+	batches := make([]readBatch, 0, len(items))
+	for _, item := range items {
+		k := key{remoteJid: item.RemoteJid, sender: item.Sender, played: item.Played}
+		if index, seen := position[k]; seen {
+			batches[index].ids = append(batches[index].ids, item.ID)
+			continue
+		}
+		position[k] = len(batches)
+		batches = append(batches, readBatch{
+			remoteJid: item.RemoteJid,
+			sender:    item.Sender,
+			played:    item.Played,
+			ids:       []string{item.ID},
+		})
+	}
+
+	return batches
 }
 
 // SendChatPresence godoc
