@@ -283,7 +283,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Marks one or more messages as read in a WhatsApp conversation",
+                "description": "Marks one or more messages as read in a WhatsApp conversation. Set \"played\" on an item to send a played receipt instead, which is what turns a voice note's microphone blue.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2185,7 +2185,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message.",
+                "description": "Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message. While the QR code is being generated after an expiry, returns 200 with connected=false and no base64.",
                 "produces": [
                     "application/json"
                 ],
@@ -2727,7 +2727,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message.",
+                "description": "Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message. While the QR code is being generated after an expiry, returns 200 with connected=false and no base64.",
                 "produces": [
                     "application/json"
                 ],
@@ -3396,7 +3396,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Marks one or more messages as read in a WhatsApp conversation",
+                "description": "Marks one or more messages as read in a WhatsApp conversation. Set \"played\" on an item to send a played receipt instead, which is what turns a voice note's microphone blue.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8455,6 +8455,10 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "string"
+                },
+                "played": {
+                    "description": "Played marks a voice note as heard (blue microphone) instead of merely\nread (blue ticks). Audio and PTT messages only.",
+                    "type": "boolean"
                 },
                 "remoteJid": {
                     "type": "string"

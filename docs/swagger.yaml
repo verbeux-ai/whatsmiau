@@ -576,6 +576,11 @@ definitions:
     properties:
       id:
         type: string
+      played:
+        description: |-
+          Played marks a voice note as heard (blue microphone) instead of merely
+          read (blue ticks). Audio and PTT messages only.
+        type: boolean
       remoteJid:
         type: string
       sender:
@@ -2339,7 +2344,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Marks one or more messages as read in a WhatsApp conversation
+      description: Marks one or more messages as read in a WhatsApp conversation.
+        Set "played" on an item to send a played receipt instead, which is what turns
+        a voice note's microphone blue.
       operationId: postV1ChatMarkMessageAsReadByInstance
       parameters:
       - description: Instance ID
@@ -3729,7 +3736,9 @@ paths:
   /v1/instance/{id}/connect:
     post:
       description: Initiates connection for an instance. Returns a base64-encoded
-        QR code PNG if not yet connected, or a connected status message.
+        QR code PNG if not yet connected, or a connected status message. While the
+        QR code is being generated after an expiry, returns 200 with connected=false
+        and no base64.
       operationId: postV1InstanceByIdConnect
       parameters:
       - description: Instance ID
@@ -4201,7 +4210,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Marks one or more messages as read in a WhatsApp conversation
+      description: Marks one or more messages as read in a WhatsApp conversation.
+        Set "played" on an item to send a played receipt instead, which is what turns
+        a voice note's microphone blue.
       operationId: postV1InstanceByInstanceChatReadMessages
       parameters:
       - description: Instance ID
@@ -6500,7 +6511,9 @@ paths:
   /v1/instance/connect/{id}:
     get:
       description: Initiates connection for an instance. Returns a base64-encoded
-        QR code PNG if not yet connected, or a connected status message.
+        QR code PNG if not yet connected, or a connected status message. While the
+        QR code is being generated after an expiry, returns 200 with connected=false
+        and no base64.
       operationId: getV1InstanceConnectById
       parameters:
       - description: Instance ID
