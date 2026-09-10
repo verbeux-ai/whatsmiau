@@ -7,10 +7,12 @@ import (
 	"image"
 	"image/jpeg"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	_ "golang.org/x/image/webp"
@@ -23,10 +25,10 @@ import (
 )
 
 type linkPreviewInfo struct {
-	url         string
-	title       string
-	description string
-	thumbnail   []byte // JPEG thumbnail (~192px), nil when the page has no image
+	url          string
+	title        string
+	description  string
+	thumbnail    []byte // JPEG thumbnail (~192px), nil when the page has no image
 	hqDirectPath string
 	hqMediaKey   []byte
 	hqSHA256     []byte
@@ -68,6 +70,71 @@ func extractURL(text string) (fetchURL, matchedText string) {
 	return "https://" + matchedText, matchedText
 }
 
+var linkPreviewDefaultClient = newLinkPreviewHTTPClient()
+
+func isDisallowedIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsMulticast() || ip.IsInterfaceLocalMulticast() {
+		return true
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		switch {
+		case ip4[0] == 0: // 0.0.0.0/8 "this network"
+			return true
+		case ip4[0] == 100 && ip4[1]&0xc0 == 64: // 100.64.0.0/10 CGNAT
+			return true
+		case ip4[0] == 192 && ip4[1] == 0 && ip4[2] == 0: // 192.0.0.0/24
+			return true
+		case ip4[0] == 198 && (ip4[1] == 18 || ip4[1] == 19): // 198.18.0.0/15
+			return true
+		case ip4[0] >= 240: // 240.0.0.0/4 reserved
+			return true
+		}
+	}
+	return false
+}
+
+func linkPreviewDialControl(_, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("link preview: invalid dial address %q: %w", address, err)
+	}
+	if isDisallowedIP(net.ParseIP(host)) {
+		return fmt.Errorf("link preview: refusing to connect to non-public address %s", address)
+	}
+	return nil
+}
+
+func newLinkPreviewHTTPClient() *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Control:   linkPreviewDialControl,
+	}
+	return &http.Client{
+		Transport: &http.Transport{
+			DialContext:           dialer.DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          10,
+			IdleConnTimeout:       30 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: time.Second,
+		},
+	}
+}
+
+// previewHTTPClient returns the guarded client used for link preview fetches.
+func (s *Whatsmiau) previewHTTPClient() *http.Client {
+	if s.linkPreviewClient != nil {
+		return s.linkPreviewClient
+	}
+	return linkPreviewDefaultClient
+}
+
 func (s *Whatsmiau) fetchLinkPreview(ctx context.Context, text string, client *whatsmeow.Client) (*linkPreviewInfo, error) {
 	fetchURL, matched := extractURL(text)
 	if fetchURL == "" {
@@ -85,7 +152,7 @@ func (s *Whatsmiau) fetchLinkPreview(ctx context.Context, text string, client *w
 	// Only pages with HTML content can provide preview metadata.
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.previewHTTPClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +200,7 @@ func (s *Whatsmiau) fetchLinkPreview(ctx context.Context, text string, client *w
 		info.thumbnail = thumb
 
 		if client != nil && len(original) > 0 {
-			if err := s.uploadLinkPreviewHQ(ctx, client, info, original, width, height); err != nil {
+			if err := s.uploadLinkPreviewHQ(pageCtx, client, info, original, width, height); err != nil {
 				zap.L().Warn("link preview HQ upload failed, falling back to small card", zap.Error(err))
 			}
 		}
@@ -231,7 +298,7 @@ func (s *Whatsmiau) fetchLinkPreviewThumbnail(ctx context.Context, imageURL stri
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; whatsmiau-link-preview/1.0)")
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.previewHTTPClient().Do(req)
 	if err != nil {
 		return nil, nil, 0, 0, err
 	}

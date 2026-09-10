@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -171,7 +172,7 @@ func TestFetchLinkPreviewWithServer(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	s := &Whatsmiau{httpClient: srv.Client()}
+	s := &Whatsmiau{linkPreviewClient: srv.Client()}
 	info, err := s.fetchLinkPreview(context.Background(), "visit "+srv.URL+"/page.html", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -191,7 +192,7 @@ func TestFetchLinkPreviewWithServer(t *testing.T) {
 }
 
 func TestFetchLinkPreviewWithoutURL(t *testing.T) {
-	s := &Whatsmiau{httpClient: http.DefaultClient}
+	s := &Whatsmiau{linkPreviewClient: http.DefaultClient}
 	info, err := s.fetchLinkPreview(context.Background(), "no links here", nil)
 	if info != nil || err == nil {
 		t.Fatalf("expected nil info and error for text without URL, got info=%v err=%v", info, err)
@@ -201,7 +202,7 @@ func TestFetchLinkPreviewWithoutURL(t *testing.T) {
 func TestFetchLinkPreviewErrorOnUnreachableHost(t *testing.T) {
 	// A fetch failure must surface as an error (the caller then sends plain text),
 	// never a panic or a partial preview.
-	s := &Whatsmiau{httpClient: http.DefaultClient}
+	s := &Whatsmiau{linkPreviewClient: http.DefaultClient}
 	info, err := s.fetchLinkPreview(context.Background(), "https://127.0.0.1:1/unreachable", nil)
 	if info != nil || err == nil {
 		t.Fatalf("expected nil info and error for unreachable host, got info=%v err=%v", info, err)
@@ -294,7 +295,7 @@ func TestFetchLinkPreviewRelativeOGImage(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	s := &Whatsmiau{httpClient: srv.Client()}
+	s := &Whatsmiau{linkPreviewClient: srv.Client()}
 	info, err := s.fetchLinkPreview(context.Background(), "check "+srv.URL+"/page", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -312,7 +313,7 @@ func TestFetchLinkPreviewTrimsTrailingPunctuation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	s := &Whatsmiau{httpClient: srv.Client()}
+	s := &Whatsmiau{linkPreviewClient: srv.Client()}
 	// The trailing "." after the URL is sentence punctuation, not part of it.
 	info, err := s.fetchLinkPreview(context.Background(), "see "+srv.URL+"/page.", nil)
 	if err != nil {
@@ -342,7 +343,7 @@ func TestFetchLinkPreviewThumbnailRejectsHugeDimensions(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	s := &Whatsmiau{httpClient: srv.Client()}
+	s := &Whatsmiau{linkPreviewClient: srv.Client()}
 	thumb, _, _, _, err := s.fetchLinkPreviewThumbnail(context.Background(), srv.URL+"/huge.jpg")
 	if err == nil {
 		t.Fatal("expected huge-dimension image to be rejected")
@@ -366,7 +367,7 @@ func TestFetchLinkPreviewThumbnailDecodesPNG(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	s := &Whatsmiau{httpClient: srv.Client()}
+	s := &Whatsmiau{linkPreviewClient: srv.Client()}
 	thumb, original, width, height, err := s.fetchLinkPreviewThumbnail(context.Background(), srv.URL+"/cover.png")
 	if err != nil {
 		t.Fatalf("unexpected error decoding PNG: %v", err)
@@ -413,7 +414,7 @@ func TestFetchLinkPreviewResolvesRelativeImageAgainstFinalURL(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	s := &Whatsmiau{httpClient: srv.Client()}
+	s := &Whatsmiau{linkPreviewClient: srv.Client()}
 	info, err := s.fetchLinkPreview(context.Background(), srv.URL+"/landing", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -491,5 +492,65 @@ func TestBuildSendTextMessageLinkPreviewWithoutHQKeepsSmallCard(t *testing.T) {
 	}
 	if len(ext.GetJPEGThumbnail()) == 0 {
 		t.Fatal("expected small embedded thumbnail to remain")
+	}
+}
+
+func TestIsDisallowedIP(t *testing.T) {
+	disallowed := []string{
+		"127.0.0.1", "::1", "10.0.0.1", "172.16.0.1", "192.168.1.1",
+		"169.254.169.254", "fe80::1", "fc00::1", "0.0.0.0", "::",
+		"100.64.0.1", "198.18.0.1", "240.0.0.1", "::ffff:127.0.0.1",
+		"224.0.0.1", "ff02::1",
+	}
+	for _, raw := range disallowed {
+		if !isDisallowedIP(net.ParseIP(raw)) {
+			t.Errorf("expected %s to be disallowed", raw)
+		}
+	}
+	if !isDisallowedIP(nil) {
+		t.Error("expected nil IP to be disallowed (fail closed)")
+	}
+
+	allowed := []string{"8.8.8.8", "1.1.1.1", "93.184.216.34", "2606:4700::1111"}
+	for _, raw := range allowed {
+		if isDisallowedIP(net.ParseIP(raw)) {
+			t.Errorf("expected %s to be allowed", raw)
+		}
+	}
+}
+
+func TestLinkPreviewDialControl(t *testing.T) {
+	// The dial control runs per connection, including every redirect hop, so it
+	// must reject internal addresses and allow public ones.
+	if err := linkPreviewDialControl("tcp4", "127.0.0.1:80", nil); err == nil {
+		t.Error("expected loopback dial to be refused")
+	}
+	if err := linkPreviewDialControl("tcp4", "169.254.169.254:80", nil); err == nil {
+		t.Error("expected link-local dial to be refused")
+	}
+	if err := linkPreviewDialControl("tcp6", "[::1]:443", nil); err == nil {
+		t.Error("expected IPv6 loopback dial to be refused")
+	}
+	if err := linkPreviewDialControl("tcp4", "93.184.216.34:443", nil); err != nil {
+		t.Errorf("expected public dial to be allowed, got %v", err)
+	}
+	if err := linkPreviewDialControl("tcp4", "not-an-address", nil); err == nil {
+		t.Error("expected malformed dial address to be refused")
+	}
+}
+
+func TestLinkPreviewHTTPClientBlocksInternalAddresses(t *testing.T) {
+	// A guarded client must refuse a loopback destination, which is what stops
+	// both a redirect to an internal service and an internal og:image.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<html><head><title>Internal</title></head></html>`))
+	}))
+	defer srv.Close()
+
+	resp, err := newLinkPreviewHTTPClient().Get(srv.URL)
+	if err == nil {
+		resp.Body.Close()
+		t.Fatal("expected the guarded client to refuse a loopback address")
 	}
 }
