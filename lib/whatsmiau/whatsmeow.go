@@ -558,7 +558,7 @@ func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *wha
 				}
 				return qr, pc, nil
 			}
-			return "", "", ctx.Err()
+			return "", "", ErrAwaitingQR
 		}
 	}
 }
