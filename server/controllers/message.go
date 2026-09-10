@@ -73,6 +73,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 		InstanceID:       request.InstanceID,
 		RemoteJID:        jid,
 		Quote:            quote,
+		LinkPreview:      request.LinkPreview,
 		MentionsEveryOne: request.MentionsEveryOne,
 		Mentioned:        request.Mentioned,
 	}

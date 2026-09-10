@@ -42,6 +42,7 @@ type Whatsmiau struct {
 	connectPhoneNumber *xsync.Map[string, string]
 	emitter            chan emitter
 	httpClient         *http.Client
+	linkPreviewClient  *http.Client
 	fileStorage        interfaces.Storage
 	handlerSemaphore   chan struct{}
 	pendingSyncs       *xsync.Map[string, *pendingSyncWaiter]
@@ -187,10 +188,11 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		httpClient: &http.Client{
 			Timeout: time.Second * 30, // TODO: load from env
 		},
-		fileStorage:      storage,
-		handlerSemaphore: make(chan struct{}, env.Env.HandlerSemaphoreSize),
-		pendingSyncs:     xsync.NewMap[string, *pendingSyncWaiter](),
-		syncLocks:        xsync.NewMap[string, *sync.Mutex](),
+		linkPreviewClient: newLinkPreviewHTTPClient(),
+		fileStorage:       storage,
+		handlerSemaphore:  make(chan struct{}, env.Env.HandlerSemaphoreSize),
+		pendingSyncs:      xsync.NewMap[string, *pendingSyncWaiter](),
+		syncLocks:         xsync.NewMap[string, *sync.Mutex](),
 	}
 
 	go instance.startEmitter()
