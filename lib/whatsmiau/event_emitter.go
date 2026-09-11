@@ -39,7 +39,8 @@ func (s *Whatsmiau) getInstance(id string) *models.Instance {
 
 	res, err := s.repo.List(ctx, id)
 	if err != nil {
-		zap.L().Panic("failed to get instanceCached by instance", zap.Error(err))
+		zap.L().Error("failed to get instanceCached by instance", zap.Error(err))
+		return nil
 	}
 
 	if len(res) == 0 {
@@ -61,7 +62,8 @@ func (s *Whatsmiau) getInstanceCached(id string) *models.Instance {
 
 	res, err := s.repo.List(ctx, id)
 	if err != nil {
-		zap.L().Panic("failed to get instanceCached by instance", zap.Error(err))
+		zap.L().Error("failed to get instanceCached by instance", zap.Error(err))
+		return nil
 	}
 
 	if len(res) == 0 {
