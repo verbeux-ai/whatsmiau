@@ -523,46 +523,53 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string, phone
 	}
 }
 
-func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *whatsmeow.Client, phoneNumber string) (string, string, error) {
-	ctx, c := context.WithTimeout(ctx, 15*time.Second)
-	defer c()
+const qrWaitTimeout = 15 * time.Second
+const pairingWaitTimeout = 10 * time.Second
 
-	zap.L().Debug("starting observe and qr code", zap.String("id", id))
-	go s.observeConnection(client, id, phoneNumber)
+func waitForCachedValue(ctx context.Context, cache *xsync.Map[string, string], key string, timeout time.Duration) string {
+	if value, ok := cache.Load(key); ok && value != "" {
+		return value
+	}
 
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			qrCode, ok := s.qrCache.Load(id)
-			if ok && len(qrCode) > 0 {
-				zap.L().Debug("got qr code from cache", zap.String("id", id))
-				if phoneNumber != "" {
-					// wait a bit more for pairing code to be generated
-					pc, pcOk := s.pairingCache.Load(id)
-					if pcOk {
-						return qrCode, pc, nil
-					}
-					continue
-				}
-				return qrCode, "", nil
+			if value, ok := cache.Load(key); ok && value != "" {
+				return value
 			}
+		case <-timer.C:
+			value, _ := cache.Load(key)
+			return value
 		case <-ctx.Done():
-			zap.L().Debug("observe and qr code context done", zap.String("id", id), zap.Error(ctx.Err()))
-			// return whatever we have so far
-			qr, _ := s.qrCache.Load(id)
-			pc, _ := s.pairingCache.Load(id)
-			if qr != "" {
-				if phoneNumber != "" && pc == "" {
-					return qr, "", ctx.Err()
-				}
-				return qr, pc, nil
-			}
-			return "", "", ErrAwaitingQR
+			value, _ := cache.Load(key)
+			return value
 		}
 	}
+}
+
+func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *whatsmeow.Client, phoneNumber string) (string, string, error) {
+	zap.L().Debug("starting observe and qr code", zap.String("id", id))
+	go s.observeConnection(client, id, phoneNumber)
+
+	qrCode := waitForCachedValue(ctx, s.qrCache, id, qrWaitTimeout)
+	if qrCode == "" {
+		zap.L().Debug("no qr code generated within budget", zap.String("id", id))
+		return "", "", ErrAwaitingQR
+	}
+	if phoneNumber == "" {
+		return qrCode, "", nil
+	}
+
+	pairingCode := waitForCachedValue(ctx, s.pairingCache, id, pairingWaitTimeout)
+	if pairingCode == "" {
+		zap.L().Debug("qr code ready but pairing code not generated in time", zap.String("id", id))
+	}
+	return qrCode, pairingCode, nil
 }
 
 func (s *Whatsmiau) deleteDeviceIfExists(ctx context.Context, client *whatsmeow.Client) error {
