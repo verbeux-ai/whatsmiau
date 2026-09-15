@@ -117,7 +117,7 @@ func (s *Whatsmiau) emitCallEvent(id string, instance *models.Instance, data *Wo
 		zap.String("status", data.Status),
 		zap.Bool("is_group", data.IsGroup),
 	)
-	s.emit(wookEvent, instance.Webhook.Url)
+	s.emit(wookEvent, instance.Webhook.Url, instance.Webhook.Headers)
 }
 
 func newWookCallData(meta types.BasicCallMeta, status string) *WookCallData {
