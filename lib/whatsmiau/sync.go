@@ -22,6 +22,8 @@ const (
 
 var ErrSyncTimeout = errors.New("timeout: phone did not respond in time")
 
+var ErrAwaitingQR = errors.New("awaiting qr code generation")
+
 type pendingSyncWaiter struct {
 	chat   types.JID
 	sendID string

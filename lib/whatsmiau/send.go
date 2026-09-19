@@ -26,8 +26,11 @@ type SendText struct {
 	InstanceID       string     `json:"instance_id"`
 	RemoteJID        *types.JID `json:"remote_jid"`
 	Quote            *Quote     `json:"quote,omitempty"`
+	LinkPreview      bool       `json:"linkPreview,omitempty"`
 	MentionsEveryOne bool       `json:"mentionsEveryOne,omitempty"`
 	Mentioned        []string   `json:"mentioned,omitempty"`
+
+	linkPreviewInfo *linkPreviewInfo
 }
 
 type SendTextResponse struct {
@@ -51,6 +54,15 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
 		return nil, err
+	}
+
+	if data.LinkPreview {
+		preview, previewErr := s.fetchLinkPreview(ctx, data.Text, client)
+		if previewErr != nil {
+			zap.L().Warn("link preview fetch failed, sending plain text", zap.Error(previewErr))
+		} else {
+			data.linkPreviewInfo = preview
+		}
 	}
 
 	// mentionsEveryOne uses the classic E2E path with ContextInfo.NonJIDMentions=1
@@ -99,6 +111,36 @@ func buildContextInfo(q *Quote, mentionedJID []string, everyone bool) *waE2E.Con
 
 func buildSendTextMessage(data *SendText, mentionedJID []string, everyone bool) *waE2E.Message {
 	ci := buildContextInfo(data.Quote, mentionedJID, everyone)
+
+	// Link preview: the message must always go through ExtendedTextMessage with
+	// the fetched page metadata attached (matchedText/title/description/thumbnail).
+	if data.linkPreviewInfo != nil {
+		ext := &waE2E.ExtendedTextMessage{
+			Text:          proto.String(data.Text),
+			MatchedText:   proto.String(data.linkPreviewInfo.url),
+			Title:         proto.String(data.linkPreviewInfo.title),
+			Description:   proto.String(data.linkPreviewInfo.description),
+			PreviewType:   waE2E.ExtendedTextMessage_NONE.Enum(),
+			JPEGThumbnail: data.linkPreviewInfo.thumbnail,
+			ContextInfo:   ci,
+		}
+
+		// High-quality card image: when the original image was uploaded, point
+		// clients at it so they render the big card (attached image + site
+		// title/description) instead of the small link-text card.
+		if data.linkPreviewInfo.hqDirectPath != "" {
+			ext.ThumbnailDirectPath = proto.String(data.linkPreviewInfo.hqDirectPath)
+			ext.ThumbnailSHA256 = data.linkPreviewInfo.hqSHA256
+			ext.ThumbnailEncSHA256 = data.linkPreviewInfo.hqEncSHA256
+			ext.MediaKey = data.linkPreviewInfo.hqMediaKey
+			ext.MediaKeyTimestamp = proto.Int64(data.linkPreviewInfo.hqMediaKeyTs)
+			ext.ThumbnailWidth = proto.Uint32(uint32(data.linkPreviewInfo.hqWidth))
+			ext.ThumbnailHeight = proto.Uint32(uint32(data.linkPreviewInfo.hqHeight))
+		}
+
+		return &waE2E.Message{ExtendedTextMessage: ext}
+	}
+
 	if ci == nil {
 		return &waE2E.Message{
 			Conversation: proto.String(data.Text),

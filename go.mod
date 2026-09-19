@@ -25,6 +25,7 @@ require (
 	github.com/urfave/cli/v2 v2.25.1
 	go.mau.fi/whatsmeow v0.0.0-20260609091626-4e622162b959
 	go.uber.org/zap v1.27.0
+	golang.org/x/image v0.45.0
 	golang.org/x/net v0.58.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.22.0

@@ -238,7 +238,7 @@ func (s *Instance) List(ctx echo.Context) error {
 
 // Connect godoc
 // @Summary      Connect an instance (get QR code)
-// @Description  Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message.
+// @Description  Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message. While the QR code is being generated after an expiry, returns 200 with connected=false and no base64.
 // @Tags         Instance
 // @Produce      json
 // @Security     ApiKeyAuth
@@ -268,6 +268,12 @@ func (s *Instance) Connect(ctx echo.Context) error {
 
 	qrCode, pairingCode, err := s.whatsmiau.Connect(c, request.ID, request.Number)
 	if err != nil {
+		if errors.Is(err, whatsmiau.ErrAwaitingQR) {
+			return ctx.JSON(http.StatusOK, dto.ConnectInstanceResponse{
+				Connected: false,
+				Message:   "waiting for QR code generation",
+			})
+		}
 		zap.L().Error("failed to connect instance", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to connect instance")
 	}
@@ -323,6 +329,9 @@ func (s *Instance) ConnectQRBuffer(ctx echo.Context) error {
 
 	qrCode, _, err := s.whatsmiau.Connect(c, request.ID, "")
 	if err != nil {
+		if errors.Is(err, whatsmiau.ErrAwaitingQR) {
+			return ctx.NoContent(http.StatusOK)
+		}
 		zap.L().Error("failed to connect instance", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to connect instance")
 	}
