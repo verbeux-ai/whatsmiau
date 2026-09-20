@@ -8,6 +8,7 @@ const (
 	webhookConfigMessagesUpsert          webhookConfigEvent = "MESSAGES_UPSERT"
 	webhookConfigMessagesUpdate          webhookConfigEvent = "MESSAGES_UPDATE"
 	webhookConfigMessagesDelete          webhookConfigEvent = "MESSAGES_DELETE"
+	webhookConfigMessagesEdit            webhookConfigEvent = "MESSAGES_EDIT"
 	webhookConfigMessagesSet             webhookConfigEvent = "MESSAGES_SET"
 	webhookConfigContactsUpsert          webhookConfigEvent = "CONTACTS_UPSERT"
 	webhookConfigGroupParticipantsUpdate webhookConfigEvent = "GROUP_PARTICIPANTS_UPDATE"

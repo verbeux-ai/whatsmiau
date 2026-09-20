@@ -16,6 +16,7 @@ const (
 	WookMessagesDelete          Wook = "messages.delete"
 	WookMessagesSet             Wook = "messages.set"
 	WookGroupParticipantsUpdate Wook = "group-participants.update"
+	WookMessagesEdit            Wook = "messages.edit"
 	WookCall                    Wook = "call"
 )
 
@@ -286,6 +287,13 @@ type WookMessageUpdateData struct {
 	ParticipantLid string                  `json:"participantLid,omitempty"`
 	Status         WookMessageUpdateStatus `json:"status,omitempty"`
 	InstanceId     string                  `json:"instanceId,omitempty"`
+}
+
+type WookMessageEditData struct {
+	Key           *WookKey        `json:"key,omitempty"`
+	EditedMessage *WookMessageRaw `json:"editedMessage,omitempty"`
+	MessageType   string          `json:"messageType,omitempty"`
+	InstanceId    string          `json:"instanceId,omitempty"`
 }
 
 type WookContact struct {
