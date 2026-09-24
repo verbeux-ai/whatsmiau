@@ -7777,6 +7777,9 @@ const docTemplate = `{
                 "pairingCode": {
                     "type": "string"
                 },
+                "pairingError": {
+                    "type": "string"
+                },
                 "proxyHost": {
                     "type": "string"
                 },

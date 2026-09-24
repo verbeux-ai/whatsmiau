@@ -1,6 +1,7 @@
 package whatsmiau
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -36,6 +37,7 @@ type Whatsmiau struct {
 	repo               interfaces.InstanceRepository
 	qrCache            *xsync.Map[string, string]
 	pairingCache       *xsync.Map[string, string]
+	pairingErrorCache  *xsync.Map[string, string]
 	observerRunning    *xsync.Map[string, *whatsmeow.Client]
 	instanceCache      *xsync.Map[string, models.Instance]
 	lockConnection     *xsync.Map[string, *sync.Mutex]
@@ -180,6 +182,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		repo:               repo,
 		qrCache:            xsync.NewMap[string, string](),
 		pairingCache:       xsync.NewMap[string, string](),
+		pairingErrorCache:  xsync.NewMap[string, string](),
 		instanceCache:      xsync.NewMap[string, models.Instance](),
 		observerRunning:    xsync.NewMap[string, *whatsmeow.Client](),
 		lockConnection:     xsync.NewMap[string, *sync.Mutex](),
@@ -214,7 +217,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 
 }
 
-func (s *Whatsmiau) Connect(ctx context.Context, id string, phoneNumber string) (qrCode string, pairingCode string, err error) {
+func (s *Whatsmiau) Connect(ctx context.Context, id string, phoneNumber string) (qrCode string, pairingCode string, pairingError string, err error) {
 	// Tear down any in-flight QR/pair attempt when the client toggles between
 	// QR-only and pairing-code mode. Once whatsmeow's QR channel is open, the
 	// underlying session is "in QR mode"; calling PairPhone afterwards still
@@ -225,10 +228,10 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string, phoneNumber string) 
 
 	client, err := s.generateClient(ctx, id)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	if client == nil {
-		return "", "", nil
+		return "", "", "", nil
 	}
 
 	if qr, ok := s.qrCache.Load(id); ok {
@@ -238,10 +241,17 @@ func (s *Whatsmiau) Connect(ctx context.Context, id string, phoneNumber string) 
 		// (QR-only attempt) or when it is still mid-flight on PairPhone.
 		// Request it explicitly so the caller does not race against an earlier
 		// observer goroutine.
-		if phoneNumber != "" && pc == "" {
-			pc = s.ensurePairingCode(ctx, id, client, phoneNumber)
+		// The failure is only reported to callers that asked for a code: a
+		// QR-only poll must not carry an error about a pairing it never
+		// requested.
+		pairingError := ""
+		if phoneNumber != "" {
+			if pc == "" {
+				pc = s.ensurePairingCode(ctx, id, client, phoneNumber)
+			}
+			pairingError = s.pairingFailure(id)
 		}
-		return qr, pc, nil
+		return qr, pc, pairingError, nil
 	}
 
 	return s.observeAndQrCode(ctx, id, client, phoneNumber)
@@ -288,6 +298,7 @@ func (s *Whatsmiau) resetIfConnectMethodChanged(ctx context.Context, id, phoneNu
 	s.clients.Delete(id)
 	s.qrCache.Delete(id)
 	s.pairingCache.Delete(id)
+	s.pairingErrorCache.Delete(id)
 	s.observerRunning.Delete(id)
 }
 
@@ -305,12 +316,38 @@ func (s *Whatsmiau) ensurePairingCode(ctx context.Context, id string, client *wh
 	}
 
 	code, err := client.PairPhone(ctx, phoneNumber, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
-	if err != nil {
-		zap.L().Error("failed to request pairing code (fast-path)", zap.String("id", id), zap.Error(err))
+	if !s.attemptAlive(id) {
+		zap.L().Debug("discarding pairing result for a torn down attempt", zap.String("id", id))
 		return ""
 	}
+	if err != nil {
+		zap.L().Error("failed to request pairing code", zap.String("id", id), zap.Error(err))
+		s.pairingErrorCache.Store(id, publicPairingError(err))
+		return ""
+	}
+	s.pairingErrorCache.Delete(id)
 	s.pairingCache.Store(id, code)
 	return code
+}
+
+func (s *Whatsmiau) attemptAlive(id string) bool {
+	_, ok := s.qrCache.Load(id)
+	return ok
+}
+
+func (s *Whatsmiau) pairingFailure(id string) string {
+	if code, ok := s.pairingCache.Load(id); ok && code != "" {
+		return ""
+	}
+	reason, _ := s.pairingErrorCache.Load(id)
+	return reason
+}
+
+func publicPairingError(err error) string {
+	if errors.Is(err, whatsmeow.ErrPhoneNumberTooShort) || errors.Is(err, whatsmeow.ErrPhoneNumberIsNotInternational) {
+		return "invalid_number"
+	}
+	return "unavailable"
 }
 
 var devicePropsMu sync.Mutex
@@ -440,6 +477,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string, phone
 			s.observerRunning.Delete(id)
 			s.qrCache.Delete(id)
 			s.pairingCache.Delete(id)
+			s.pairingErrorCache.Delete(id)
 		}
 	}()
 
@@ -515,6 +553,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string, phone
 				}
 				s.qrCache.Delete(id)
 				s.pairingCache.Delete(id)
+				s.pairingErrorCache.Delete(id)
 				return
 			}
 
@@ -526,9 +565,12 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string, phone
 const qrWaitTimeout = 15 * time.Second
 const pairingWaitTimeout = 10 * time.Second
 
-func waitForCachedValue(ctx context.Context, cache *xsync.Map[string, string], key string, timeout time.Duration) string {
+func waitForCachedValue(ctx context.Context, cache, abort *xsync.Map[string, string], key string, timeout time.Duration) string {
 	if value, ok := cache.Load(key); ok && value != "" {
 		return value
+	}
+	if cacheHasValue(abort, key) {
+		return ""
 	}
 
 	ticker := time.NewTicker(200 * time.Millisecond)
@@ -542,6 +584,9 @@ func waitForCachedValue(ctx context.Context, cache *xsync.Map[string, string], k
 			if value, ok := cache.Load(key); ok && value != "" {
 				return value
 			}
+			if cacheHasValue(abort, key) {
+				return ""
+			}
 		case <-timer.C:
 			value, _ := cache.Load(key)
 			return value
@@ -552,24 +597,32 @@ func waitForCachedValue(ctx context.Context, cache *xsync.Map[string, string], k
 	}
 }
 
-func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *whatsmeow.Client, phoneNumber string) (string, string, error) {
+func cacheHasValue(cache *xsync.Map[string, string], key string) bool {
+	if cache == nil {
+		return false
+	}
+	_, ok := cache.Load(key)
+	return ok
+}
+
+func (s *Whatsmiau) observeAndQrCode(ctx context.Context, id string, client *whatsmeow.Client, phoneNumber string) (string, string, string, error) {
 	zap.L().Debug("starting observe and qr code", zap.String("id", id))
 	go s.observeConnection(client, id, phoneNumber)
 
-	qrCode := waitForCachedValue(ctx, s.qrCache, id, qrWaitTimeout)
+	qrCode := waitForCachedValue(ctx, s.qrCache, nil, id, qrWaitTimeout)
 	if qrCode == "" {
 		zap.L().Debug("no qr code generated within budget", zap.String("id", id))
-		return "", "", ErrAwaitingQR
+		return "", "", "", ErrAwaitingQR
 	}
 	if phoneNumber == "" {
-		return qrCode, "", nil
+		return qrCode, "", "", nil
 	}
 
-	pairingCode := waitForCachedValue(ctx, s.pairingCache, id, pairingWaitTimeout)
+	pairingCode := waitForCachedValue(ctx, s.pairingCache, s.pairingErrorCache, id, pairingWaitTimeout)
 	if pairingCode == "" {
-		zap.L().Debug("qr code ready but pairing code not generated in time", zap.String("id", id))
+		zap.L().Debug("pairing code unavailable", zap.String("id", id), zap.String("reason", s.pairingFailure(id)))
 	}
-	return qrCode, pairingCode, nil
+	return qrCode, pairingCode, s.pairingFailure(id), nil
 }
 
 func (s *Whatsmiau) deleteDeviceIfExists(ctx context.Context, client *whatsmeow.Client) error {
@@ -653,6 +706,7 @@ func (s *Whatsmiau) Delete(ctx context.Context, id string) error {
 func (s *Whatsmiau) clearInstanceRuntimeState(id string) {
 	s.qrCache.Delete(id)
 	s.pairingCache.Delete(id)
+	s.pairingErrorCache.Delete(id)
 	s.observerRunning.Delete(id)
 	s.instanceCache.Delete(id)
 	s.connectPhoneNumber.Delete(id)
@@ -668,6 +722,7 @@ func (s *Whatsmiau) Disconnect(id string) error {
 	client.Disconnect()
 	s.qrCache.Delete(id)
 	s.pairingCache.Delete(id)
+	s.pairingErrorCache.Delete(id)
 	return nil
 }
 
@@ -699,6 +754,7 @@ func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
 	// Clear caches
 	s.qrCache.Delete(id)
 	s.pairingCache.Delete(id)
+	s.pairingErrorCache.Delete(id)
 	s.observerRunning.Delete(id)
 	s.instanceCache.Delete(id)
 
