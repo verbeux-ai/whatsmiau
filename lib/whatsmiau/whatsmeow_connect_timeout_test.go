@@ -19,7 +19,7 @@ func TestWaitForCachedValueReturnsCachedValueImmediately(t *testing.T) {
 	cache.Store("instance", "qr-code")
 
 	start := time.Now()
-	got := waitForCachedValue(context.Background(), cache, "instance", 5*time.Second)
+	got := waitForCachedValue(context.Background(), cache, nil, "instance", 5*time.Second)
 
 	if got != "qr-code" {
 		t.Fatalf("got %q, want %q", got, "qr-code")
@@ -33,7 +33,7 @@ func TestWaitForCachedValueIgnoresEmptyValues(t *testing.T) {
 	cache := xsync.NewMap[string, string]()
 	cache.Store("instance", "")
 
-	if got := waitForCachedValue(context.Background(), cache, "instance", 50*time.Millisecond); got != "" {
+	if got := waitForCachedValue(context.Background(), cache, nil, "instance", 50*time.Millisecond); got != "" {
 		t.Fatalf("got %q, want an empty result", got)
 	}
 }
@@ -46,7 +46,7 @@ func TestWaitForCachedValuePicksUpValueStoredWhileWaiting(t *testing.T) {
 		cache.Store("instance", "pairing-code")
 	}()
 
-	if got := waitForCachedValue(context.Background(), cache, "instance", 5*time.Second); got != "pairing-code" {
+	if got := waitForCachedValue(context.Background(), cache, nil, "instance", 5*time.Second); got != "pairing-code" {
 		t.Fatalf("got %q, want %q", got, "pairing-code")
 	}
 }
@@ -64,7 +64,7 @@ func TestWaitForCachedValueReturnsValueStoredWhileWaitingOnExpiry(t *testing.T) 
 		cache.Store("instance", "late-qr-code")
 	}()
 
-	if got := waitForCachedValue(context.Background(), cache, "instance", 100*time.Millisecond); got != "late-qr-code" {
+	if got := waitForCachedValue(context.Background(), cache, nil, "instance", 100*time.Millisecond); got != "late-qr-code" {
 		t.Fatalf("got %q, want %q", got, "late-qr-code")
 	}
 }
@@ -72,8 +72,37 @@ func TestWaitForCachedValueReturnsValueStoredWhileWaitingOnExpiry(t *testing.T) 
 func TestWaitForCachedValueReturnsEmptyWhenBudgetExpires(t *testing.T) {
 	cache := xsync.NewMap[string, string]()
 
-	if got := waitForCachedValue(context.Background(), cache, "instance", 50*time.Millisecond); got != "" {
+	if got := waitForCachedValue(context.Background(), cache, nil, "instance", 50*time.Millisecond); got != "" {
 		t.Fatalf("got %q, want an empty result", got)
+	}
+}
+
+func TestWaitForCachedValueStopsWhenAbortIsRecorded(t *testing.T) {
+	cache := xsync.NewMap[string, string]()
+	abort := xsync.NewMap[string, string]()
+
+	go func() {
+		time.Sleep(250 * time.Millisecond)
+		abort.Store("instance", "invalid_number")
+	}()
+
+	start := time.Now()
+	if got := waitForCachedValue(context.Background(), cache, abort, "instance", 10*time.Second); got != "" {
+		t.Fatalf("got %q, want an empty result", got)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("a recorded failure should end the wait, took %s", elapsed)
+	}
+}
+
+func TestWaitForCachedValueIgnoresAbortWhenValueIsAlreadyCached(t *testing.T) {
+	cache := xsync.NewMap[string, string]()
+	cache.Store("instance", "pairing-code")
+	abort := xsync.NewMap[string, string]()
+	abort.Store("instance", "invalid_number")
+
+	if got := waitForCachedValue(context.Background(), cache, abort, "instance", 5*time.Second); got != "pairing-code" {
+		t.Fatalf("got %q, want %q", got, "pairing-code")
 	}
 }
 
@@ -83,7 +112,7 @@ func TestWaitForCachedValueStopsWhenContextIsCancelled(t *testing.T) {
 	cancel()
 
 	start := time.Now()
-	if got := waitForCachedValue(ctx, cache, "instance", 5*time.Second); got != "" {
+	if got := waitForCachedValue(ctx, cache, nil, "instance", 5*time.Second); got != "" {
 		t.Fatalf("got %q, want an empty result", got)
 	}
 	if elapsed := time.Since(start); elapsed > time.Second {
@@ -97,7 +126,7 @@ func TestWaitForCachedValueReturnsCachedValueAfterCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if got := waitForCachedValue(ctx, cache, "instance", 5*time.Second); got != "qr-code" {
+	if got := waitForCachedValue(ctx, cache, nil, "instance", 5*time.Second); got != "qr-code" {
 		t.Fatalf("got %q, want %q", got, "qr-code")
 	}
 }
