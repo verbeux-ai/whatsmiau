@@ -80,7 +80,7 @@ type ConnectInstanceRequest struct {
 
 type ConnectInstanceResponse struct {
 	Message      string `json:"message,omitempty"`
-	Connected    bool   `json:"connected,omitempty"`
+	Connected    bool   `json:"connected"`
 	Base64       string `json:"base64,omitempty"`
 	PairingCode  string `json:"pairingCode,omitempty"`
 	PairingError string `json:"pairingError,omitempty"`
