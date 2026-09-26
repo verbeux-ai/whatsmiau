@@ -430,17 +430,16 @@ func (s *Whatsmiau) buildCustomLinkPreview(ctx context.Context, data *SendText, 
 // preview client, or base64 image bytes, raw or as a data URI.
 func (s *Whatsmiau) loadLinkPreviewImage(ctx context.Context, src string) ([]byte, error) {
 	src = strings.TrimSpace(src)
-	lower := strings.ToLower(src)
-	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+	if hasPrefixFold(src, "http://") || hasPrefixFold(src, "https://") {
 		return s.downloadLinkPreviewImage(ctx, src)
 	}
 
-	if strings.HasPrefix(lower, "data:") {
-		comma := strings.IndexByte(src, ',')
-		if comma < 0 || !strings.HasSuffix(lower[:comma], ";base64") {
+	if hasPrefixFold(src, "data:") {
+		header, payload, ok := strings.Cut(src, ",")
+		if !ok || !hasSuffixFold(header, ";base64") {
 			return nil, fmt.Errorf("link preview image data URI must be base64 encoded")
 		}
-		src = src[comma+1:]
+		src = payload
 	}
 
 	if base64.StdEncoding.DecodedLen(len(src)) > maxLinkPreviewImageBytes {
@@ -451,4 +450,14 @@ func (s *Whatsmiau) loadLinkPreviewImage(ctx context.Context, src string) ([]byt
 		return nil, fmt.Errorf("link preview image is neither an http(s) URL nor valid base64: %w", err)
 	}
 	return raw, nil
+}
+
+// hasPrefixFold and hasSuffixFold compare case-insensitively without
+// lowercasing the input, whose byte length can change for non-ASCII runes.
+func hasPrefixFold(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
+}
+
+func hasSuffixFold(s, suffix string) bool {
+	return len(s) >= len(suffix) && strings.EqualFold(s[len(s)-len(suffix):], suffix)
 }

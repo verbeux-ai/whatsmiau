@@ -199,6 +199,43 @@ func TestLoadLinkPreviewImageRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+func TestLoadLinkPreviewImageNonASCIIDataURIHeader(t *testing.T) {
+	// Regression: some runes shrink when lowercased (KELVIN SIGN is 3 bytes,
+	// "k" is 1), so a comma index taken from the original string must never be
+	// used on a lowercased copy. These inputs used to panic.
+	s := &Whatsmiau{linkPreviewClient: http.DefaultClient}
+	cases := map[string]string{
+		"kelvin sign":        "data:KKK,AAAA",
+		"ohm sign":           "data:ΩΩΩΩ,AAAA",
+		"capital sharp s":    "data:ẞẞẞẞ,AAAA",
+		"invalid utf-8":      "data:\xff\xfe\xfd,AAAA",
+		"non-ascii no comma": "data:KKK",
+	}
+	for name, src := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := s.loadLinkPreviewImage(context.Background(), src); err == nil {
+				t.Fatal("expected error for non-base64 data URI")
+			}
+		})
+	}
+
+	// A non-ASCII media type is still fine when the header ends in ;base64.
+	encoded := base64.StdEncoding.EncodeToString(encodeTestJPEG(t, 8, 8))
+	raw, err := s.loadLinkPreviewImage(context.Background(), "data:image/K;base64,"+encoded)
+	if err != nil || !bytes.HasPrefix(raw, []byte{0xff, 0xd8}) {
+		t.Fatalf("expected JPEG bytes, got %d bytes, err=%v", len(raw), err)
+	}
+}
+
+func TestLoadLinkPreviewImageSchemeIsCaseInsensitive(t *testing.T) {
+	s := &Whatsmiau{linkPreviewClient: http.DefaultClient}
+	encoded := base64.StdEncoding.EncodeToString(encodeTestJPEG(t, 8, 8))
+	raw, err := s.loadLinkPreviewImage(context.Background(), "DATA:IMAGE/JPEG;BASE64,"+encoded)
+	if err != nil || !bytes.HasPrefix(raw, []byte{0xff, 0xd8}) {
+		t.Fatalf("expected JPEG bytes from uppercase data URI, got %d bytes, err=%v", len(raw), err)
+	}
+}
+
 func TestLoadLinkPreviewImageURLUsesGuardedClient(t *testing.T) {
 	// Caller-supplied image URLs go through the same SSRF guard as page fetches.
 	var hits atomic.Int32
