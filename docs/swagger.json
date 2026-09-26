@@ -1829,6 +1829,22 @@
                 "linkPreview": {
                     "type": "boolean"
                 },
+                "linkPreviewDescription": {
+                    "description": "Card description.",
+                    "type": "string"
+                },
+                "linkPreviewImage": {
+                    "description": "Card image as an http(s) URL or base64 (raw or data URI). When any of\nlinkPreviewImage/Title/Description is set (with linkPreview=true), the card\nis built from these values and the page is not fetched.",
+                    "type": "string"
+                },
+                "linkPreviewLarge": {
+                    "description": "Upload the image so clients render the big card (default true). false\nsends the small card with only the embedded thumbnail.",
+                    "type": "boolean"
+                },
+                "linkPreviewTitle": {
+                    "description": "Card title. Empty with linkPreviewImage set sends an image-only card.",
+                    "type": "string"
+                },
                 "mentioned": {
                     "items": {
                         "type": "string"
