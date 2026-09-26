@@ -9,6 +9,18 @@ type SendTextRequest struct {
 	LinkPreview      bool                  `json:"linkPreview,omitempty"`
 	MentionsEveryOne bool                  `json:"mentionsEveryOne,omitempty"`
 	Mentioned        []string              `json:"mentioned,omitempty"`
+
+	// Card image as an http(s) URL or base64 (raw or data URI). When any of
+	// linkPreviewImage/Title/Description is set (with linkPreview=true), the card
+	// is built from these values and the page is not fetched.
+	LinkPreviewImage string `json:"linkPreviewImage,omitempty"`
+	// Card title. Empty with linkPreviewImage set sends an image-only card.
+	LinkPreviewTitle string `json:"linkPreviewTitle,omitempty"`
+	// Card description.
+	LinkPreviewDescription string `json:"linkPreviewDescription,omitempty"`
+	// Upload the image so clients render the big card (default true). false
+	// sends the small card with only the embedded thumbnail.
+	LinkPreviewLarge *bool `json:"linkPreviewLarge,omitempty"`
 }
 
 type MessageRequestQuoted struct {
