@@ -3,6 +3,7 @@ package whatsmiau
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -41,6 +42,7 @@ type linkPreviewInfo struct {
 const linkPreviewTimeout = 8 * time.Second
 const thumbnailWidth = 192
 const maxImageMegapixels = 16_000_000
+const maxLinkPreviewImageBytes = 5 << 20
 
 var urlRegexp = regexp.MustCompile(`https?://[^\s<>"']+`)
 var bareDomainRegexp = regexp.MustCompile(`(?:[a-zA-Z0-9-]+\.)+(com|net|org|io|dev|br|co|me|app|xyz|info|biz|online|site|store|tech|blog|art|gov|edu|tv|cc|ai|cloud|page|link|shop|top|pro|club|live|news|wiki|zone|fun|space|website|vip|icu|win|quest|cyou|sbs|lol|bond|cfd)[^\s<>"']*`)
@@ -292,41 +294,56 @@ func resolveURL(base, ref string) string {
 }
 
 func (s *Whatsmiau) fetchLinkPreviewThumbnail(ctx context.Context, imageURL string) (thumb, original []byte, width, height int, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	raw, err := s.downloadLinkPreviewImage(ctx, imageURL)
 	if err != nil {
 		return nil, nil, 0, 0, err
+	}
+	thumb, width, height, err = buildLinkPreviewThumbnail(raw)
+	if err != nil {
+		return nil, nil, 0, 0, err
+	}
+	return thumb, raw, width, height, nil
+}
+
+// downloadLinkPreviewImage fetches an image through the guarded preview client.
+func (s *Whatsmiau) downloadLinkPreviewImage(ctx context.Context, imageURL string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	if err != nil {
+		return nil, err
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; whatsmiau-link-preview/1.0)")
 
 	resp, err := s.previewHTTPClient().Do(req)
 	if err != nil {
-		return nil, nil, 0, 0, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, nil, 0, 0, fmt.Errorf("image returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("image returned status %d", resp.StatusCode)
 	}
 
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 5<<20))
-	if err != nil {
-		return nil, nil, 0, 0, err
-	}
+	return io.ReadAll(io.LimitReader(resp.Body, maxLinkPreviewImageBytes))
+}
+
+// buildLinkPreviewThumbnail validates the image and scales it down to the JPEG
+// thumbnail embedded in the message. It returns the original dimensions.
+func buildLinkPreviewThumbnail(raw []byte) (thumb []byte, width, height int, err error) {
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(raw))
 	if err != nil {
-		return nil, nil, 0, 0, err
+		return nil, 0, 0, err
 	}
 	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > maxImageMegapixels {
-		return nil, nil, 0, 0, fmt.Errorf("image dimensions out of bounds (%dx%d)", cfg.Width, cfg.Height)
+		return nil, 0, 0, fmt.Errorf("image dimensions out of bounds (%dx%d)", cfg.Width, cfg.Height)
 	}
 
 	src, _, err := image.Decode(bytes.NewReader(raw))
 	if err != nil {
-		return nil, nil, 0, 0, err
+		return nil, 0, 0, err
 	}
 
 	bounds := src.Bounds()
 	if bounds.Dx() == 0 || bounds.Dy() == 0 {
-		return nil, nil, 0, 0, fmt.Errorf("image has empty bounds")
+		return nil, 0, 0, fmt.Errorf("image has empty bounds")
 	}
 
 	dstW := thumbnailWidth
@@ -340,8 +357,98 @@ func (s *Whatsmiau) fetchLinkPreviewThumbnail(ctx context.Context, imageURL stri
 
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 80}); err != nil {
-		return nil, nil, 0, 0, err
+		return nil, 0, 0, err
 	}
 
-	return buf.Bytes(), raw, bounds.Dx(), bounds.Dy(), nil
+	return buf.Bytes(), bounds.Dx(), bounds.Dy(), nil
+}
+
+// hasCustomLinkPreview reports whether the caller supplied the card metadata,
+// in which case the page is not fetched.
+func (d *SendText) hasCustomLinkPreview() bool {
+	return d.LinkPreviewImage != "" || d.LinkPreviewTitle != "" || d.LinkPreviewDescription != ""
+}
+
+// largeLinkPreview reports whether the card image should be uploaded so
+// clients render the big card. Defaults to true.
+func (d *SendText) largeLinkPreview() bool {
+	return d.LinkPreviewLarge == nil || *d.LinkPreviewLarge
+}
+
+// buildCustomLinkPreview builds the card from caller-supplied metadata instead
+// of fetching the page. Some sites answer preview crawlers with bot-check pages
+// (no title, no og:image), so callers that already hold the title and image can
+// send them directly. An empty title with an image gives an image-only card.
+// When the image cannot be loaded the card keeps its text; with no text left,
+// the error makes the message go out as plain text.
+func (s *Whatsmiau) buildCustomLinkPreview(ctx context.Context, data *SendText, client *whatsmeow.Client) (*linkPreviewInfo, error) {
+	_, matched := extractURL(data.Text)
+	if matched == "" {
+		return nil, fmt.Errorf("no URL found in text")
+	}
+
+	info := &linkPreviewInfo{
+		url:         matched,
+		title:       strings.TrimSpace(data.LinkPreviewTitle),
+		description: strings.TrimSpace(data.LinkPreviewDescription),
+	}
+	hasText := info.title != "" || info.description != ""
+
+	if strings.TrimSpace(data.LinkPreviewImage) == "" {
+		if !hasText {
+			return nil, fmt.Errorf("custom link preview has no title, description or image")
+		}
+		return info, nil
+	}
+
+	imageCtx, cancel := context.WithTimeout(ctx, linkPreviewTimeout)
+	defer cancel()
+
+	raw, err := s.loadLinkPreviewImage(imageCtx, data.LinkPreviewImage)
+	var width, height int
+	if err == nil {
+		info.thumbnail, width, height, err = buildLinkPreviewThumbnail(raw)
+	}
+	if err != nil {
+		if !hasText {
+			return nil, fmt.Errorf("link preview image: %w", err)
+		}
+		zap.L().Warn("link preview image failed, sending text-only card", zap.Error(err))
+		return info, nil
+	}
+
+	if client != nil {
+		if err := s.uploadLinkPreviewHQ(imageCtx, client, info, raw, width, height); err != nil {
+			zap.L().Warn("link preview HQ upload failed, falling back to small card", zap.Error(err))
+		}
+	}
+
+	return info, nil
+}
+
+// loadLinkPreviewImage accepts an http(s) URL, fetched through the guarded
+// preview client, or base64 image bytes, raw or as a data URI.
+func (s *Whatsmiau) loadLinkPreviewImage(ctx context.Context, src string) ([]byte, error) {
+	src = strings.TrimSpace(src)
+	lower := strings.ToLower(src)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return s.downloadLinkPreviewImage(ctx, src)
+	}
+
+	if strings.HasPrefix(lower, "data:") {
+		comma := strings.IndexByte(src, ',')
+		if comma < 0 || !strings.HasSuffix(lower[:comma], ";base64") {
+			return nil, fmt.Errorf("link preview image data URI must be base64 encoded")
+		}
+		src = src[comma+1:]
+	}
+
+	if base64.StdEncoding.DecodedLen(len(src)) > maxLinkPreviewImageBytes {
+		return nil, fmt.Errorf("link preview image exceeds %d bytes", maxLinkPreviewImageBytes)
+	}
+	raw, err := base64.StdEncoding.DecodeString(src)
+	if err != nil {
+		return nil, fmt.Errorf("link preview image is neither an http(s) URL nor valid base64: %w", err)
+	}
+	return raw, nil
 }

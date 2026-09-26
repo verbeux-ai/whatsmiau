@@ -76,6 +76,11 @@ func (s *Message) SendText(ctx echo.Context) error {
 		LinkPreview:      request.LinkPreview,
 		MentionsEveryOne: request.MentionsEveryOne,
 		Mentioned:        request.Mentioned,
+
+		LinkPreviewImage:       request.LinkPreviewImage,
+		LinkPreviewTitle:       request.LinkPreviewTitle,
+		LinkPreviewDescription: request.LinkPreviewDescription,
+		LinkPreviewLarge:       request.LinkPreviewLarge,
 	}
 
 	c := ctx.Request().Context()
