@@ -60,7 +60,10 @@ func (s *Whatsmiau) registerCallClient(instanceID string, client *whatsmeow.Clie
 
 func (s *Whatsmiau) attachIncomingCallHandler(instanceID string, callClient *meowcaller.Client) {
 	callClient.OnIncomingCall(func(call *meowcaller.Call) {
-		s.callBridges.Store(callBridgeKey(instanceID, call.ID()), newCallBridge(instanceID, call, "incoming"))
+		key := callBridgeKey(instanceID, call.ID())
+		s.callBridges.Store(key, newCallBridge(instanceID, call, "incoming", func() {
+			s.callBridges.Delete(key)
+		}))
 	})
 }
 
@@ -80,7 +83,7 @@ func (s *Whatsmiau) removeCallClient(instanceID string) {
 	})
 }
 
-func newCallBridge(instanceID string, call *meowcaller.Call, direction string) *callBridge {
+func newCallBridge(instanceID string, call *meowcaller.Call, direction string, onEnd func()) *callBridge {
 	now := time.Now().UTC()
 	b := &callBridge{instanceID: instanceID, call: call, source: newLivePCMSource(), audio: newPCMBroadcaster(), session: CallSession{ID: call.ID(), Peer: call.Peer().String(), Direction: direction, Media: "audio", State: callPhaseName(call.State()), CreatedAt: now, UpdatedAt: now}}
 	call.Play(b.source)
@@ -101,6 +104,9 @@ func newCallBridge(instanceID string, call *meowcaller.Call, direction string) *
 		})
 		_ = b.source.Close()
 		b.audio.close()
+		if onEnd != nil {
+			onEnd()
+		}
 	})
 	b.update(func(view *CallSession) {
 		view.CanAnswer = direction == "incoming" && call.State() == meowcaller.CallPhaseRinging
@@ -152,7 +158,10 @@ func (s *Whatsmiau) OfferAudioCall(ctx context.Context, instanceID string, remot
 	if err != nil {
 		return nil, err
 	}
-	s.callBridges.Store(callBridgeKey(instanceID, call.ID()), newCallBridge(instanceID, call, "outgoing"))
+	key := callBridgeKey(instanceID, call.ID())
+	s.callBridges.Store(key, newCallBridge(instanceID, call, "outgoing", func() {
+		s.callBridges.Delete(key)
+	}))
 	return &CallOffer{ID: call.ID(), Recipient: call.Peer().String()}, nil
 }
 
