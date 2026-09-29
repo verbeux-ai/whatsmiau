@@ -16,7 +16,7 @@ require (
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.49
-	github.com/purpshell/meowcaller v0.0.0-20260717112041-9769d5aaaeca
+	github.com/purpshell/meowcaller v0.0.0-20260724092103-1ac278769bdc
 	github.com/puzpuzpuz/xsync/v4 v4.1.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.11.1

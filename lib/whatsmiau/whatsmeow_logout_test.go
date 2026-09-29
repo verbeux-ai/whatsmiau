@@ -15,6 +15,7 @@ func TestLogoutUnlockedClearsRuntimeStateWithoutClient(t *testing.T) {
 		clients:            xsync.NewMap[string, *whatsmeow.Client](),
 		qrCache:            xsync.NewMap[string, string](),
 		pairingCache:       xsync.NewMap[string, string](),
+		pairingErrorCache:  xsync.NewMap[string, string](),
 		observerRunning:    xsync.NewMap[string, *whatsmeow.Client](),
 		instanceCache:      xsync.NewMap[string, models.Instance](),
 		connectPhoneNumber: xsync.NewMap[string, string](),
@@ -22,6 +23,7 @@ func TestLogoutUnlockedClearsRuntimeStateWithoutClient(t *testing.T) {
 
 	service.qrCache.Store(id, "qr")
 	service.pairingCache.Store(id, "pairing")
+	service.pairingErrorCache.Store(id, "unavailable")
 	service.observerRunning.Store(id, nil)
 	service.instanceCache.Store(id, models.Instance{ID: id})
 	service.connectPhoneNumber.Store(id, "5511999999999")
@@ -35,6 +37,9 @@ func TestLogoutUnlockedClearsRuntimeStateWithoutClient(t *testing.T) {
 	}
 	if _, ok := service.pairingCache.Load(id); ok {
 		t.Fatal("pairing cache was not cleared")
+	}
+	if _, ok := service.pairingErrorCache.Load(id); ok {
+		t.Fatal("pairing error cache was not cleared")
 	}
 	if _, ok := service.observerRunning.Load(id); ok {
 		t.Fatal("observer marker was not cleared")

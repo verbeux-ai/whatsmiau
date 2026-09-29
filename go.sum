@@ -189,6 +189,8 @@ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRI
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/purpshell/meowcaller v0.0.0-20260717112041-9769d5aaaeca h1:+uzrOYKlA136UcamZaFxQS43KdXbNiko8ojqKY8xCoc=
 github.com/purpshell/meowcaller v0.0.0-20260717112041-9769d5aaaeca/go.mod h1:FA3k7L98Dy2km9hvcdKJH1HMKPpi8bCONlA7R84NpN4=
+github.com/purpshell/meowcaller v0.0.0-20260724092103-1ac278769bdc h1:jZBUuq1mq2oot+cTC3fbP/J2uJJyjwHl8VJzs/ujP98=
+github.com/purpshell/meowcaller v0.0.0-20260724092103-1ac278769bdc/go.mod h1:FA3k7L98Dy2km9hvcdKJH1HMKPpi8bCONlA7R84NpN4=
 github.com/puzpuzpuz/xsync/v4 v4.1.0 h1:x9eHRl4QhZFIPJ17yl4KKW9xLyVWbb3/Yq4SXpjF71U=
 github.com/puzpuzpuz/xsync/v4 v4.1.0/go.mod h1:VJDmTCJMBt8igNxnkQd86r+8KUeN1quSfNKu5bLYFQo=
 github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=

@@ -30,6 +30,12 @@ type SendText struct {
 	MentionsEveryOne bool       `json:"mentionsEveryOne,omitempty"`
 	Mentioned        []string   `json:"mentioned,omitempty"`
 
+	// Caller-supplied card metadata; when set, the page is not fetched.
+	LinkPreviewImage       string `json:"linkPreviewImage,omitempty"`
+	LinkPreviewTitle       string `json:"linkPreviewTitle,omitempty"`
+	LinkPreviewDescription string `json:"linkPreviewDescription,omitempty"`
+	LinkPreviewLarge       *bool  `json:"linkPreviewLarge,omitempty"`
+
 	linkPreviewInfo *linkPreviewInfo
 }
 
@@ -57,7 +63,19 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 	}
 
 	if data.LinkPreview {
-		preview, previewErr := s.fetchLinkPreview(ctx, data.Text, client)
+		// Without the HQ upload, clients render the small card.
+		uploadClient := client
+		if !data.largeLinkPreview() {
+			uploadClient = nil
+		}
+
+		var preview *linkPreviewInfo
+		var previewErr error
+		if data.hasCustomLinkPreview() {
+			preview, previewErr = s.buildCustomLinkPreview(ctx, data, uploadClient)
+		} else {
+			preview, previewErr = s.fetchLinkPreview(ctx, data.Text, uploadClient)
+		}
 		if previewErr != nil {
 			zap.L().Warn("link preview fetch failed, sending plain text", zap.Error(previewErr))
 		} else {
