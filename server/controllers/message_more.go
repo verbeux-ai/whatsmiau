@@ -82,7 +82,7 @@ func (s *Message) sendVideo(ctx echo.Context, request dto.SendDocumentRequest, g
 		},
 		Status:           "sent",
 		MessageType:      "videoMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -155,7 +155,7 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      "ptvMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -221,7 +221,7 @@ func (s *Message) SendSticker(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      "stickerMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -290,7 +290,7 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      "locationMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -373,7 +373,7 @@ func (s *Message) SendContact(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      messageType,
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -441,7 +441,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      "pollCreationMessage",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})
 }
@@ -495,7 +495,7 @@ func (s *Message) SendStatus(ctx echo.Context) error {
 		},
 		Status:           "sent",
 		MessageType:      request.Type + "Message",
-		MessageTimestamp: int(res.CreatedAt.Unix() / 1000),
+		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})
 }
