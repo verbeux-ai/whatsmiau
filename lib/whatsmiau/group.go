@@ -264,6 +264,10 @@ type FetchAllGroupsRequest struct {
 }
 
 func (s *Whatsmiau) FetchAllGroups(ctx context.Context, req *FetchAllGroupsRequest) ([]GroupInfoResponse, error) {
+	// Sem isso, cada grupo custa duas consultas ao store para resolver dono e
+	// criador, e com muitos grupos a requisicao estoura o deadline.
+	ctx = WithJidLidCache(ctx)
+
 	client, ok := s.clients.Load(req.InstanceID)
 	if !ok {
 		return nil, whatsmeow.ErrClientIsNil
