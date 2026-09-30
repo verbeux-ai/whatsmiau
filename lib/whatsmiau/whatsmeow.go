@@ -810,10 +810,54 @@ func (s *Whatsmiau) ApplyPresence(id string, online bool) {
 	}
 }
 
+type jidLidCacheKey struct{}
+
+type jidLidCache struct {
+	mu      sync.Mutex
+	entries map[types.JID][2]string
+}
+
+// WithJidLidCache devolve um contexto que memoiza as resolucoes de JID/LID.
+//
+// extractJidLid consulta o store a cada chamada, e handlers que percorrem
+// muitos grupos ou participantes chamam GetJidLid duas ou mais vezes por item.
+// Numa conta com centenas de grupos isso vira centenas de consultas em serie
+// dentro de uma unica requisicao, e o context estoura antes de terminar.
+// Os mesmos donos e criadores se repetem entre os grupos, entao guardar o que
+// ja foi resolvido derruba a maior parte dessas idas ao store.
+//
+// O cache vive so enquanto o contexto viver: nada e compartilhado entre
+// requisicoes, e um JID que mudar de LID e reconsultado na proxima.
+func WithJidLidCache(ctx context.Context) context.Context {
+	if ctx.Value(jidLidCacheKey{}) != nil {
+		return ctx
+	}
+
+	return context.WithValue(ctx, jidLidCacheKey{}, &jidLidCache{
+		entries: make(map[types.JID][2]string),
+	})
+}
+
 func (s *Whatsmiau) GetJidLid(ctx context.Context, id string, jid types.JID) (string, string) {
+	cache, _ := ctx.Value(jidLidCacheKey{}).(*jidLidCache)
+	if cache != nil {
+		cache.mu.Lock()
+		cached, ok := cache.entries[jid]
+		cache.mu.Unlock()
+		if ok {
+			return cached[0], cached[1]
+		}
+	}
+
 	newJid, newLid := s.extractJidLid(ctx, id, jid)
 	if strings.HasSuffix(newJid, "@lid") {
 		newLid = newJid
+	}
+
+	if cache != nil {
+		cache.mu.Lock()
+		cache.entries[jid] = [2]string{newJid, newLid}
+		cache.mu.Unlock()
 	}
 
 	return newJid, newLid
