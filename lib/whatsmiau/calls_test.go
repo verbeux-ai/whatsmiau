@@ -57,3 +57,40 @@ func TestTrackCallBridgeDropsOutgoingCallAcceptedThenEnded(t *testing.T) {
 		t.Fatal("ended outgoing call bridge retained in map")
 	}
 }
+
+// fireCallCallback invokes a callback the bridge registered on the call, simulating the
+// library firing it from its media or stanza goroutine.
+func fireCallCallback(t *testing.T, call *meowcaller.Call, field string) {
+	t.Helper()
+	v := reflect.ValueOf(call).Elem().FieldByName(field)
+	fn := reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem().Interface().(func())
+	fn()
+}
+
+// A working call is promoted to "active" by the first inbound RTP, which can happen before
+// the peer's <accept> arrives. The accept must not regress the state: on an already active
+// call it used to overwrite "active" with "connecting" and strand the session there.
+func TestPeerAcceptAfterMediaKeepsActiveState(t *testing.T) {
+	s := &Whatsmiau{callBridges: xsync.NewMap[string, *callBridge]()}
+	call := &meowcaller.Call{}
+	setCallPhase(t, call, meowcaller.CallPhaseConnecting)
+
+	s.trackCallBridge("inst", call, "outgoing")
+	b, ok := s.callBridges.Load(callBridgeKey("inst", call.ID()))
+	if !ok {
+		t.Fatal("call bridge missing from map")
+	}
+
+	// Inbound media first: the library advances the phase and fires OnReady.
+	setCallPhase(t, call, meowcaller.CallPhaseActive)
+	fireCallCallback(t, call, "onReady")
+	if got := b.snapshot().State; got != "active" {
+		t.Fatalf("after OnReady: state = %q, want %q", got, "active")
+	}
+
+	// The peer's <accept> lands afterwards.
+	fireCallCallback(t, call, "onPeerAccept")
+	if got := b.snapshot().State; got != "active" {
+		t.Fatalf("peer accept after media: state = %q, want %q", got, "active")
+	}
+}

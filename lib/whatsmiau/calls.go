@@ -104,7 +104,7 @@ func newCallBridge(instanceID string, call *meowcaller.Call, direction string, o
 			view.CanHangup = phase != meowcaller.CallPhaseEnded
 		})
 	})
-	call.OnPeerAccept(func() { b.update(func(view *CallSession) { view.State = "connecting" }) })
+	call.OnPeerAccept(func() { b.update(func(view *CallSession) { view.State = callPhaseName(call.State()) }) })
 	call.OnReady(func() { b.update(func(view *CallSession) { view.State = "active" }) })
 	call.OnEnd(func(reason string) {
 		b.update(func(view *CallSession) {
