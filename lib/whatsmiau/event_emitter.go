@@ -467,7 +467,7 @@ func (s *Whatsmiau) resolveEditContent(id string, e *events.Message) (*WookKey, 
 }
 
 func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance, e *events.Message, eventMap map[webhookConfigEvent]bool) {
-	if !eventMap[webhookConfigMessagesEdit] && !eventMap[webhookConfigMessagesUpsert] {
+	if !eventMap[webhookConfigMessagesEdited] && !eventMap[webhookConfigMessagesUpsert] {
 		return
 	}
 
@@ -499,12 +499,12 @@ func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance,
 		InstanceId:    instance.ID,
 	}
 
-	if eventMap[webhookConfigMessagesEdit] {
+	if eventMap[webhookConfigMessagesEdited] {
 		wookEvent := &WookEvent[WookMessageEditData]{
 			Instance: instance.ID,
 			Data:     editData,
 			DateTime: e.Info.Timestamp,
-			Event:    WookMessagesEdit,
+			Event:    WookMessagesEdited,
 		}
 		zap.L().Debug("message edit event",
 			zap.String("instance", id),

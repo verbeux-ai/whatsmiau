@@ -16,7 +16,7 @@ const (
 	WookMessagesDelete          Wook = "messages.delete"
 	WookMessagesSet             Wook = "messages.set"
 	WookGroupParticipantsUpdate Wook = "group-participants.update"
-	WookMessagesEdit            Wook = "messages.edit"
+	WookMessagesEdited          Wook = "messages.edited"
 	WookCall                    Wook = "call"
 )
 
