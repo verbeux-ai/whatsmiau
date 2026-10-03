@@ -176,11 +176,19 @@ func (s *Calls) Audio(ctx echo.Context) error {
 	go func() {
 		defer close(writerDone)
 		defer cancel()
-		for frame := range stream.Receive {
-			if err := conn.Write(bridgeContext, websocket.MessageBinary, encodeCallPCM(frame)); err != nil {
+		for {
+			select {
+			case <-bridgeContext.Done():
 				return
+			case frame, ok := <-stream.Receive:
+				if !ok {
+					return
+				}
+				if err := conn.Write(bridgeContext, websocket.MessageBinary, encodeCallPCM(frame)); err != nil {
+					return
+				}
+				toClient.Add(1)
 			}
-			toClient.Add(1)
 		}
 	}()
 	for {
