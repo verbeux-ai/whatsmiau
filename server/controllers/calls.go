@@ -175,9 +175,9 @@ func (s *Calls) Audio(ctx echo.Context) error {
 	writerDone := make(chan struct{})
 	go func() {
 		defer close(writerDone)
+		defer cancel()
 		for frame := range stream.Receive {
 			if err := conn.Write(bridgeContext, websocket.MessageBinary, encodeCallPCM(frame)); err != nil {
-				cancel()
 				return
 			}
 			toClient.Add(1)
