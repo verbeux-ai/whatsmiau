@@ -73,6 +73,7 @@ func (s *Whatsmiau) trackCallBridge(instanceID string, call *meowcaller.Call, di
 	})
 	s.callBridges.Store(key, bridge)
 	if call.State() == meowcaller.CallPhaseEnded {
+		bridge.teardown()
 		s.callBridges.Delete(key)
 	}
 }
