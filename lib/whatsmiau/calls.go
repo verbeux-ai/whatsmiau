@@ -13,6 +13,8 @@ import (
 	"github.com/verbeux-ai/whatsmiau/env"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
+
+	"go.uber.org/zap"
 )
 
 const callPCMFrameSamples = meowcaller.FrameSamples
@@ -71,6 +73,7 @@ func (s *Whatsmiau) trackCallBridge(instanceID string, call *meowcaller.Call, di
 	})
 	s.callBridges.Store(key, bridge)
 	if call.State() == meowcaller.CallPhaseEnded {
+		bridge.teardown()
 		s.callBridges.Delete(key)
 	}
 }
@@ -84,7 +87,10 @@ func (s *Whatsmiau) removeCallClient(instanceID string) {
 	}
 	s.callBridges.Range(func(key string, bridge *callBridge) bool {
 		if bridge.instanceID == instanceID {
-			_ = bridge.call.Hangup()
+			if err := bridge.call.Hangup(); err != nil {
+				zap.L().Warn("failed to hang up call while removing the client", zap.String("instance", instanceID), zap.Error(err))
+			}
+			bridge.teardown()
 			s.callBridges.Delete(key)
 		}
 		return true
@@ -110,8 +116,7 @@ func newCallBridge(instanceID string, call *meowcaller.Call, direction string, o
 		b.update(func(view *CallSession) {
 			view.State, view.Reason, view.CanAnswer, view.CanReject, view.CanHangup = "ended", reason, false, false, false
 		})
-		_ = b.source.Close()
-		b.audio.close()
+		b.teardown()
 		if onEnd != nil {
 			onEnd()
 		}
@@ -122,6 +127,11 @@ func newCallBridge(instanceID string, call *meowcaller.Call, direction string, o
 		view.CanHangup = call.State() != meowcaller.CallPhaseEnded
 	})
 	return b
+}
+
+func (b *callBridge) teardown() {
+	_ = b.source.Close()
+	b.audio.close()
 }
 
 func (b *callBridge) update(fn func(*CallSession)) {

@@ -94,3 +94,26 @@ func TestPeerAcceptAfterMediaKeepsActiveState(t *testing.T) {
 		t.Fatalf("peer accept after media: state = %q, want %q", got, "active")
 	}
 }
+
+// The bridge teardown is what releases an attached WebSocket: it closes the
+// source (so the call stops pushing) and the broadcaster (so every subscriber
+// stops waiting). A path that skips it leaves the socket hanging.
+func TestCallBridgeTeardownClosesSubscribers(t *testing.T) {
+	b := &callBridge{source: newLivePCMSource(), audio: newPCMBroadcaster()}
+	frames, unsubscribe := b.audio.subscribe()
+	defer unsubscribe()
+
+	b.teardown()
+
+	select {
+	case _, ok := <-frames:
+		if ok {
+			t.Fatal("subscriber channel still open after teardown")
+		}
+	default:
+		t.Fatal("teardown did not close the subscriber channel")
+	}
+	if err := b.source.Push(make([]float32, callPCMFrameSamples)); err == nil {
+		t.Fatal("source accepted a frame after teardown")
+	}
+}
