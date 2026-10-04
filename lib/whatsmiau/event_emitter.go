@@ -1497,7 +1497,7 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMessageUpdateData {
 	var status WookMessageUpdateStatus
 	switch evt.Type {
-	case types.ReceiptTypeRead:
+	case types.ReceiptTypeRead, types.ReceiptTypeReadSelf:
 		status = MessageStatusRead
 	case types.ReceiptTypeDelivered:
 		status = MessageStatusDeliveryAck
