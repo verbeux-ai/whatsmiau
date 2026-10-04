@@ -428,16 +428,18 @@ func (s *Whatsmiau) handleMessageDeleteEvent(id string, instance *models.Instanc
 
 func (s *Whatsmiau) resolveEditContent(id string, e *events.Message) (*WookKey, *waE2E.Message) {
 	var originalKey *WookKey
+	var editedMsg *waE2E.Message
 
 	if pm := e.Message.GetProtocolMessage(); pm != nil && pm.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT {
 		if pKey := pm.GetKey(); pKey != nil {
 			originalKey = &WookKey{RemoteJid: pKey.GetRemoteJID(), FromMe: pKey.GetFromMe(), Id: pKey.GetID(), Participant: pKey.GetParticipant()}
 		}
+		editedMsg = pm.GetEditedMessage()
 	}
 
 	sec := e.Message.GetSecretEncryptedMessage()
 	if sec == nil || sec.GetSecretEncType() != waE2E.SecretEncryptedMessage_MESSAGE_EDIT {
-		return nil, nil
+		return originalKey, editedMsg
 	}
 
 	client, ok := s.clients.Load(id)
@@ -469,7 +471,7 @@ func (s *Whatsmiau) resolveEditContent(id string, e *events.Message) (*WookKey, 
 }
 
 func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance, e *events.Message, eventMap map[webhookConfigEvent]bool) {
-	if !eventMap[webhookConfigMessagesEdited] && !eventMap[webhookConfigMessagesUpsert] {
+	if !eventMap[webhookConfigMessagesEdited] {
 		return
 	}
 
@@ -485,8 +487,7 @@ func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance,
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	remoteJid, remoteLid := s.GetJidLid(ctx, id, e.Info.Chat)
-	senderJid, _ := s.GetJidLid(ctx, id, e.Info.Sender)
+	remoteJid, _ := s.GetJidLid(ctx, id, e.Info.Chat)
 
 	if originalKey.RemoteJid == "" {
 		originalKey.RemoteJid = remoteJid
@@ -494,64 +495,34 @@ func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance,
 
 	messageType, raw, _ := s.parseWAMessage(editedMsg)
 
+	status := "received"
+	if e.Info.IsFromMe {
+		status = "sent"
+	}
+
 	editData := &WookMessageEditData{
-		Key:           originalKey,
-		EditedMessage: raw,
-		MessageType:   messageType,
-		InstanceId:    instance.ID,
+		Key:              originalKey,
+		EditedMessage:    raw,
+		MessageType:      messageType,
+		InstanceId:       instance.ID,
+		PushName:         e.Info.PushName,
+		Status:           status,
+		MessageTimestamp: int(e.Info.Timestamp.Unix()),
+		Source:           "whatsapp",
 	}
 
-	if eventMap[webhookConfigMessagesEdited] {
-		wookEvent := &WookEvent[WookMessageEditData]{
-			Instance: instance.ID,
-			Data:     editData,
-			DateTime: e.Info.Timestamp,
-			Event:    WookMessagesEdited,
-		}
-		zap.L().Debug("message edit event",
-			zap.String("instance", id),
-			zap.String("original_id", originalKey.Id),
-			zap.String("message_type", messageType),
-		)
-		s.emit(wookEvent, instance.Webhook.Url)
+	wookEvent := &WookEvent[WookMessageEditData]{
+		Instance: instance.ID,
+		Data:     editData,
+		DateTime: e.Info.Timestamp,
+		Event:    WookMessagesEdited,
 	}
-
-	if eventMap[webhookConfigMessagesUpsert] {
-		addressingMode := "lid"
-		if remoteLid == "" {
-			addressingMode = "jid"
-		}
-		upsertData := &WookMessageData{
-			Key: &WookKey{
-				RemoteJid:      remoteJid,
-				RemoteLid:      remoteLid,
-				FromMe:         e.Info.IsFromMe,
-				Id:             e.Info.ID,
-				Participant:    senderJid,
-				AddressingMode: addressingMode,
-			},
-			PushName:         e.Info.PushName,
-			Status:           "received",
-			Message:          raw,
-			MessageType:      "editedMessage",
-			MessageTimestamp: int(e.Info.Timestamp.Unix()),
-			InstanceId:       instance.ID,
-			Source:           "whatsapp",
-			ContextInfo: &WookMessageContextInfo{
-				StanzaId: originalKey.Id,
-			},
-		}
-		if e.Info.IsFromMe {
-			upsertData.Status = "sent"
-		}
-		wookUpsert := &WookEvent[WookMessageData]{
-			Instance: instance.ID,
-			Data:     upsertData,
-			DateTime: e.Info.Timestamp,
-			Event:    WookMessagesUpsert,
-		}
-		s.emit(wookUpsert, instance.Webhook.Url)
-	}
+	zap.L().Debug("message edit event",
+		zap.String("instance", id),
+		zap.String("original_id", originalKey.Id),
+		zap.String("message_type", messageType),
+	)
+	s.emit(wookEvent, instance.Webhook.Url)
 }
 
 func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *events.Receipt, eventMap map[webhookConfigEvent]bool) {

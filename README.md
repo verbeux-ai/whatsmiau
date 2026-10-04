@@ -189,7 +189,7 @@ Webhook configuration and webhook payloads use different event identifiers to pr
 | `MESSAGES_UPSERT` | `messages.upsert` | Triggered when a new message is received. |
 | `MESSAGES_UPDATE` | `messages.update` | Triggered when a message status changes, such as a read receipt. |
 | `MESSAGES_DELETE` | `messages.delete` | Triggered when a message is deleted for everyone. |
-| `MESSAGES_EDITED` | `messages.edited` | Triggered when a message is edited; carries the original message key and the new content. Edits are also emitted as `messages.upsert` with `messageType` `editedMessage` for `MESSAGES_UPSERT` subscribers. |
+| `MESSAGES_EDITED` | `messages.edited` | Triggered when a message is edited; carries the original message key and the new content. |
 | `MESSAGES_SET` | `messages.set` | Triggered during full-history synchronization when `syncFullHistory` is enabled. |
 | `CONTACTS_UPSERT` | `contacts.upsert` | Triggered when a contact is created or updated. |
 | `GROUP_PARTICIPANTS_UPDATE` | `group-participants.update` | Triggered when participants are added, removed, promoted, or demoted. |
