@@ -290,10 +290,14 @@ type WookMessageUpdateData struct {
 }
 
 type WookMessageEditData struct {
-	Key           *WookKey        `json:"key,omitempty"`
-	EditedMessage *WookMessageRaw `json:"editedMessage,omitempty"`
-	MessageType   string          `json:"messageType,omitempty"`
-	InstanceId    string          `json:"instanceId,omitempty"`
+	Key              *WookKey        `json:"key,omitempty"`
+	EditedMessage    *WookMessageRaw `json:"editedMessage,omitempty"`
+	MessageType      string          `json:"messageType,omitempty"`
+	InstanceId       string          `json:"instanceId,omitempty"`
+	PushName         string          `json:"pushName,omitempty"`
+	Status           string          `json:"status,omitempty"`
+	MessageTimestamp int             `json:"messageTimestamp,omitempty"`
+	Source           string          `json:"source,omitempty"`
 }
 
 type WookContact struct {
