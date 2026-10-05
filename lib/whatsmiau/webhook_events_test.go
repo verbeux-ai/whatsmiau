@@ -347,3 +347,35 @@ func TestWebhookSubscriptionsRemainIsolated(t *testing.T) {
 	default:
 	}
 }
+
+func TestEnabledWebhookEventsDeactivateDeliveryWithoutTouchingConfiguration(t *testing.T) {
+	disabled := false
+	enabled := true
+
+	t.Run("disabled webhook delivers nothing", func(t *testing.T) {
+		events := enabledWebhookEvents(models.InstanceWebhook{
+			Enabled: &disabled,
+			Events:  []string{"MESSAGES_UPSERT", "CALL"},
+		})
+		if len(events) != 0 {
+			t.Fatalf("expected no delivered events, got %#v", events)
+		}
+	})
+
+	t.Run("enabled webhook delivers configured events", func(t *testing.T) {
+		events := enabledWebhookEvents(models.InstanceWebhook{
+			Enabled: &enabled,
+			Events:  []string{"messages.upsert", "CALL"},
+		})
+		if !events[webhookConfigMessagesUpsert] || !events[webhookConfigCall] {
+			t.Fatalf("expected configured events, got %#v", events)
+		}
+	})
+
+	t.Run("webhook without an explicit switch delivers configured events", func(t *testing.T) {
+		events := enabledWebhookEvents(models.InstanceWebhook{Events: []string{"CALL"}})
+		if !events[webhookConfigCall] {
+			t.Fatalf("expected configured events, got %#v", events)
+		}
+	})
+}
