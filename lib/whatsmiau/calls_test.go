@@ -1,12 +1,17 @@
 package whatsmiau
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"unsafe"
 
 	"github.com/purpshell/meowcaller"
 	"github.com/puzpuzpuz/xsync/v4"
+	"github.com/verbeux-ai/whatsmiau/env"
+	"github.com/verbeux-ai/whatsmiau/models"
+	"go.mau.fi/whatsmeow"
 )
 
 func setCallPhase(t *testing.T, call *meowcaller.Call, phase meowcaller.CallPhase) {
@@ -115,5 +120,90 @@ func TestCallBridgeTeardownClosesSubscribers(t *testing.T) {
 	}
 	if err := b.source.Push(make([]float32, callPCMFrameSamples)); err == nil {
 		t.Fatal("source accepted a frame after teardown")
+	}
+}
+
+// stubInstanceRepo lets the call tests control instance existence without Redis.
+type stubInstanceRepo struct {
+	instances []models.Instance
+	err       error
+}
+
+func (stubInstanceRepo) Create(context.Context, *models.Instance) error { return nil }
+func (r stubInstanceRepo) List(context.Context, string) ([]models.Instance, error) {
+	return r.instances, r.err
+}
+func (stubInstanceRepo) Update(context.Context, string, *models.Instance) (*models.Instance, error) {
+	return nil, nil
+}
+func (stubInstanceRepo) Delete(context.Context, string) error { return nil }
+
+func enableCalls(t *testing.T) {
+	t.Helper()
+	previous := env.Env.CallsEnabled
+	env.Env.CallsEnabled = true
+	t.Cleanup(func() { env.Env.CallsEnabled = previous })
+}
+
+func newCallTestInstance(repo stubInstanceRepo) *Whatsmiau {
+	return &Whatsmiau{
+		clients:     xsync.NewMap[string, *whatsmeow.Client](),
+		callClients: xsync.NewMap[string, *meowcaller.Client](),
+		callBridges: xsync.NewMap[string, *callBridge](),
+		repo:        repo,
+	}
+}
+
+func TestListCallSessionsDistinguishesNotFoundFromEmpty(t *testing.T) {
+	enableCalls(t)
+
+	if _, err := newCallTestInstance(stubInstanceRepo{}).ListCallSessions(context.Background(), "missing"); !errors.Is(err, ErrInstanceNotFound) {
+		t.Fatalf("missing instance error = %v, want ErrInstanceNotFound", err)
+	}
+
+	sessions, err := newCallTestInstance(stubInstanceRepo{instances: []models.Instance{{ID: "inst"}}}).
+		ListCallSessions(context.Background(), "inst")
+	if err != nil {
+		t.Fatalf("offline instance error = %v, want nil", err)
+	}
+	if len(sessions) != 0 {
+		t.Fatalf("offline instance sessions = %d, want 0", len(sessions))
+	}
+}
+
+func TestCallOperationsReportSupportDisabled(t *testing.T) {
+	previous := env.Env.CallsEnabled
+	env.Env.CallsEnabled = false
+	t.Cleanup(func() { env.Env.CallsEnabled = previous })
+
+	s := newCallTestInstance(stubInstanceRepo{})
+	if _, err := s.ListCallSessions(context.Background(), "inst"); !errors.Is(err, ErrCallSupportDisabled) {
+		t.Fatalf("list error = %v, want ErrCallSupportDisabled", err)
+	}
+	if _, err := s.OfferAudioCall(context.Background(), "inst", nil); !errors.Is(err, ErrCallSupportDisabled) {
+		t.Fatalf("offer error = %v, want ErrCallSupportDisabled", err)
+	}
+	if _, err := s.loadCallBridge("inst", "call"); !errors.Is(err, ErrCallSupportDisabled) {
+		t.Fatalf("load bridge error = %v, want ErrCallSupportDisabled", err)
+	}
+}
+
+func TestOfferAudioCallReportsNotFoundAndNotConnected(t *testing.T) {
+	enableCalls(t)
+
+	if _, err := newCallTestInstance(stubInstanceRepo{}).OfferAudioCall(context.Background(), "missing", nil); !errors.Is(err, ErrInstanceNotFound) {
+		t.Fatalf("missing instance error = %v, want ErrInstanceNotFound", err)
+	}
+
+	if _, err := newCallTestInstance(stubInstanceRepo{instances: []models.Instance{{ID: "inst"}}}).
+		OfferAudioCall(context.Background(), "inst", nil); !errors.Is(err, ErrInstanceNotConnected) {
+		t.Fatalf("offline instance error = %v, want ErrInstanceNotConnected", err)
+	}
+}
+
+func TestLoadCallBridgeReportsSessionNotFound(t *testing.T) {
+	enableCalls(t)
+	if _, err := newCallTestInstance(stubInstanceRepo{}).loadCallBridge("inst", "call"); !errors.Is(err, ErrCallSessionNotFound) {
+		t.Fatalf("bridge error = %v, want ErrCallSessionNotFound", err)
 	}
 }

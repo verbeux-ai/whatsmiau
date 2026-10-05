@@ -2978,6 +2978,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
                     }
                 }
             },
@@ -3034,6 +3046,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.AuthenticationErrorResponse"
                         }
                     },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
                     "409": {
                         "description": "Conflict",
                         "schema": {
@@ -3042,6 +3060,12 @@ const docTemplate = `{
                     },
                     "422": {
                         "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }
@@ -3093,8 +3117,20 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.AuthenticationErrorResponse"
                         }
                     },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }
@@ -3151,6 +3187,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
                     }
                 }
             }
@@ -3198,8 +3240,20 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.AuthenticationErrorResponse"
                         }
                     },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }
@@ -3250,8 +3304,20 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.AuthenticationErrorResponse"
                         }
                     },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }

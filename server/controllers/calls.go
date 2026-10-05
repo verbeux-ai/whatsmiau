@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"math"
 	"net/http"
 	"strings"
@@ -42,8 +43,10 @@ func NewCalls(w *whatsmiau.Whatsmiau) *Calls {
 // @Success 201 {object} dto.CallOfferResponse
 // @Failure 400 {object} utils.HTTPErrorResponse
 // @Failure 401 {object} utils.AuthenticationErrorResponse
-// @Failure 422 {object} utils.HTTPErrorResponse
+// @Failure 404 {object} utils.HTTPErrorResponse
 // @Failure 409 {object} utils.HTTPErrorResponse
+// @Failure 422 {object} utils.HTTPErrorResponse
+// @Failure 503 {object} utils.HTTPErrorResponse
 // @Router /v1/instance/{instance}/calls [post]
 func (s *Calls) Offer(ctx echo.Context) error {
 	var request dto.CallOfferRequest
@@ -59,7 +62,16 @@ func (s *Calls) Offer(ctx echo.Context) error {
 	}
 	offer, err := s.whatsmiau.OfferAudioCall(ctx.Request().Context(), ctx.Param("instance"), jid)
 	if err != nil {
-		return utils.HTTPFail(ctx, http.StatusConflict, err, "failed to place call")
+		switch {
+		case errors.Is(err, whatsmiau.ErrInstanceNotFound):
+			return utils.HTTPFail(ctx, http.StatusNotFound, err, "instance not found")
+		case errors.Is(err, whatsmiau.ErrCallSupportDisabled):
+			return utils.HTTPFail(ctx, http.StatusServiceUnavailable, err, "call support is disabled")
+		case errors.Is(err, whatsmiau.ErrInstanceNotConnected):
+			return utils.HTTPFail(ctx, http.StatusConflict, err, "instance is not connected")
+		default:
+			return utils.HTTPFail(ctx, http.StatusConflict, err, "failed to place call")
+		}
 	}
 	return ctx.JSON(http.StatusCreated, offer)
 }
@@ -73,11 +85,20 @@ func (s *Calls) Offer(ctx echo.Context) error {
 // @Success 200 {array} dto.CallSessionResponse
 // @Failure 401 {object} utils.AuthenticationErrorResponse
 // @Failure 404 {object} utils.HTTPErrorResponse
+// @Failure 500 {object} utils.HTTPErrorResponse
+// @Failure 503 {object} utils.HTTPErrorResponse
 // @Router /v1/instance/{instance}/calls [get]
 func (s *Calls) List(ctx echo.Context) error {
-	calls, err := s.whatsmiau.ListCallSessions(ctx.Param("instance"))
+	calls, err := s.whatsmiau.ListCallSessions(ctx.Request().Context(), ctx.Param("instance"))
 	if err != nil {
-		return utils.HTTPFail(ctx, http.StatusNotFound, err, "call support or instance not found")
+		switch {
+		case errors.Is(err, whatsmiau.ErrInstanceNotFound):
+			return utils.HTTPFail(ctx, http.StatusNotFound, err, "instance not found")
+		case errors.Is(err, whatsmiau.ErrCallSupportDisabled):
+			return utils.HTTPFail(ctx, http.StatusServiceUnavailable, err, "call support is disabled")
+		default:
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to list calls")
+		}
 	}
 	return ctx.JSON(http.StatusOK, calls)
 }
@@ -92,7 +113,9 @@ func (s *Calls) List(ctx echo.Context) error {
 // @Param callID path string true "Call ID"
 // @Success 200 {object} dto.CallActionResponse
 // @Failure 401 {object} utils.AuthenticationErrorResponse
+// @Failure 404 {object} utils.HTTPErrorResponse
 // @Failure 409 {object} utils.HTTPErrorResponse
+// @Failure 503 {object} utils.HTTPErrorResponse
 // @Router /v1/instance/{instance}/calls/{callID}/answer [post]
 func (s *Calls) Answer(ctx echo.Context) error { return s.control(ctx, "answer") }
 
@@ -105,7 +128,9 @@ func (s *Calls) Answer(ctx echo.Context) error { return s.control(ctx, "answer")
 // @Param callID path string true "Call ID"
 // @Success 200 {object} dto.CallActionResponse
 // @Failure 401 {object} utils.AuthenticationErrorResponse
+// @Failure 404 {object} utils.HTTPErrorResponse
 // @Failure 409 {object} utils.HTTPErrorResponse
+// @Failure 503 {object} utils.HTTPErrorResponse
 // @Router /v1/instance/{instance}/calls/{callID}/reject [post]
 func (s *Calls) Reject(ctx echo.Context) error { return s.control(ctx, "reject") }
 
@@ -118,7 +143,9 @@ func (s *Calls) Reject(ctx echo.Context) error { return s.control(ctx, "reject")
 // @Param callID path string true "Call ID"
 // @Success 200 {object} dto.CallActionResponse
 // @Failure 401 {object} utils.AuthenticationErrorResponse
+// @Failure 404 {object} utils.HTTPErrorResponse
 // @Failure 409 {object} utils.HTTPErrorResponse
+// @Failure 503 {object} utils.HTTPErrorResponse
 // @Router /v1/instance/{instance}/calls/{callID}/hangup [post]
 func (s *Calls) Hangup(ctx echo.Context) error { return s.control(ctx, "hangup") }
 
@@ -133,7 +160,14 @@ func (s *Calls) control(ctx echo.Context, action string) error {
 		err = s.whatsmiau.HangupCall(ctx.Param("instance"), ctx.Param("callID"))
 	}
 	if err != nil {
-		return utils.HTTPFail(ctx, http.StatusConflict, err, "call action failed")
+		switch {
+		case errors.Is(err, whatsmiau.ErrCallSessionNotFound):
+			return utils.HTTPFail(ctx, http.StatusNotFound, err, "call session not found")
+		case errors.Is(err, whatsmiau.ErrCallSupportDisabled):
+			return utils.HTTPFail(ctx, http.StatusServiceUnavailable, err, "call support is disabled")
+		default:
+			return utils.HTTPFail(ctx, http.StatusConflict, err, "call action failed")
+		}
 	}
 	return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -151,11 +185,19 @@ func (s *Calls) control(ctx echo.Context, action string) error {
 // @Success 101 {string} string "WebSocket Switching Protocols"
 // @Failure 401 {object} utils.AuthenticationErrorResponse
 // @Failure 404 {object} utils.HTTPErrorResponse
+// @Failure 503 {object} utils.HTTPErrorResponse
 // @Router /v1/instance/{instance}/calls/{callID}/audio [get]
 func (s *Calls) Audio(ctx echo.Context) error {
 	stream, err := s.whatsmiau.OpenCallAudio(ctx.Param("instance"), ctx.Param("callID"))
 	if err != nil {
-		return utils.HTTPFail(ctx, http.StatusNotFound, err, "call session not found")
+		switch {
+		case errors.Is(err, whatsmiau.ErrCallSessionNotFound):
+			return utils.HTTPFail(ctx, http.StatusNotFound, err, "call session not found")
+		case errors.Is(err, whatsmiau.ErrCallSupportDisabled):
+			return utils.HTTPFail(ctx, http.StatusServiceUnavailable, err, "call support is disabled")
+		default:
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to open call audio")
+		}
 	}
 	defer stream.Close()
 
