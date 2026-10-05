@@ -46,6 +46,7 @@ func NewCalls(w *whatsmiau.Whatsmiau) *Calls {
 // @Failure 404 {object} utils.HTTPErrorResponse
 // @Failure 409 {object} utils.HTTPErrorResponse
 // @Failure 422 {object} utils.HTTPErrorResponse
+// @Failure 500 {object} utils.HTTPErrorResponse
 // @Failure 503 {object} utils.HTTPErrorResponse
 // @Router /v1/instance/{instance}/calls [post]
 func (s *Calls) Offer(ctx echo.Context) error {
@@ -69,6 +70,8 @@ func (s *Calls) Offer(ctx echo.Context) error {
 			return utils.HTTPFail(ctx, http.StatusServiceUnavailable, err, "call support is disabled")
 		case errors.Is(err, whatsmiau.ErrInstanceNotConnected):
 			return utils.HTTPFail(ctx, http.StatusConflict, err, "instance is not connected")
+		case errors.Is(err, whatsmiau.ErrInstanceLookupFailed):
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to place call")
 		default:
 			return utils.HTTPFail(ctx, http.StatusConflict, err, "failed to place call")
 		}

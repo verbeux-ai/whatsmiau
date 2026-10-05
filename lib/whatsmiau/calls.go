@@ -24,6 +24,7 @@ var (
 	ErrInstanceNotConnected = errors.New("instance is not connected")
 	ErrCallSupportDisabled  = errors.New("call support is disabled")
 	ErrCallSessionNotFound  = errors.New("call session not found")
+	ErrInstanceLookupFailed = errors.New("failed to look up instance")
 )
 
 // CallOffer identifies an outgoing direct-audio call.
@@ -61,7 +62,7 @@ func callBridgeKey(instanceID, callID string) string { return instanceID + "\x00
 func (s *Whatsmiau) instanceExists(ctx context.Context, instanceID string) (bool, error) {
 	found, err := s.repo.List(ctx, instanceID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("%w: %w", ErrInstanceLookupFailed, err)
 	}
 	return len(found) > 0, nil
 }

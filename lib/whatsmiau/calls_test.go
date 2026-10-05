@@ -207,3 +207,22 @@ func TestLoadCallBridgeReportsSessionNotFound(t *testing.T) {
 		t.Fatalf("bridge error = %v, want ErrCallSessionNotFound", err)
 	}
 }
+
+func TestInstanceLookupFailureClassifiesAndKeepsCause(t *testing.T) {
+	enableCalls(t)
+	cause := errors.New("redis unavailable (simulated)")
+	repo := stubInstanceRepo{err: cause}
+
+	_, offerErr := newCallTestInstance(repo).OfferAudioCall(context.Background(), "inst", nil)
+	if !errors.Is(offerErr, ErrInstanceLookupFailed) {
+		t.Fatalf("offer error = %v, want ErrInstanceLookupFailed", offerErr)
+	}
+	if !errors.Is(offerErr, cause) {
+		t.Fatalf("offer error = %v, want to preserve the repository cause", offerErr)
+	}
+
+	_, listErr := newCallTestInstance(repo).ListCallSessions(context.Background(), "inst")
+	if !errors.Is(listErr, ErrInstanceLookupFailed) || !errors.Is(listErr, cause) {
+		t.Fatalf("list error = %v, want a classified lookup failure wrapping the cause", listErr)
+	}
+}

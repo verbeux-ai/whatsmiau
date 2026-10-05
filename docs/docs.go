@@ -3064,6 +3064,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/utils.HTTPErrorResponse"
                         }
                     },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPErrorResponse"
+                        }
+                    },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
