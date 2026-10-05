@@ -239,11 +239,7 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			if instance.Webhook.Enabled != nil && !*instance.Webhook.Enabled {
-				return
-			}
-
-			eventMap := webhookEventMap(instance.Webhook.Events)
+			eventMap := enabledWebhookEvents(instance.Webhook)
 
 			switch e := evt.(type) {
 			case *events.Message:

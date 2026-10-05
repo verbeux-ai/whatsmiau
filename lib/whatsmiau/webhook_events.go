@@ -1,6 +1,10 @@
 package whatsmiau
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/verbeux-ai/whatsmiau/models"
+)
 
 type webhookConfigEvent string
 
@@ -32,4 +36,11 @@ func webhookEventMap(events []string) map[webhookConfigEvent]bool {
 		}
 	}
 	return eventMap
+}
+
+func enabledWebhookEvents(webhook models.InstanceWebhook) map[webhookConfigEvent]bool {
+	if webhook.Enabled != nil && !*webhook.Enabled {
+		return nil
+	}
+	return webhookEventMap(webhook.Events)
 }
