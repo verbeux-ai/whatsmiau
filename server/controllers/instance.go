@@ -171,6 +171,23 @@ func (s *Instance) Update(ctx echo.Context) error {
 		toUpdate.RejectCall = request.RejectCall
 	}
 
+	stored, err := s.repo.List(c, request.ID)
+	if err != nil {
+		zap.L().Error("failed to list instances", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to update instance")
+	}
+	effectiveURL := request.Webhook.URL
+	var effectiveHeaders map[string]string
+	if len(stored) > 0 {
+		if effectiveURL == "" {
+			effectiveURL = stored[0].Webhook.Url
+		}
+		effectiveHeaders = stored[0].Webhook.Headers
+	}
+	if err := validateWebhookHeaderTransport(effectiveURL, effectiveHeaders); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+	}
+
 	instance, err := s.repo.Update(c, request.ID, toUpdate)
 	if err != nil {
 		if errors.Is(err, instances.ErrorNotFound) {
@@ -228,6 +245,8 @@ func (s *Instance) List(ctx echo.Context) error {
 		if err != nil {
 			zap.L().Error("failed to parse jid", zap.Error(err))
 		}
+
+		instance.Webhook.Headers = nil
 
 		response = append(response, dto.ListInstancesResponse{
 			Instance:     &instance,
