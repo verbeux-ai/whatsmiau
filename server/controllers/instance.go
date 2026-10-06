@@ -67,6 +67,13 @@ func (s *Instance) Create(ctx echo.Context) error {
 	}
 	request.RemoteJID = ""
 
+	if err := validateWebhookHeaders(request.Instance.Webhook.Headers); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+	}
+	if err := validateWebhookHeaderTransport(request.Instance.Webhook.Url, request.Instance.Webhook.Headers); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+	}
+
 	if len(request.ProxyHost) <= 0 && len(env.Env.ProxyAddresses) > 0 {
 		rd := rand.IntN(len(env.Env.ProxyAddresses))
 		proxyUrl := env.Env.ProxyAddresses[rd]
