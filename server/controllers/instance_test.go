@@ -178,3 +178,37 @@ func TestListInstancesHidesWebhookHeaders(t *testing.T) {
 		t.Fatalf("listing must not leak webhook headers: %s", rec.Body.String())
 	}
 }
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
+func TestUpdateInstancePreservesStoredBase64(t *testing.T) {
+	repo := newInMemoryInstanceRepo(models.Instance{
+		ID:      "inst",
+		Webhook: models.InstanceWebhook{Url: "https://example.com/hook", Base64: boolPtr(true)},
+	})
+	rec := serveInstanceUpdate(t, repo, `{"groupsIgnore":true}`)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if got := repo.byID["inst"].Webhook.Base64; got == nil || !*got {
+		t.Fatalf("an unrelated update must not reset webhook.base64: %v", got)
+	}
+}
+
+func TestUpdateInstanceCanDisableBase64(t *testing.T) {
+	repo := newInMemoryInstanceRepo(models.Instance{
+		ID:      "inst",
+		Webhook: models.InstanceWebhook{Url: "https://example.com/hook", Base64: boolPtr(true)},
+	})
+	rec := serveInstanceUpdate(t, repo, `{"webhook":{"base64":false}}`)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if got := repo.byID["inst"].Webhook.Base64; got == nil || *got {
+		t.Fatalf("explicit base64=false must persist: %v", got)
+	}
+}

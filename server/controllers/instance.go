@@ -147,7 +147,7 @@ func (s *Instance) Update(ctx echo.Context) error {
 		Webhook: models.InstanceWebhook{
 			Enabled: request.Webhook.Enabled,
 			Url:     request.Webhook.URL,
-			Base64:  &[]bool{request.Webhook.Base64}[0],
+			Base64:  request.Webhook.Base64,
 			Events:  request.Webhook.Events,
 		},
 		InstanceProxy: request.InstanceProxy,
