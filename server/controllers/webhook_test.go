@@ -175,3 +175,23 @@ func TestWebhookSetKeepsHeadersWhenOmitted(t *testing.T) {
 		t.Fatalf("omitting headers must keep the stored ones: %#v", repo.byID["inst"].Webhook.Headers)
 	}
 }
+
+func TestWebhookSetIgnoresInstanceIDInBody(t *testing.T) {
+	// The route names the target instance. A body key that the JSON binding
+	// matches case-insensitively must not be able to redirect the write.
+	repo := newInMemoryInstanceRepo(
+		models.Instance{ID: "inst"},
+		models.Instance{ID: "other"},
+	)
+	rec := serveWebhookSet(t, repo, `{"instanceId":"other","webhook":{"url":"https://example.com/hook"}}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if got := repo.byID["inst"].Webhook.Url; got != "https://example.com/hook" {
+		t.Fatalf("the route instance must be the one updated, got url %q", got)
+	}
+	if got := repo.byID["other"].Webhook.Url; got != "" {
+		t.Fatalf("the body must not redirect the write to another instance, got url %q", got)
+	}
+}
