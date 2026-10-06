@@ -1,0 +1,136 @@
+package controllers
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/labstack/echo/v4"
+	"github.com/verbeux-ai/whatsmiau/interfaces"
+	"github.com/verbeux-ai/whatsmiau/models"
+	"github.com/verbeux-ai/whatsmiau/repositories/instances"
+)
+
+// inMemoryInstanceRepo stores instances in a map so handler tests can run
+// without Redis. Its Update mirrors the additive header merge of
+// repositories/instances, keeping the effective-state expectation honest.
+type inMemoryInstanceRepo struct {
+	byID map[string]models.Instance
+}
+
+var _ interfaces.InstanceRepository = (*inMemoryInstanceRepo)(nil)
+
+func newInMemoryInstanceRepo(records ...models.Instance) *inMemoryInstanceRepo {
+	repo := &inMemoryInstanceRepo{byID: make(map[string]models.Instance, len(records))}
+	for _, record := range records {
+		repo.byID[record.ID] = record
+	}
+	return repo
+}
+
+func (r *inMemoryInstanceRepo) Create(_ context.Context, instance *models.Instance) error {
+	r.byID[instance.ID] = *instance
+	return nil
+}
+
+func (r *inMemoryInstanceRepo) List(_ context.Context, id string) ([]models.Instance, error) {
+	instance, ok := r.byID[id]
+	if !ok {
+		return nil, nil
+	}
+	return []models.Instance{instance}, nil
+}
+
+func (r *inMemoryInstanceRepo) Update(_ context.Context, id string, toUpdate *models.Instance) (*models.Instance, error) {
+	stored, ok := r.byID[id]
+	if !ok {
+		return nil, instances.ErrorNotFound
+	}
+	if toUpdate.Webhook.Enabled != nil {
+		stored.Webhook.Enabled = toUpdate.Webhook.Enabled
+	}
+	if toUpdate.Webhook.Url != "" {
+		stored.Webhook.Url = toUpdate.Webhook.Url
+	}
+	if toUpdate.Webhook.Base64 != nil {
+		stored.Webhook.Base64 = toUpdate.Webhook.Base64
+	}
+	if toUpdate.Webhook.Headers != nil {
+		if stored.Webhook.Headers == nil {
+			stored.Webhook.Headers = map[string]string{}
+		}
+		for name, value := range toUpdate.Webhook.Headers {
+			stored.Webhook.Headers[name] = value
+		}
+	}
+	if toUpdate.Webhook.Events != nil {
+		stored.Webhook.Events = toUpdate.Webhook.Events
+	}
+	r.byID[id] = stored
+	return &stored, nil
+}
+
+func (r *inMemoryInstanceRepo) Delete(_ context.Context, id string) error {
+	delete(r.byID, id)
+	return nil
+}
+
+func serveWebhookSet(t *testing.T, repo interfaces.InstanceRepository, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	controller := &Webhook{repo: repo, validate: validator.New()}
+	app := echo.New()
+	app.POST("/v1/webhook/set/:instance", controller.Set)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/webhook/set/inst", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	app.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestWebhookSetRejectsHeadersOverPlainHTTP(t *testing.T) {
+	repo := newInMemoryInstanceRepo(models.Instance{ID: "inst"})
+	rec := serveWebhookSet(t, repo, `{"webhook":{"url":"http://example.com/hook","headers":{"Authorization":"Bearer x"}}}`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+func TestWebhookSetRejectsHeadersLeftOverFromStoredHTTPWebhook(t *testing.T) {
+	repo := newInMemoryInstanceRepo(models.Instance{
+		ID:      "inst",
+		Webhook: models.InstanceWebhook{Url: "http://example.com/hook"},
+	})
+	// This request only adds headers; the http url comes from storage, so the
+	// effective state must still be rejected.
+	rec := serveWebhookSet(t, repo, `{"webhook":{"headers":{"Authorization":"Bearer x"}}}`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+}
+
+func TestWebhookSetAcceptsHeadersOverHTTPS(t *testing.T) {
+	repo := newInMemoryInstanceRepo(models.Instance{ID: "inst"})
+	rec := serveWebhookSet(t, repo, `{"webhook":{"url":"https://example.com/hook","headers":{"Authorization":"Bearer x"}}}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if got := repo.byID["inst"].Webhook.Headers["Authorization"]; got != "Bearer x" {
+		t.Fatalf("headers not persisted: %q", got)
+	}
+}
+
+func TestWebhookSetNotFound(t *testing.T) {
+	repo := newInMemoryInstanceRepo()
+	rec := serveWebhookSet(t, repo, `{"webhook":{"url":"https://example.com/hook"}}`)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}

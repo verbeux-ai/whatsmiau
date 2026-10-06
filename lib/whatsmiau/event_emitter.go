@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,8 +30,9 @@ import (
 )
 
 type emitter struct {
-	url  string
-	data any
+	url     string
+	headers map[string]string
+	data    any
 }
 
 func (s *Whatsmiau) getInstance(id string) *models.Instance {
@@ -116,7 +118,7 @@ func (s *Whatsmiau) processEmit(event emitter) {
 			backoff *= 2
 		}
 
-		success, shouldRetry := s.doEmit(data, event.url)
+		success, shouldRetry := s.doEmit(data, event.url, event.headers)
 		if success || !shouldRetry {
 			return
 		}
@@ -137,7 +139,12 @@ func (s *Whatsmiau) processEmit(event emitter) {
 
 // doEmit performs a single webhook delivery attempt with a 10s timeout.
 // Returns (success, shouldRetry).
-func (s *Whatsmiau) doEmit(data []byte, url string) (bool, bool) {
+func (s *Whatsmiau) doEmit(data []byte, url string, headers map[string]string) (bool, bool) {
+	if len(headers) > 0 && !isHTTPSWebhookURL(url) {
+		zap.L().Error("refusing to deliver webhook headers over a non-https url", zap.String("url", url))
+		return false, false // terminal, don't retry
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -148,8 +155,18 @@ func (s *Whatsmiau) doEmit(data []byte, url string) (bool, bool) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.httpClient.Do(req)
+	for name, value := range headers {
+		req.Header.Set(name, value)
+	}
+	if len(headers) > 0 {
+		req = req.WithContext(context.WithValue(req.Context(), webhookCredentialsContextKey{}, true))
+	}
+	resp, err := s.webhookClient.Do(req)
 	if err != nil {
+		if errors.Is(err, errWebhookRedirect) || errors.Is(err, errTooManyWebhookRedirects) {
+			zap.L().Error("refused webhook redirect for credentialed delivery", zap.Error(err), zap.String("url", url))
+			return false, false // deterministic refusal, don't retry
+		}
 		zap.L().Error("failed to send webhook", zap.Error(err), zap.String("url", url))
 		return false, true // network error, retry
 	}
@@ -182,11 +199,11 @@ func (s *Whatsmiau) doEmit(data []byte, url string) (bool, bool) {
 	return false, false
 }
 
-func (s *Whatsmiau) emit(body any, url string) {
-	if url == "" {
+func (s *Whatsmiau) emit(body any, webhook models.InstanceWebhook) {
+	if webhook.Url == "" {
 		return
 	}
-	s.emitter <- emitter{url, body}
+	s.emitter <- emitter{url: webhook.Url, headers: webhook.Headers, data: body}
 }
 
 func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
@@ -370,7 +387,7 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
 	}
 
-	s.emit(wookMessage, instance.Webhook.Url)
+	s.emit(wookMessage, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleMessageDeleteEvent(id string, instance *models.Instance, e *events.Message, eventMap map[webhookConfigEvent]bool) {
@@ -419,7 +436,7 @@ func (s *Whatsmiau) handleMessageDeleteEvent(id string, instance *models.Instanc
 	}
 
 	zap.L().Debug("message delete event", zap.String("instance", id), zap.Any("data", deleteData))
-	s.emit(wookEvent, instance.Webhook.Url)
+	s.emit(wookEvent, instance.Webhook)
 }
 
 func (s *Whatsmiau) resolveEditContent(id string, e *events.Message) (*WookKey, *waE2E.Message) {
@@ -520,7 +537,7 @@ func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance,
 			zap.String("original_id", originalKey.Id),
 			zap.String("message_type", messageType),
 		)
-		s.emit(wookEvent, instance.Webhook.Url)
+		s.emit(wookEvent, instance.Webhook)
 	}
 
 	// TODO: remove after 2026-11-04. Legacy path for instances that have not
@@ -556,7 +573,7 @@ func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance,
 			Event:    WookMessagesUpsert,
 			DateTime: e.Info.Timestamp,
 		}
-		s.emit(wookUpsert, instance.Webhook.Url)
+		s.emit(wookUpsert, instance.Webhook)
 	}
 }
 
@@ -582,7 +599,7 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 			Event:    WookMessagesUpdate,
 		}
 
-		s.emit(wookData, instance.Webhook.Url)
+		s.emit(wookData, instance.Webhook)
 	}
 }
 
@@ -604,7 +621,7 @@ func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *events.Contact, eventMap map[webhookConfigEvent]bool) {
@@ -629,7 +646,7 @@ func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *events.Picture, eventMap map[webhookConfigEvent]bool) {
@@ -649,7 +666,7 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 var (
@@ -695,7 +712,7 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 				IsLatest: &isLatest,
 				Progress: &prog,
 			}
-			s.emit(wookEvent, instance.Webhook.Url)
+			s.emit(wookEvent, instance.Webhook)
 		}
 
 		if isLatest {
@@ -722,7 +739,7 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func cleanHistorySyncState(id string) {
@@ -775,7 +792,7 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func (s *Whatsmiau) emitGroupParticipantsUpdate(id string, instance *models.Instance, groupJID string, author string, participantJIDs []types.JID, timestamp time.Time, action string, admin *bool) {
@@ -816,7 +833,7 @@ func (s *Whatsmiau) emitGroupParticipantsUpdate(id string, instance *models.Inst
 		Event:    WookGroupParticipantsUpdate,
 	}
 
-	s.emit(wookEvent, instance.Webhook.Url)
+	s.emit(wookEvent, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleGroupParticipantsUpdateEvent(id string, instance *models.Instance, e *events.GroupInfo, eventMap map[webhookConfigEvent]bool) {
@@ -912,7 +929,7 @@ func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e 
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleConnectionUpdateEvent(id string, instance *models.Instance, state string, statusReason int, eventMap map[webhookConfigEvent]bool) {
@@ -941,7 +958,7 @@ func (s *Whatsmiau) handleConnectionUpdateEvent(id string, instance *models.Inst
 	}
 
 	zap.L().Debug("connection update event", zap.String("instance", id), zap.Any("data", data))
-	s.emit(wookEvent, instance.Webhook.Url)
+	s.emit(wookEvent, instance.Webhook)
 }
 
 func (s *Whatsmiau) emitConnectionUpdate(id string, state string, statusReason int) {
