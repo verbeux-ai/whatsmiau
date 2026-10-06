@@ -19,6 +19,14 @@ import (
 
 const callPCMFrameSamples = meowcaller.FrameSamples
 
+var (
+	ErrInstanceNotFound     = errors.New("instance not found")
+	ErrInstanceNotConnected = errors.New("instance is not connected")
+	ErrCallSupportDisabled  = errors.New("call support is disabled")
+	ErrCallSessionNotFound  = errors.New("call session not found")
+	ErrInstanceLookupFailed = errors.New("failed to look up instance")
+)
+
 // CallOffer identifies an outgoing direct-audio call.
 type CallOffer struct{ ID, Recipient string }
 
@@ -50,6 +58,14 @@ func (s *Whatsmiau) callsEnabled() bool {
 	return env.Env.CallsEnabled && s.callClients != nil && s.callBridges != nil
 }
 func callBridgeKey(instanceID, callID string) string { return instanceID + "\x00" + callID }
+
+func (s *Whatsmiau) instanceExists(ctx context.Context, instanceID string) (bool, error) {
+	found, err := s.repo.List(ctx, instanceID)
+	if err != nil {
+		return false, fmt.Errorf("%w: %w", ErrInstanceLookupFailed, err)
+	}
+	return len(found) > 0, nil
+}
 
 func (s *Whatsmiau) registerCallClient(instanceID string, client *whatsmeow.Client) {
 	if !s.callsEnabled() {
@@ -161,12 +177,25 @@ func callPhaseName(phase meowcaller.CallPhase) string {
 // OfferAudioCall places an audio call. API consumers can attach media through
 // OpenCallAudio after the call enters its media lifecycle.
 func (s *Whatsmiau) OfferAudioCall(ctx context.Context, instanceID string, remoteJID *types.JID) (*CallOffer, error) {
-	client, recipient, err := s.loadClientWithJID(ctx, instanceID, remoteJID)
+	if !s.callsEnabled() {
+		return nil, ErrCallSupportDisabled
+	}
+	exists, err := s.instanceExists(ctx, instanceID)
 	if err != nil {
 		return nil, err
 	}
+	if !exists {
+		return nil, ErrInstanceNotFound
+	}
+	client, recipient, err := s.loadClientWithJID(ctx, instanceID, remoteJID)
+	if err != nil {
+		if errors.Is(err, whatsmeow.ErrClientIsNil) {
+			return nil, ErrInstanceNotConnected
+		}
+		return nil, err
+	}
 	if !client.IsConnected() || !client.IsLoggedIn() {
-		return nil, errors.New("instance is not connected")
+		return nil, ErrInstanceNotConnected
 	}
 	callClient, ok := s.callClients.Load(instanceID)
 	if !ok {
@@ -180,12 +209,16 @@ func (s *Whatsmiau) OfferAudioCall(ctx context.Context, instanceID string, remot
 	return &CallOffer{ID: call.ID(), Recipient: call.Peer().String()}, nil
 }
 
-func (s *Whatsmiau) ListCallSessions(instanceID string) ([]CallSession, error) {
-	if _, ok := s.clients.Load(instanceID); !ok {
-		return nil, whatsmeow.ErrClientIsNil
-	}
+func (s *Whatsmiau) ListCallSessions(ctx context.Context, instanceID string) ([]CallSession, error) {
 	if !s.callsEnabled() {
-		return nil, errors.New("call support is disabled")
+		return nil, ErrCallSupportDisabled
+	}
+	exists, err := s.instanceExists(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrInstanceNotFound
 	}
 	result := make([]CallSession, 0)
 	s.callBridges.Range(func(_ string, bridge *callBridge) bool {
@@ -200,11 +233,11 @@ func (s *Whatsmiau) ListCallSessions(instanceID string) ([]CallSession, error) {
 
 func (s *Whatsmiau) loadCallBridge(instanceID, callID string) (*callBridge, error) {
 	if !s.callsEnabled() {
-		return nil, errors.New("call support is disabled")
+		return nil, ErrCallSupportDisabled
 	}
 	bridge, ok := s.callBridges.Load(callBridgeKey(instanceID, callID))
 	if !ok {
-		return nil, errors.New("call session not found")
+		return nil, ErrCallSessionNotFound
 	}
 	return bridge, nil
 }
