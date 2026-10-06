@@ -149,6 +149,21 @@ func TestUpdateInstanceAllowsPlainHTTPWithoutStoredHeaders(t *testing.T) {
 	}
 }
 
+func TestUpdateInstanceWithoutURLKeepsLegacyInvalidRowUpdatable(t *testing.T) {
+	// A row stored before the transport rule (http + headers) must not become
+	// impossible to update: changing an unrelated field leaves the pair as it
+	// already was and makes nothing worse.
+	repo := newInMemoryInstanceRepo(models.Instance{
+		ID:      "inst",
+		Webhook: models.InstanceWebhook{Url: "http://example.com/hook", Headers: map[string]string{"Authorization": "Bearer secret"}},
+	})
+	rec := serveInstanceUpdate(t, repo, `{"groupsIgnore":true}`)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+}
+
 func TestListInstancesHidesWebhookHeaders(t *testing.T) {
 	repo := newInMemoryInstanceRepo(models.Instance{
 		ID:      "inst",

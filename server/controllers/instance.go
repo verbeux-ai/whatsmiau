@@ -171,21 +171,19 @@ func (s *Instance) Update(ctx echo.Context) error {
 		toUpdate.RejectCall = request.RejectCall
 	}
 
-	stored, err := s.repo.List(c, request.ID)
-	if err != nil {
-		zap.L().Error("failed to list instances", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to update instance")
-	}
-	effectiveURL := request.Webhook.URL
-	var effectiveHeaders map[string]string
-	if len(stored) > 0 {
-		if effectiveURL == "" {
-			effectiveURL = stored[0].Webhook.Url
+	if request.Webhook.URL != "" {
+		stored, err := s.repo.List(c, request.ID)
+		if err != nil {
+			zap.L().Error("failed to list instances", zap.Error(err))
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to update instance")
 		}
-		effectiveHeaders = stored[0].Webhook.Headers
-	}
-	if err := validateWebhookHeaderTransport(effectiveURL, effectiveHeaders); err != nil {
-		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+		var storedHeaders map[string]string
+		if len(stored) > 0 {
+			storedHeaders = stored[0].Webhook.Headers
+		}
+		if err := validateWebhookHeaderTransport(request.Webhook.URL, storedHeaders); err != nil {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+		}
 	}
 
 	instance, err := s.repo.Update(c, request.ID, toUpdate)
