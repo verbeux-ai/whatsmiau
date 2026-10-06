@@ -59,12 +59,7 @@ func (r *inMemoryInstanceRepo) Update(_ context.Context, id string, toUpdate *mo
 		stored.Webhook.Base64 = toUpdate.Webhook.Base64
 	}
 	if toUpdate.Webhook.Headers != nil {
-		if stored.Webhook.Headers == nil {
-			stored.Webhook.Headers = map[string]string{}
-		}
-		for name, value := range toUpdate.Webhook.Headers {
-			stored.Webhook.Headers[name] = value
-		}
+		stored.Webhook.Headers = toUpdate.Webhook.Headers
 	}
 	if toUpdate.Webhook.Events != nil {
 		stored.Webhook.Events = toUpdate.Webhook.Events
@@ -132,5 +127,51 @@ func TestWebhookSetNotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+func TestWebhookSetReplacesHeadersInsteadOfMerging(t *testing.T) {
+	repo := newInMemoryInstanceRepo(models.Instance{
+		ID:      "inst",
+		Webhook: models.InstanceWebhook{Url: "https://example.com/hook", Headers: map[string]string{"X-Keep": "1", "X-Drop": "2"}},
+	})
+	rec := serveWebhookSet(t, repo, `{"webhook":{"headers":{"X-Keep":"3"}}}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	got := repo.byID["inst"].Webhook.Headers
+	if len(got) != 1 || got["X-Keep"] != "3" {
+		t.Fatalf("supplying headers must replace the stored set: %#v", got)
+	}
+}
+
+func TestWebhookSetClearsHeadersWithEmptyObject(t *testing.T) {
+	repo := newInMemoryInstanceRepo(models.Instance{
+		ID:      "inst",
+		Webhook: models.InstanceWebhook{Url: "https://example.com/hook", Headers: map[string]string{"Authorization": "Bearer secret"}},
+	})
+	rec := serveWebhookSet(t, repo, `{"webhook":{"headers":{}}}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if got := repo.byID["inst"].Webhook.Headers; len(got) != 0 {
+		t.Fatalf("an empty object must clear the stored headers: %#v", got)
+	}
+}
+
+func TestWebhookSetKeepsHeadersWhenOmitted(t *testing.T) {
+	repo := newInMemoryInstanceRepo(models.Instance{
+		ID:      "inst",
+		Webhook: models.InstanceWebhook{Url: "https://example.com/hook", Headers: map[string]string{"Authorization": "Bearer secret"}},
+	})
+	rec := serveWebhookSet(t, repo, `{"webhook":{"url":"https://other.example/hook"}}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if got := repo.byID["inst"].Webhook.Headers["Authorization"]; got != "Bearer secret" {
+		t.Fatalf("omitting headers must keep the stored ones: %#v", repo.byID["inst"].Webhook.Headers)
 	}
 }

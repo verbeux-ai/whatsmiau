@@ -51,15 +51,3 @@ func TestValidateWebhookHeaders(t *testing.T) {
 		t.Fatal("expected too many headers to be rejected")
 	}
 }
-
-func TestMergeWebhookHeaders(t *testing.T) {
-	stored := map[string]string{"Authorization": "Bearer old", "X-Keep": "1"}
-
-	merged := mergeWebhookHeaders(stored, map[string]string{"Authorization": "Bearer new"})
-	if merged["Authorization"] != "Bearer new" || merged["X-Keep"] != "1" {
-		t.Fatalf("incoming headers must override stored ones while keeping the rest: %#v", merged)
-	}
-	if mergeWebhookHeaders(stored, nil)["X-Keep"] != "1" {
-		t.Fatal("a request without headers must keep the stored ones")
-	}
-}

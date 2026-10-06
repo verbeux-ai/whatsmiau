@@ -13,23 +13,6 @@ const (
 	maxWebhookHeaderValueLength = 2048
 )
 
-func mergeWebhookHeaders(stored, incoming map[string]string) map[string]string {
-	if incoming == nil {
-		return stored
-	}
-	if len(stored) == 0 {
-		return incoming
-	}
-	merged := make(map[string]string, len(stored)+len(incoming))
-	for name, value := range stored {
-		merged[name] = value
-	}
-	for name, value := range incoming {
-		merged[name] = value
-	}
-	return merged
-}
-
 func validateWebhookHeaderTransport(rawURL string, headers map[string]string) error {
 	if rawURL == "" || len(headers) == 0 {
 		return nil

@@ -70,7 +70,10 @@ func (s *Webhook) Set(ctx echo.Context) error {
 	if request.Webhook.URL != "" {
 		effectiveURL = request.Webhook.URL
 	}
-	effectiveHeaders := mergeWebhookHeaders(stored[0].Webhook.Headers, request.Webhook.Headers)
+	effectiveHeaders := stored[0].Webhook.Headers
+	if request.Webhook.Headers != nil {
+		effectiveHeaders = request.Webhook.Headers
+	}
 
 	if err := validateWebhookHeaders(effectiveHeaders); err != nil {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
