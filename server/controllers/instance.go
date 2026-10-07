@@ -67,6 +67,13 @@ func (s *Instance) Create(ctx echo.Context) error {
 	}
 	request.RemoteJID = ""
 
+	if err := validateWebhookHeaders(request.Instance.Webhook.Headers); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+	}
+	if err := validateWebhookHeaderTransport(request.Instance.Webhook.Url, request.Instance.Webhook.Headers); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+	}
+
 	if len(request.ProxyHost) <= 0 && len(env.Env.ProxyAddresses) > 0 {
 		rd := rand.IntN(len(env.Env.ProxyAddresses))
 		proxyUrl := env.Env.ProxyAddresses[rd]
@@ -140,7 +147,7 @@ func (s *Instance) Update(ctx echo.Context) error {
 		Webhook: models.InstanceWebhook{
 			Enabled: request.Webhook.Enabled,
 			Url:     request.Webhook.URL,
-			Base64:  &[]bool{request.Webhook.Base64}[0],
+			Base64:  request.Webhook.Base64,
 			Events:  request.Webhook.Events,
 		},
 		InstanceProxy: request.InstanceProxy,
@@ -162,6 +169,21 @@ func (s *Instance) Update(ctx echo.Context) error {
 	}
 	if request.RejectCall != nil {
 		toUpdate.RejectCall = request.RejectCall
+	}
+
+	if request.Webhook.URL != "" {
+		stored, err := s.repo.List(c, request.ID)
+		if err != nil {
+			zap.L().Error("failed to list instances", zap.Error(err))
+			return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to update instance")
+		}
+		var storedHeaders map[string]string
+		if len(stored) > 0 {
+			storedHeaders = stored[0].Webhook.Headers
+		}
+		if err := validateWebhookHeaderTransport(request.Webhook.URL, storedHeaders); err != nil {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+		}
 	}
 
 	instance, err := s.repo.Update(c, request.ID, toUpdate)
@@ -221,6 +243,8 @@ func (s *Instance) List(ctx echo.Context) error {
 		if err != nil {
 			zap.L().Error("failed to parse jid", zap.Error(err))
 		}
+
+		instance.Webhook.Headers = nil
 
 		response = append(response, dto.ListInstancesResponse{
 			Instance:     &instance,

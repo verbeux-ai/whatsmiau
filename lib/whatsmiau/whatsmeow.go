@@ -44,6 +44,7 @@ type Whatsmiau struct {
 	connectPhoneNumber *xsync.Map[string, string]
 	emitter            chan emitter
 	httpClient         *http.Client
+	webhookClient      *http.Client
 	linkPreviewClient  *http.Client
 	fileStorage        interfaces.Storage
 	handlerSemaphore   chan struct{}
@@ -190,6 +191,10 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		emitter:            make(chan emitter, env.Env.EmitterBufferSize),
 		httpClient: &http.Client{
 			Timeout: time.Second * 30, // TODO: load from env
+		},
+		webhookClient: &http.Client{
+			Timeout:       time.Second * 30,
+			CheckRedirect: rejectWebhookRedirect,
 		},
 		linkPreviewClient: newLinkPreviewHTTPClient(),
 		fileStorage:       storage,

@@ -125,3 +125,84 @@ func TestUpdateOnlyTouchesSaveMediaWhenProvided(t *testing.T) {
 		t.Error("explicit false was not persisted")
 	}
 }
+
+// TestUpdateReplacesWebhookHeadersWhenProvided guards the full-set semantics of
+// the headers map: supplying headers replaces the stored set (so an empty map
+// clears them) and omitting the field keeps whatever was stored.
+func TestUpdateReplacesWebhookHeadersWhenProvided(t *testing.T) {
+	repo, _, _ := newTestRepository(t)
+	ctx := context.Background()
+
+	if err := repo.Create(ctx, &models.Instance{
+		ID:      "hooks",
+		Webhook: models.InstanceWebhook{Headers: map[string]string{"X-Keep": "1", "X-Drop": "2"}},
+	}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	updated, err := repo.Update(ctx, "hooks", &models.Instance{
+		Webhook: models.InstanceWebhook{Headers: map[string]string{"X-Keep": "3"}},
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if len(updated.Webhook.Headers) != 1 || updated.Webhook.Headers["X-Keep"] != "3" {
+		t.Fatalf("headers must be replaced, not merged: %#v", updated.Webhook.Headers)
+	}
+
+	// An update that does not mention headers keeps the stored set.
+	updated, err = repo.Update(ctx, "hooks", &models.Instance{RemoteJID: "123@s.whatsapp.net"})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if updated.Webhook.Headers["X-Keep"] != "3" {
+		t.Fatalf("update without headers dropped the stored set: %#v", updated.Webhook.Headers)
+	}
+
+	// An empty map clears them.
+	updated, err = repo.Update(ctx, "hooks", &models.Instance{
+		Webhook: models.InstanceWebhook{Headers: map[string]string{}},
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if len(updated.Webhook.Headers) != 0 {
+		t.Fatalf("an empty map must clear the stored headers: %#v", updated.Webhook.Headers)
+	}
+}
+
+// TestUpdateOnlyTouchesBase64WhenProvided guards the pointer semantics of
+// webhook.base64, the same failure mode as SaveMedia.
+func TestUpdateOnlyTouchesBase64WhenProvided(t *testing.T) {
+	repo, _, _ := newTestRepository(t)
+	ctx := context.Background()
+
+	enabled := true
+	if err := repo.Create(ctx, &models.Instance{
+		ID:      "b64",
+		Webhook: models.InstanceWebhook{Base64: &enabled},
+	}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// An update that does not mention base64 must leave it alone.
+	updated, err := repo.Update(ctx, "b64", &models.Instance{RemoteJID: "123@s.whatsapp.net"})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if updated.Webhook.Base64 == nil || !*updated.Webhook.Base64 {
+		t.Fatalf("update without base64 reset the stored value: %v", updated.Webhook.Base64)
+	}
+
+	// An explicit false must persist.
+	disabled := false
+	updated, err = repo.Update(ctx, "b64", &models.Instance{
+		Webhook: models.InstanceWebhook{Base64: &disabled},
+	})
+	if err != nil {
+		t.Fatalf("update to false: %v", err)
+	}
+	if updated.Webhook.Base64 == nil || *updated.Webhook.Base64 {
+		t.Fatalf("explicit false was not persisted: %v", updated.Webhook.Base64)
+	}
+}

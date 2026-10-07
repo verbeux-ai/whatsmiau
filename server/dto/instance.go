@@ -50,7 +50,7 @@ type UpdateInstanceRequest struct {
 	AlwaysOnline *bool   `json:"alwaysOnline,omitempty"`
 	Webhook      struct {
 		Enabled *bool    `json:"enabled,omitempty"`
-		Base64  bool     `json:"base64,omitempty"`
+		Base64  *bool    `json:"base64,omitempty"`
 		URL     string   `json:"url,omitempty"`
 		Events  []string `json:"events,omitempty"`
 	} `json:"webhook,omitempty"`
