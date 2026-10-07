@@ -42,6 +42,18 @@ func TestValidateWebhookHeaders(t *testing.T) {
 	if err := validateWebhookHeaders(map[string]string{strings.Repeat("X", maxWebhookHeaderNameLength+1): "v"}); err == nil {
 		t.Fatal("expected an oversized name to be rejected")
 	}
+	if err := validateWebhookHeaders(map[string]string{"": "v"}); err == nil {
+		t.Fatal("expected an empty header name to be rejected")
+	}
+	if err := validateWebhookHeaders(map[string]string{"X-Token": "bad\rvalue"}); err == nil {
+		t.Fatal("expected CR in the value to be rejected")
+	}
+	if err := validateWebhookHeaders(map[string]string{"X-Token": "with\ttab"}); err != nil {
+		t.Fatalf("HTAB is allowed in a header value: %v", err)
+	}
+	if err := validateWebhookHeaders(map[string]string{"X-Token": "café-ümlaut"}); err != nil {
+		t.Fatalf("bytes above ASCII are allowed in a header value: %v", err)
+	}
 
 	tooMany := make(map[string]string, maxWebhookHeaders+1)
 	for i := 0; i <= maxWebhookHeaders; i++ {

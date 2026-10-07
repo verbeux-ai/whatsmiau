@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"golang.org/x/net/http/httpguts"
 	"net/url"
 	"strings"
 )
@@ -30,10 +31,10 @@ func validateWebhookHeaders(headers map[string]string) error {
 	}
 	seen := make(map[string]struct{}, len(headers))
 	for name, value := range headers {
-		if !isValidHeaderName(name) {
+		if !httpguts.ValidHeaderFieldName(name) {
 			return fmt.Errorf("invalid webhook header name %q", name)
 		}
-		if !isValidHeaderValue(value) {
+		if !httpguts.ValidHeaderFieldValue(value) {
 			return fmt.Errorf("invalid value for webhook header %q", name)
 		}
 		if len(name) > maxWebhookHeaderNameLength {
@@ -50,36 +51,4 @@ func validateWebhookHeaders(headers map[string]string) error {
 		seen[canonical] = struct{}{}
 	}
 	return nil
-}
-
-func isValidHeaderName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for i := 0; i < len(name); i++ {
-		if !isTokenChar(name[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-func isTokenChar(c byte) bool {
-	if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' {
-		return true
-	}
-	switch c {
-	case '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~':
-		return true
-	}
-	return false
-}
-
-func isValidHeaderValue(value string) bool {
-	for i := 0; i < len(value); i++ {
-		if c := value[i]; (c < 0x20 && c != '\t') || c == 0x7f {
-			return false
-		}
-	}
-	return true
 }
