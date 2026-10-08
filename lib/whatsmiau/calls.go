@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/purpshell/meowcaller"
+	"github.com/rs/zerolog"
 	"github.com/verbeux-ai/whatsmiau/env"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
@@ -67,11 +69,19 @@ func (s *Whatsmiau) instanceExists(ctx context.Context, instanceID string) (bool
 	return len(found) > 0, nil
 }
 
+func newCallClient(client *whatsmeow.Client) *meowcaller.Client {
+	if !env.Env.CallMediaDebug {
+		return meowcaller.NewClient(client)
+	}
+	logger := zerolog.New(os.Stdout).Level(zerolog.DebugLevel).With().Timestamp().Logger()
+	return meowcaller.NewClient(client, meowcaller.WithLogger(logger))
+}
+
 func (s *Whatsmiau) registerCallClient(instanceID string, client *whatsmeow.Client) {
 	if !s.callsEnabled() {
 		return
 	}
-	callClient := meowcaller.NewClient(client)
+	callClient := newCallClient(client)
 	s.attachIncomingCallHandler(instanceID, callClient)
 	s.callClients.Store(instanceID, callClient)
 }

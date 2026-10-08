@@ -135,7 +135,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		if ok {
 			configProxy(client, instanceFound.InstanceProxy)
 			if env.Env.CallsEnabled {
-				callClients.Store(instanceFound.ID, meowcaller.NewClient(client))
+				callClients.Store(instanceFound.ID, newCallClient(client))
 			}
 			clients.Store(instanceFound.ID, client)
 			clientsToConnect = append(clientsToConnect, client)
