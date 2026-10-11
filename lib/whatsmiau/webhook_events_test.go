@@ -23,6 +23,8 @@ func TestWebhookEventMapNormalizesConfigurationAliases(t *testing.T) {
 		{input: "messages.upsert", expected: webhookConfigMessagesUpsert},
 		{input: "  Messages.Update  ", expected: webhookConfigMessagesUpdate},
 		{input: "messages.delete", expected: webhookConfigMessagesDelete},
+		{input: "MESSAGES_EDITED", expected: webhookConfigMessagesEdited},
+		{input: "messages.edited", expected: webhookConfigMessagesEdited},
 		{input: "messages.set", expected: webhookConfigMessagesSet},
 		{input: "contacts.upsert", expected: webhookConfigContactsUpsert},
 		{input: "group-participants.update", expected: webhookConfigGroupParticipantsUpdate},
@@ -47,6 +49,7 @@ func TestWebhookEventMapDoesNotEnableSupportedEventsForEmptyOrUnknownInput(t *te
 		webhookConfigMessagesUpsert,
 		webhookConfigMessagesUpdate,
 		webhookConfigMessagesDelete,
+		webhookConfigMessagesEdited,
 		webhookConfigMessagesSet,
 		webhookConfigContactsUpsert,
 		webhookConfigGroupParticipantsUpdate,
@@ -296,6 +299,46 @@ func TestReceiptWebhookEmitsEachMessageUpdate(t *testing.T) {
 	}
 }
 
+func TestReadSelfReceiptEmitsReadUpdate(t *testing.T) {
+	service := &Whatsmiau{
+		clients: xsync.NewMap[string, *whatsmeow.Client](),
+		emitter: make(chan emitter, 1),
+	}
+	service.clients.Store("instance-1", &whatsmeow.Client{})
+	instance := &models.Instance{
+		ID: "instance-1",
+		Webhook: models.InstanceWebhook{
+			Url:    "https://webhook.example/messages",
+			Events: []string{"MESSAGES_UPDATE"},
+		},
+	}
+	event := &events.Receipt{
+		MessageSource: types.MessageSource{
+			Chat:     types.NewJID("5511999999999", types.DefaultUserServer),
+			Sender:   types.NewJID("5511888888888", types.DefaultUserServer),
+			IsFromMe: true,
+		},
+		MessageIDs: []types.MessageID{"message-1"},
+		Timestamp:  time.Date(2026, time.October, 4, 12, 0, 0, 0, time.UTC),
+		Type:       types.ReceiptTypeReadSelf,
+	}
+
+	service.handleReceiptEvent("instance-1", instance, event, webhookEventMap(instance.Webhook.Events))
+
+	select {
+	case emitted := <-service.emitter:
+		payload, ok := emitted.data.(*WookEvent[WookMessageUpdateData])
+		if !ok {
+			t.Fatalf("unexpected emitted data type %T", emitted.data)
+		}
+		if payload.Data.MessageId != "message-1" || payload.Data.Status != MessageStatusRead || !payload.Data.FromMe {
+			t.Fatalf("unexpected update payload: %+v", payload.Data)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected update webhook for read-self receipt")
+	}
+}
+
 func TestWebhookSubscriptionsRemainIsolated(t *testing.T) {
 	enabled := true
 	service := &Whatsmiau{
@@ -343,4 +386,36 @@ func TestWebhookSubscriptionsRemainIsolated(t *testing.T) {
 		t.Fatalf("connection subscription unexpectedly emitted message event: %#v", emitted)
 	default:
 	}
+}
+
+func TestEnabledWebhookEventsDeactivateDeliveryWithoutTouchingConfiguration(t *testing.T) {
+	disabled := false
+	enabled := true
+
+	t.Run("disabled webhook delivers nothing", func(t *testing.T) {
+		events := enabledWebhookEvents(models.InstanceWebhook{
+			Enabled: &disabled,
+			Events:  []string{"MESSAGES_UPSERT", "CALL"},
+		})
+		if len(events) != 0 {
+			t.Fatalf("expected no delivered events, got %#v", events)
+		}
+	})
+
+	t.Run("enabled webhook delivers configured events", func(t *testing.T) {
+		events := enabledWebhookEvents(models.InstanceWebhook{
+			Enabled: &enabled,
+			Events:  []string{"messages.upsert", "CALL"},
+		})
+		if !events[webhookConfigMessagesUpsert] || !events[webhookConfigCall] {
+			t.Fatalf("expected configured events, got %#v", events)
+		}
+	})
+
+	t.Run("webhook without an explicit switch delivers configured events", func(t *testing.T) {
+		events := enabledWebhookEvents(models.InstanceWebhook{Events: []string{"CALL"}})
+		if !events[webhookConfigCall] {
+			t.Fatalf("expected configured events, got %#v", events)
+		}
+	})
 }

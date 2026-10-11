@@ -1,6 +1,10 @@
 package whatsmiau
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/verbeux-ai/whatsmiau/models"
+)
 
 type webhookConfigEvent string
 
@@ -8,6 +12,7 @@ const (
 	webhookConfigMessagesUpsert          webhookConfigEvent = "MESSAGES_UPSERT"
 	webhookConfigMessagesUpdate          webhookConfigEvent = "MESSAGES_UPDATE"
 	webhookConfigMessagesDelete          webhookConfigEvent = "MESSAGES_DELETE"
+	webhookConfigMessagesEdited          webhookConfigEvent = "MESSAGES_EDITED"
 	webhookConfigMessagesSet             webhookConfigEvent = "MESSAGES_SET"
 	webhookConfigContactsUpsert          webhookConfigEvent = "CONTACTS_UPSERT"
 	webhookConfigGroupParticipantsUpdate webhookConfigEvent = "GROUP_PARTICIPANTS_UPDATE"
@@ -31,4 +36,11 @@ func webhookEventMap(events []string) map[webhookConfigEvent]bool {
 		}
 	}
 	return eventMap
+}
+
+func enabledWebhookEvents(webhook models.InstanceWebhook) map[webhookConfigEvent]bool {
+	if webhook.Enabled != nil && !*webhook.Enabled {
+		return nil
+	}
+	return webhookEventMap(webhook.Events)
 }

@@ -56,6 +56,32 @@ func (s *Webhook) Set(ctx echo.Context) error {
 	}
 
 	c := ctx.Request().Context()
+
+	stored, err := s.repo.List(c, request.InstanceID)
+	if err != nil {
+		zap.L().Error("failed to list instances", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to update webhook")
+	}
+	if len(stored) == 0 {
+		return utils.HTTPFail(ctx, http.StatusNotFound, instances.ErrorNotFound, "instance not found")
+	}
+
+	effectiveURL := stored[0].Webhook.Url
+	if request.Webhook.URL != "" {
+		effectiveURL = request.Webhook.URL
+	}
+	effectiveHeaders := stored[0].Webhook.Headers
+	if request.Webhook.Headers != nil {
+		effectiveHeaders = request.Webhook.Headers
+	}
+
+	if err := validateWebhookHeaders(effectiveHeaders); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+	}
+	if err := validateWebhookHeaderTransport(effectiveURL, effectiveHeaders); err != nil {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, err, err.Error())
+	}
+
 	instance, err := s.repo.Update(c, request.InstanceID, &models.Instance{
 		ID: request.InstanceID,
 		Webhook: models.InstanceWebhook{

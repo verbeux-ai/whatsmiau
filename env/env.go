@@ -40,6 +40,9 @@ type E struct {
 	// CallDebug emits sanitized incoming offer shapes for controlled protocol
 	// tests. It never logs call keys, encrypted payloads, call IDs, or JIDs.
 	CallDebug bool `env:"CALL_DEBUG" envDefault:"false"`
+	// CallMediaDebug surfaces the call library's sanitized signaling and media
+	// logs. The raw-secrets recorder (meowcaller.WithDiagnostics) stays off.
+	CallMediaDebug bool `env:"CALL_MEDIA_DEBUG" envDefault:"false"`
 }
 
 var Env E

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,8 +30,9 @@ import (
 )
 
 type emitter struct {
-	url  string
-	data any
+	url     string
+	headers map[string]string
+	data    any
 }
 
 func (s *Whatsmiau) getInstance(id string) *models.Instance {
@@ -116,7 +118,7 @@ func (s *Whatsmiau) processEmit(event emitter) {
 			backoff *= 2
 		}
 
-		success, shouldRetry := s.doEmit(data, event.url)
+		success, shouldRetry := s.doEmit(data, event.url, event.headers)
 		if success || !shouldRetry {
 			return
 		}
@@ -137,7 +139,12 @@ func (s *Whatsmiau) processEmit(event emitter) {
 
 // doEmit performs a single webhook delivery attempt with a 10s timeout.
 // Returns (success, shouldRetry).
-func (s *Whatsmiau) doEmit(data []byte, url string) (bool, bool) {
+func (s *Whatsmiau) doEmit(data []byte, url string, headers map[string]string) (bool, bool) {
+	if len(headers) > 0 && !isHTTPSWebhookURL(url) {
+		zap.L().Error("refusing to deliver webhook headers over a non-https url", zap.String("url", url))
+		return false, false // terminal, don't retry
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -148,8 +155,18 @@ func (s *Whatsmiau) doEmit(data []byte, url string) (bool, bool) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.httpClient.Do(req)
+	for name, value := range headers {
+		req.Header.Set(name, value)
+	}
+	if len(headers) > 0 {
+		req = req.WithContext(context.WithValue(req.Context(), webhookCredentialsContextKey{}, true))
+	}
+	resp, err := s.webhookClient.Do(req)
 	if err != nil {
+		if errors.Is(err, errWebhookRedirect) || errors.Is(err, errTooManyWebhookRedirects) {
+			zap.L().Error("refused webhook redirect for credentialed delivery", zap.Error(err), zap.String("url", url))
+			return false, false // deterministic refusal, don't retry
+		}
 		zap.L().Error("failed to send webhook", zap.Error(err), zap.String("url", url))
 		return false, true // network error, retry
 	}
@@ -182,11 +199,11 @@ func (s *Whatsmiau) doEmit(data []byte, url string) (bool, bool) {
 	return false, false
 }
 
-func (s *Whatsmiau) emit(body any, url string) {
-	if url == "" {
+func (s *Whatsmiau) emit(body any, webhook models.InstanceWebhook) {
+	if webhook.Url == "" {
 		return
 	}
-	s.emitter <- emitter{url, body}
+	s.emitter <- emitter{url: webhook.Url, headers: webhook.Headers, data: body}
 }
 
 func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
@@ -239,11 +256,7 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				return
 			}
 
-			if instance.Webhook.Enabled != nil && !*instance.Webhook.Enabled {
-				return
-			}
-
-			eventMap := webhookEventMap(instance.Webhook.Events)
+			eventMap := enabledWebhookEvents(instance.Webhook)
 
 			switch e := evt.(type) {
 			case *events.Message:
@@ -313,8 +326,18 @@ func (s *Whatsmiau) handleLoggedOut(id string) {
 }
 func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *events.Message, eventMap map[webhookConfigEvent]bool) {
 	if e.Message != nil {
-		if pm := e.Message.GetProtocolMessage(); pm != nil && pm.GetType() == waE2E.ProtocolMessage_REVOKE {
-			s.handleMessageDeleteEvent(id, instance, e, eventMap)
+		if pm := e.Message.GetProtocolMessage(); pm != nil {
+			switch pm.GetType() {
+			case waE2E.ProtocolMessage_REVOKE:
+				s.handleMessageDeleteEvent(id, instance, e, eventMap)
+				return
+			case waE2E.ProtocolMessage_MESSAGE_EDIT:
+				s.handleMessageEditEvent(id, instance, e, eventMap)
+				return
+			}
+		}
+		if sec := e.Message.GetSecretEncryptedMessage(); sec != nil && sec.GetSecretEncType() == waE2E.SecretEncryptedMessage_MESSAGE_EDIT {
+			s.handleMessageEditEvent(id, instance, e, eventMap)
 			return
 		}
 	}
@@ -364,7 +387,7 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
 	}
 
-	s.emit(wookMessage, instance.Webhook.Url)
+	s.emit(wookMessage, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleMessageDeleteEvent(id string, instance *models.Instance, e *events.Message, eventMap map[webhookConfigEvent]bool) {
@@ -413,7 +436,145 @@ func (s *Whatsmiau) handleMessageDeleteEvent(id string, instance *models.Instanc
 	}
 
 	zap.L().Debug("message delete event", zap.String("instance", id), zap.Any("data", deleteData))
-	s.emit(wookEvent, instance.Webhook.Url)
+	s.emit(wookEvent, instance.Webhook)
+}
+
+func (s *Whatsmiau) resolveEditContent(id string, e *events.Message) (*WookKey, *waE2E.Message) {
+	var originalKey *WookKey
+	var editedMsg *waE2E.Message
+
+	if pm := e.Message.GetProtocolMessage(); pm != nil && pm.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT {
+		if pKey := pm.GetKey(); pKey != nil {
+			originalKey = &WookKey{RemoteJid: pKey.GetRemoteJID(), FromMe: pKey.GetFromMe(), Id: pKey.GetID(), Participant: pKey.GetParticipant()}
+		}
+		editedMsg = pm.GetEditedMessage()
+	}
+
+	sec := e.Message.GetSecretEncryptedMessage()
+	if sec == nil || sec.GetSecretEncType() != waE2E.SecretEncryptedMessage_MESSAGE_EDIT {
+		return originalKey, editedMsg
+	}
+
+	client, ok := s.clients.Load(id)
+	if !ok {
+		return nil, nil
+	}
+
+	dctx, dcancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer dcancel()
+	decrypted, err := client.DecryptSecretEncryptedMessage(dctx, e)
+	if err != nil {
+		zap.L().Error("failed to decrypt edit", zap.String("instance", id), zap.Error(err))
+		return nil, nil
+	}
+
+	if dpm := decrypted.GetProtocolMessage(); dpm != nil && dpm.GetType() == waE2E.ProtocolMessage_MESSAGE_EDIT {
+		if inner := dpm.GetEditedMessage(); inner != nil {
+			decrypted = inner
+		}
+	}
+
+	if originalKey == nil {
+		if targetKey := sec.GetTargetMessageKey(); targetKey != nil {
+			originalKey = &WookKey{RemoteJid: targetKey.GetRemoteJID(), FromMe: targetKey.GetFromMe(), Id: targetKey.GetID(), Participant: targetKey.GetParticipant()}
+		}
+	}
+
+	return originalKey, decrypted
+}
+
+func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance, e *events.Message, eventMap map[webhookConfigEvent]bool) {
+	if !eventMap[webhookConfigMessagesEdited] && !eventMap[webhookConfigMessagesUpsert] {
+		return
+	}
+
+	if canIgnoreGroup(e, instance) {
+		return
+	}
+
+	originalKey, editedMsg := s.resolveEditContent(id, e)
+	if originalKey == nil || editedMsg == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	remoteJid, remoteLid := s.GetJidLid(ctx, id, e.Info.Chat)
+	senderJid, _ := s.GetJidLid(ctx, id, e.Info.Sender)
+
+	if originalKey.RemoteJid == "" {
+		originalKey.RemoteJid = remoteJid
+	}
+
+	messageType, raw, _ := s.parseWAMessage(editedMsg)
+
+	status := "received"
+	if e.Info.IsFromMe {
+		status = "sent"
+	}
+
+	if eventMap[webhookConfigMessagesEdited] {
+		editData := &WookMessageEditData{
+			Key:              originalKey,
+			EditedMessage:    raw,
+			MessageType:      messageType,
+			InstanceId:       instance.ID,
+			PushName:         e.Info.PushName,
+			Status:           status,
+			MessageTimestamp: int(e.Info.Timestamp.Unix()),
+			Source:           "whatsapp",
+		}
+
+		wookEvent := &WookEvent[WookMessageEditData]{
+			Instance: instance.ID,
+			Data:     editData,
+			DateTime: e.Info.Timestamp,
+			Event:    WookMessagesEdited,
+		}
+		zap.L().Debug("message edit event",
+			zap.String("instance", id),
+			zap.String("original_id", originalKey.Id),
+			zap.String("message_type", messageType),
+		)
+		s.emit(wookEvent, instance.Webhook)
+	}
+
+	// TODO: remove after 2026-11-04. Legacy path for instances that have not
+	// opted into messages.edited yet; emits the edit as messages.upsert.
+	if !eventMap[webhookConfigMessagesEdited] && eventMap[webhookConfigMessagesUpsert] {
+		addressingMode := "lid"
+		if remoteLid == "" {
+			addressingMode = "jid"
+		}
+		upsertData := &WookMessageData{
+			Key: &WookKey{
+				RemoteJid:      remoteJid,
+				RemoteLid:      remoteLid,
+				FromMe:         e.Info.IsFromMe,
+				Id:             e.Info.ID,
+				Participant:    senderJid,
+				AddressingMode: addressingMode,
+			},
+			PushName:         e.Info.PushName,
+			Status:           status,
+			Message:          raw,
+			MessageType:      "editedMessage",
+			MessageTimestamp: int(e.Info.Timestamp.Unix()),
+			InstanceId:       instance.ID,
+			Source:           "whatsapp",
+			ContextInfo: &WookMessageContextInfo{
+				StanzaId: originalKey.Id,
+			},
+		}
+		wookUpsert := &WookEvent[WookMessageData]{
+			Instance: instance.ID,
+			Data:     upsertData,
+			Event:    WookMessagesUpsert,
+			DateTime: e.Info.Timestamp,
+		}
+		s.emit(wookUpsert, instance.Webhook)
+	}
 }
 
 func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *events.Receipt, eventMap map[webhookConfigEvent]bool) {
@@ -438,7 +599,7 @@ func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *
 			Event:    WookMessagesUpdate,
 		}
 
-		s.emit(wookData, instance.Webhook.Url)
+		s.emit(wookData, instance.Webhook)
 	}
 }
 
@@ -460,7 +621,7 @@ func (s *Whatsmiau) handleBusinessNameEvent(id string, instance *models.Instance
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *events.Contact, eventMap map[webhookConfigEvent]bool) {
@@ -485,7 +646,7 @@ func (s *Whatsmiau) handleContactEvent(id string, instance *models.Instance, e *
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *events.Picture, eventMap map[webhookConfigEvent]bool) {
@@ -505,7 +666,7 @@ func (s *Whatsmiau) handlePictureEvent(id string, instance *models.Instance, e *
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 var (
@@ -551,7 +712,7 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 				IsLatest: &isLatest,
 				Progress: &prog,
 			}
-			s.emit(wookEvent, instance.Webhook.Url)
+			s.emit(wookEvent, instance.Webhook)
 		}
 
 		if isLatest {
@@ -578,7 +739,7 @@ func (s *Whatsmiau) handleHistorySyncEvent(id string, instance *models.Instance,
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func cleanHistorySyncState(id string) {
@@ -631,7 +792,7 @@ func (s *Whatsmiau) handleGroupInfoEvent(id string, instance *models.Instance, e
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func (s *Whatsmiau) emitGroupParticipantsUpdate(id string, instance *models.Instance, groupJID string, author string, participantJIDs []types.JID, timestamp time.Time, action string, admin *bool) {
@@ -672,7 +833,7 @@ func (s *Whatsmiau) emitGroupParticipantsUpdate(id string, instance *models.Inst
 		Event:    WookGroupParticipantsUpdate,
 	}
 
-	s.emit(wookEvent, instance.Webhook.Url)
+	s.emit(wookEvent, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleGroupParticipantsUpdateEvent(id string, instance *models.Instance, e *events.GroupInfo, eventMap map[webhookConfigEvent]bool) {
@@ -768,7 +929,7 @@ func (s *Whatsmiau) handlePushNameEvent(id string, instance *models.Instance, e 
 		Event:    WookContactsUpsert,
 	}
 
-	s.emit(wookData, instance.Webhook.Url)
+	s.emit(wookData, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleConnectionUpdateEvent(id string, instance *models.Instance, state string, statusReason int, eventMap map[webhookConfigEvent]bool) {
@@ -797,7 +958,7 @@ func (s *Whatsmiau) handleConnectionUpdateEvent(id string, instance *models.Inst
 	}
 
 	zap.L().Debug("connection update event", zap.String("instance", id), zap.Any("data", data))
-	s.emit(wookEvent, instance.Webhook.Url)
+	s.emit(wookEvent, instance.Webhook)
 }
 
 func (s *Whatsmiau) emitConnectionUpdate(id string, state string, statusReason int) {
@@ -1388,7 +1549,7 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 func (s *Whatsmiau) convertEventReceipt(id string, evt *events.Receipt) []WookMessageUpdateData {
 	var status WookMessageUpdateStatus
 	switch evt.Type {
-	case types.ReceiptTypeRead:
+	case types.ReceiptTypeRead, types.ReceiptTypeReadSelf:
 		status = MessageStatusRead
 	case types.ReceiptTypeDelivered:
 		status = MessageStatusDeliveryAck

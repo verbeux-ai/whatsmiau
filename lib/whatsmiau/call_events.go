@@ -44,7 +44,9 @@ func (s *Whatsmiau) handleCallOfferEvent(id string, instance *models.Instance, e
 		// was actually answered on another device or already ended).
 		if instance.MsgCall != nil && *instance.MsgCall != "" {
 			text := *instance.MsgCall
-			if _, err := client.SendMessage(ctx, event.From, &waE2E.Message{Conversation: &text}); err != nil {
+			replyCtx, cancelReply := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancelReply()
+			if _, err := client.SendMessage(replyCtx, event.From, &waE2E.Message{Conversation: &text}); err != nil {
 				zap.L().Error("failed to send call reject message", zap.String("instance", id), zap.Error(err))
 			}
 		}
@@ -117,7 +119,7 @@ func (s *Whatsmiau) emitCallEvent(id string, instance *models.Instance, data *Wo
 		zap.String("status", data.Status),
 		zap.Bool("is_group", data.IsGroup),
 	)
-	s.emit(wookEvent, instance.Webhook.Url)
+	s.emit(wookEvent, instance.Webhook)
 }
 
 func newWookCallData(meta types.BasicCallMeta, status string) *WookCallData {

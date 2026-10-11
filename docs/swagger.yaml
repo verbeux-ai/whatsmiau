@@ -3940,6 +3940,14 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: List calls
@@ -3976,12 +3984,24 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
         "409":
           description: Conflict
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
         "422":
           description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "503":
+          description: Service Unavailable
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
@@ -4016,8 +4036,16 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "503":
+          description: Service Unavailable
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
@@ -4058,6 +4086,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Open the call audio WebSocket
@@ -4088,8 +4120,16 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "503":
+          description: Service Unavailable
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
@@ -4122,8 +4162,16 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/utils.AuthenticationErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/utils.HTTPErrorResponse'
+        "503":
+          description: Service Unavailable
           schema:
             $ref: '#/definitions/utils.HTTPErrorResponse'
       security:
