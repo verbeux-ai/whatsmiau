@@ -121,6 +121,19 @@ The application is configured using environment variables. The following variabl
 | `CALLS_ENABLED` | Enables the experimental authenticated 1:1 call API. | `false` |
 | `CALL_DEBUG` | Logs sanitized incoming offer shapes for controlled protocol comparisons; no keys, ciphertexts, IDs, or JIDs. | `false` |
 
+Media URL downloads accept only HTTP(S) destinations with public IP addresses.
+Private, loopback, link-local (including cloud metadata), reserved and IPv6
+transition addresses are blocked, including after DNS resolution and redirects.
+Redirects between public destinations remain supported, with a limit of 10;
+URLs containing credentials or IPv6 zone identifiers are rejected. Base64
+`data:` media remains supported without a network request.
+
+These downloads connect directly and do not use `HTTP_PROXY`, `HTTPS_PROXY` or
+other environment proxies, which could bypass destination validation. The
+WhatsApp instance proxy and `PROXY_NO_MEDIA` continue to control WhatsApp
+connections and uploads/downloads performed by the WhatsApp client independently.
+Use publicly reachable media URLs or Base64 instead of internal storage URLs.
+
 ## API Documentation
 
 WhatsMiau ships an English Swagger 2.0 contract for every application route:
