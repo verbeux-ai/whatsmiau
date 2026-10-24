@@ -189,9 +189,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		lockConnection:     xsync.NewMap[string, *sync.Mutex](),
 		connectPhoneNumber: xsync.NewMap[string, string](),
 		emitter:            make(chan emitter, env.Env.EmitterBufferSize),
-		httpClient: &http.Client{
-			Timeout: time.Second * 30, // TODO: load from env
-		},
+		httpClient:         newMediaHTTPClient(),
 		webhookClient: &http.Client{
 			Timeout:       time.Second * 30,
 			CheckRedirect: rejectWebhookRedirect,
