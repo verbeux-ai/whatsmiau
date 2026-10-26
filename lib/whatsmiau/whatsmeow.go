@@ -57,6 +57,16 @@ var mu = &sync.Mutex{}
 
 const loadMiauConnectConcurrency = 10
 
+var ErrAwaitingConnection = errors.New("saved session connection is pending")
+
+func newWhatsmeowClient(device *store.Device, logger waLog.Logger) *whatsmeow.Client {
+	client := whatsmeow.NewClient(device, logger)
+	// A temporary dial failure must not strand an already-paired session.
+	// Fresh QR/pairing attempts retain their existing timeout and cleanup flow.
+	client.InitialAutoReconnect = device.ID != nil && !device.Deleted
+	return client
+}
+
 func runLoadMiauTasks[T any](items []T, task func(T)) {
 	semaphore := make(chan struct{}, loadMiauConnectConcurrency)
 	var wg sync.WaitGroup
@@ -125,7 +135,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 	clientLog := waLog.Stdout("Client", level, false)
 	clientsToConnect := make([]*whatsmeow.Client, 0, len(deviceStore))
 	for _, device := range deviceStore {
-		client := whatsmeow.NewClient(device, clientLog)
+		client := newWhatsmeowClient(device, clientLog)
 		if client.Store.ID == nil {
 			zap.L().Error("device without id on db", zap.Any("device", device))
 			continue
@@ -149,8 +159,9 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 			}
 			zap.L().Error("failed to logout", zap.Error(err), zap.String("jid", jid))
 		}
+		client.Disconnect()
 		if client.Store != nil && client.Store.ID != nil {
-			if err := container.DeleteDevice(context.Background(), client.Store); err != nil {
+			if err := client.Store.Delete(context.Background()); err != nil {
 				zap.L().Error("failed to delete device", zap.Error(err))
 			}
 		}
@@ -211,7 +222,7 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 			jid = client.Store.ID.String()
 		}
 		zap.L().Info("stating event handler", zap.String("id", id), zap.String("jid", jid))
-		client.AddEventHandler(instance.Handle(id))
+		client.AddEventHandler(instance.handleClient(id, client))
 		if callClient, ok := callClients.Load(id); ok {
 			instance.attachIncomingCallHandler(id, callClient)
 		}
@@ -399,7 +410,7 @@ func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.C
 
 		device := s.container.NewDevice()
 
-		client = whatsmeow.NewClient(device, s.logger)
+		client = newWhatsmeowClient(device, s.logger)
 
 		if inst := s.getInstanceCached(id); inst != nil && inst.SyncFullHistory {
 			setHistorySyncPayload(client)
@@ -414,35 +425,14 @@ func (s *Whatsmiau) generateClient(ctx context.Context, id string) (*whatsmeow.C
 			configProxy(client, instanceFound.InstanceProxy)
 		}
 
-		if client.IsLoggedIn() {
+		if client.IsConnected() && client.IsLoggedIn() {
 			return nil, nil
 		}
 
-		if err := client.Connect(); err != nil {
-			if client.IsLoggedIn() {
-				return nil, nil
-			}
-			return nil, err
-		}
-
-		if client.IsLoggedIn() {
-			return nil, nil
-		}
-
-		s.deleteClient(id)
-		if err := s.deleteDeviceIfExists(ctx, client); err != nil {
-			zap.L().Error("failed to hard logout", zap.Error(err))
-			return nil, err
-		}
-
-		device := s.container.NewDevice()
-
-		client = whatsmeow.NewClient(device, s.logger)
-
-		if inst := s.getInstanceCached(id); inst != nil && inst.SyncFullHistory {
-			setHistorySyncPayload(client)
-		}
-		s.storeClient(id, client) // replaces old client
+		// Paired clients connect during startup, restart or login. Whatsmeow
+		// owns their retry loop; polling must neither start another loop nor
+		// replace valid keys while authentication is still pending.
+		return nil, ErrAwaitingConnection
 	}
 
 	return client, nil
@@ -548,7 +538,7 @@ func (s *Whatsmiau) observeConnection(client *whatsmeow.Client, id string, phone
 
 				zap.L().Info("device connected successfully", zap.String("id", id))
 				client.RemoveEventHandlers()
-				client.AddEventHandler(s.Handle(id))
+				client.AddEventHandler(s.handleClient(id, client))
 				if _, err := s.repo.Update(context.Background(), id, &models.Instance{
 					RemoteJID: client.Store.ID.String(),
 				}); err != nil {
@@ -636,8 +626,9 @@ func (s *Whatsmiau) deleteDeviceIfExists(ctx context.Context, client *whatsmeow.
 		}
 	}
 
+	client.Disconnect()
 	if client.Store != nil && client.Store.ID != nil {
-		if err := s.container.DeleteDevice(ctx, client.Store); err != nil {
+		if err := client.Store.Delete(ctx); err != nil {
 			zap.L().Error("failed to delete device", zap.Error(err))
 			return err
 		}
@@ -780,9 +771,9 @@ func (s *Whatsmiau) Restart(ctx context.Context, id string) error {
 		return fmt.Errorf("instance %s has no saved session — connect via QR code first", id)
 	}
 
-	client := whatsmeow.NewClient(device, s.logger)
+	client := newWhatsmeowClient(device, s.logger)
 	configProxy(client, instance.InstanceProxy)
-	client.AddEventHandler(s.Handle(id))
+	client.AddEventHandler(s.handleClient(id, client))
 	s.storeClient(id, client)
 
 	if err := client.Connect(); err != nil {
