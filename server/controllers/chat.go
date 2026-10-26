@@ -10,6 +10,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
+	log_connect "github.com/verbeux-ai/whatsmiau/lib/log-connect"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
@@ -63,7 +64,7 @@ func (s *Chat) ReadMessages(ctx echo.Context) error {
 	for _, batch := range groupReadMessages(request.ReadMessages) {
 		number, err := numberToJid(batch.remoteJid)
 		if err != nil {
-			zap.L().Error("error converting number to jid", zap.Error(err))
+			log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 			continue
 		}
 
@@ -74,19 +75,19 @@ func (s *Chat) ReadMessages(ctx echo.Context) error {
 		if batch.sender != "" {
 			sender, err = numberToJid(batch.sender)
 			if err != nil {
-				zap.L().Error("error converting sender to jid", zap.Error(err))
+				log_connect.WithTrace(ctx.Request().Context()).Error("error converting sender to jid", zap.Error(err))
 				continue
 			}
 		}
 
-		if err := s.whatsmiau.ReadMessage(&whatsmiau.ReadMessageRequest{
+		if err := s.whatsmiau.ReadMessage(ctx.Request().Context(), &whatsmiau.ReadMessageRequest{
 			MessageIDs: batch.ids,
 			InstanceID: request.InstanceID,
 			RemoteJID:  number,
 			Sender:     sender,
 			Played:     batch.played,
 		}); err != nil {
-			zap.L().Error("Whatsmiau.ReadMessages failed", zap.Error(err))
+			log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.ReadMessages failed", zap.Error(err))
 		}
 	}
 
@@ -163,7 +164,7 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 
 	number, err := numberToJid(request.Number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
@@ -181,26 +182,27 @@ func (s *Chat) SendChatPresence(ctx echo.Context) error {
 	}
 
 	if request.Delay > 0 {
+		pausedCtx := context.WithoutCancel(ctx.Request().Context())
 		go func() {
 			time.Sleep(time.Duration(request.Delay) * time.Millisecond)
-			if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
+			if err := s.whatsmiau.ChatPresence(pausedCtx, &whatsmiau.ChatPresenceRequest{
 				InstanceID: request.InstanceID,
 				RemoteJID:  number,
 				Presence:   types.ChatPresencePaused,
 				Media:      types.ChatPresenceMediaText,
 			}); err != nil {
-				zap.L().Error("Whatsmiau.ReadMessages failed", zap.Error(err))
+				log_connect.WithTrace(pausedCtx).Error("Whatsmiau.ReadMessages failed", zap.Error(err))
 			}
 		}()
 	}
 
-	if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
+	if err := s.whatsmiau.ChatPresence(ctx.Request().Context(), &whatsmiau.ChatPresenceRequest{
 		InstanceID: request.InstanceID,
 		RemoteJID:  number,
 		Presence:   presence,
 		Media:      presenceType,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.ReadMessages failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.ReadMessages failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "Whatsmiau.ChatPresence failed")
 	}
 
@@ -241,7 +243,7 @@ func (s *Chat) NumberExists(ctx echo.Context) error {
 		Numbers:    request.Numbers,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.NumberExists failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.NumberExists failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to check numbers")
 	}
 
@@ -275,7 +277,7 @@ func (s *Chat) DeleteMessageForEveryone(ctx echo.Context) error {
 
 	remoteJid, err := numberToJid(request.RemoteJid)
 	if err != nil {
-		zap.L().Error("error converting remoteJid to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting remoteJid to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid remoteJid format")
 	}
 
@@ -287,7 +289,7 @@ func (s *Chat) DeleteMessageForEveryone(ctx echo.Context) error {
 	if request.Participant != "" {
 		p, err := numberToJid(request.Participant)
 		if err != nil {
-			zap.L().Error("error converting participant to jid", zap.Error(err))
+			log_connect.WithTrace(ctx.Request().Context()).Error("error converting participant to jid", zap.Error(err))
 			return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid participant format")
 		}
 		participantJid = p
@@ -295,13 +297,13 @@ func (s *Chat) DeleteMessageForEveryone(ctx echo.Context) error {
 
 	c := ctx.Request().Context()
 	if err := s.whatsmiau.DeleteMessageForEveryone(c, &whatsmiau.DeleteMessageForEveryoneRequest{
-		InstanceID:       request.InstanceID,
-		RemoteJID:        remoteJid,
-		MessageID:        request.ID,
-		FromMe:           request.FromMe,
-		ParticipantJID:   participantJid,
+		InstanceID:     request.InstanceID,
+		RemoteJID:      remoteJid,
+		MessageID:      request.ID,
+		FromMe:         request.FromMe,
+		ParticipantJID: participantJid,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.DeleteMessageForEveryone failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.DeleteMessageForEveryone failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to delete message for everyone")
 	}
 
@@ -334,7 +336,7 @@ func (s *Chat) UpdateMessage(ctx echo.Context) error {
 
 	jid, err := numberToJid(request.Number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
@@ -351,7 +353,7 @@ func (s *Chat) UpdateMessage(ctx echo.Context) error {
 		},
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.UpdateMessage failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.UpdateMessage failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to edit message")
 	}
 
@@ -402,7 +404,7 @@ func (s *Chat) FetchProfilePicture(ctx echo.Context) error {
 
 	jid, err := numberToJid(number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
@@ -417,14 +419,14 @@ func (s *Chat) FetchProfilePicture(ctx echo.Context) error {
 	// Singleflight with a detached context: the shared whatsmeow call must not
 	// be canceled because one waiting request was aborted. In-process only —
 	// no cache, mirroring Evolution's per-request fetch.
-	sfCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	sfCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx.Request().Context()), 90*time.Second)
 	defer cancel()
 
 	url, err, _ := fetchPictureSingleFlight.Do(request.InstanceID+":"+jid.String(), func() (interface{}, error) {
 		return s.whatsmiau.FetchProfilePictureURL(sfCtx, request.InstanceID, *jid)
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.FetchProfilePictureURL failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.FetchProfilePictureURL failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to fetch profile picture")
 	}
 
@@ -489,7 +491,7 @@ func (s *Chat) SyncChatMessages(ctx echo.Context) error {
 		FromMe:     request.FromMe,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SyncChatMessages failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SyncChatMessages failed", zap.Error(err))
 		switch {
 		case errors.Is(err, whatsmiau.ErrSyncTimeout):
 			return utils.HTTPFail(ctx, http.StatusGatewayTimeout, err, "phone did not respond in time")

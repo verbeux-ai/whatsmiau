@@ -26,6 +26,8 @@ type E struct {
 	GCLEnabled   bool   `json:"GCL_ENABLED" envDefault:"false"`
 	GCLProjectID string `json:"GCL_PROJECT_ID"`
 
+	OtelTracesExporter string `env:"OTEL_TRACES_EXPORTER" envDefault:"none"`
+
 	EmitterBufferSize    int `env:"EMITTER_BUFFER_SIZE" envDefault:"2048"`
 	HandlerSemaphoreSize int `env:"HANDLER_SEMAPHORE_SIZE" envDefault:"512"`
 	EmitterWorkers       int `env:"EMITTER_WORKERS" envDefault:"50"`

@@ -6,6 +6,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
+	log_connect "github.com/verbeux-ai/whatsmiau/lib/log-connect"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
@@ -56,7 +57,7 @@ func (s *Community) CreateCommunity(ctx echo.Context) error {
 		Description: request.Description,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.CreateCommunity failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.CreateCommunity failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -100,7 +101,7 @@ func (s *Community) CreateSubGroup(ctx echo.Context) error {
 		Participants: request.Participants,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.CreateCommunitySubGroup failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.CreateCommunitySubGroup failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -146,7 +147,7 @@ func (s *Community) LinkGroup(ctx echo.Context) error {
 		ParentJID:  parentJid,
 		ChildJID:   childJid,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.LinkCommunityGroup failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.LinkCommunityGroup failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -192,7 +193,7 @@ func (s *Community) UnlinkGroup(ctx echo.Context) error {
 		ParentJID:  parentJid,
 		ChildJID:   childJid,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.UnlinkCommunityGroup failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.UnlinkCommunityGroup failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -233,7 +234,7 @@ func (s *Community) SubGroups(ctx echo.Context) error {
 		CommunityJID: communityJid,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.GetCommunitySubGroups failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.GetCommunitySubGroups failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -274,7 +275,7 @@ func (s *Community) LinkedGroupsParticipants(ctx echo.Context) error {
 		CommunityJID: communityJid,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.GetCommunityLinkedGroupsParticipants failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.GetCommunityLinkedGroupsParticipants failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -316,7 +317,7 @@ func (s *Community) SetJoinApprovalMode(ctx echo.Context) error {
 		CommunityJID: communityJid,
 		Mode:         request.Mode,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.SetCommunityJoinApprovalMode failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SetCommunityJoinApprovalMode failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -357,7 +358,7 @@ func (s *Community) RequestParticipants(ctx echo.Context) error {
 		CommunityJID: communityJid,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.GetCommunityRequestParticipants failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.GetCommunityRequestParticipants failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -400,7 +401,7 @@ func (s *Community) SetGroupAddMode(ctx echo.Context) error {
 		CommunityJID: communityJid,
 		Mode:         request.Mode,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.SetGroupAddMode failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SetGroupAddMode failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -444,7 +445,7 @@ func (s *Community) UpdateRequestParticipants(ctx echo.Context) error {
 		Participants: request.Participants,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.UpdateCommunityRequestParticipants failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.UpdateCommunityRequestParticipants failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
