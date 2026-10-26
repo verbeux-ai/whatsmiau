@@ -2185,7 +2185,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message. While the QR code is being generated after an expiry, returns 200 with connected=false and no base64.",
+                "description": "Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message. While QR generation or a saved session reconnection is pending, returns 200 with connected=false and no base64. Saved sessions are preserved during reconnection.",
                 "produces": [
                     "application/json"
                 ],
@@ -2727,7 +2727,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message. While the QR code is being generated after an expiry, returns 200 with connected=false and no base64.",
+                "description": "Initiates connection for an instance. Returns a base64-encoded QR code PNG if not yet connected, or a connected status message. While QR generation or a saved session reconnection is pending, returns 200 with connected=false and no base64. Saved sessions are preserved during reconnection.",
                 "produces": [
                     "application/json"
                 ],

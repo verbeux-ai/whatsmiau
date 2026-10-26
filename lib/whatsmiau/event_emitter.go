@@ -207,6 +207,10 @@ func (s *Whatsmiau) emit(body any, webhook models.InstanceWebhook) {
 }
 
 func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
+	return s.handleClient(id, nil)
+}
+
+func (s *Whatsmiau) handleClient(id string, source *whatsmeow.Client) whatsmeow.EventHandler {
 	return func(evt any) {
 		s.handlerSemaphore <- struct{}{}
 		go func() {
@@ -220,6 +224,12 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 				}
 				<-s.handlerSemaphore
 			}()
+			if source != nil {
+				current, ok := s.clients.Load(id)
+				if !ok || current != source {
+					return
+				}
+			}
 			instance := s.getInstanceCached(id)
 			if instance == nil {
 				zap.L().Warn("no instance found for event", zap.String("instance", id))
@@ -233,7 +243,7 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 
 			// Handle lifecycle events regardless of webhook enabled state
 			if _, ok := evt.(*events.LoggedOut); ok {
-				s.handleLoggedOut(id)
+				s.handleClientLoggedOut(id, source)
 				return
 			}
 			if env.Env.CallDebug {
@@ -309,6 +319,18 @@ func (s *Whatsmiau) Handle(id string) whatsmeow.EventHandler {
 			}
 		}()
 	}
+}
+
+func (s *Whatsmiau) handleClientLoggedOut(id string, source *whatsmeow.Client) {
+	lock, _ := s.lockConnection.LoadOrStore(id, &sync.Mutex{})
+	lock.Lock()
+	defer lock.Unlock()
+
+	client, ok := s.clients.Load(id)
+	if source != nil && (!ok || client != source) {
+		return
+	}
+	s.handleLoggedOut(id)
 }
 
 func (s *Whatsmiau) handleLoggedOut(id string) {
