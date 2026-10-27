@@ -1,7 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -9,11 +15,16 @@ import (
 	"github.com/verbeux-ai/whatsmiau/env"
 	log_connect "github.com/verbeux-ai/whatsmiau/lib/log-connect"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
+	servermiddleware "github.com/verbeux-ai/whatsmiau/server/middleware"
 	"github.com/verbeux-ai/whatsmiau/server/routes"
 	"github.com/verbeux-ai/whatsmiau/services"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
+)
+
+const (
+	serverShutdownTimeout = 7 * time.Second
+	traceFlushTimeout     = 2 * time.Second
 )
 
 //go:generate go run github.com/swaggo/swag/cmd/swag init -g main.go -o docs
@@ -44,6 +55,11 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	shutdownTracing, err := services.StartTracing(context.Background())
+	if err != nil {
+		zap.L().Fatal("failed to start tracing", zap.Error(err))
+	}
+
 	ctx, c := context.WithTimeout(context.Background(), 10*time.Second)
 	defer c()
 	whatsmiau.LoadMiau(ctx, services.SQLStore())
@@ -51,15 +67,36 @@ func main() {
 	app := echo.New()
 	app.Pre(middleware.Recover())
 	app.Pre(middleware.RemoveTrailingSlash())
-	app.Pre(middleware.CORS())
+	app.Pre(middleware.CORSWithConfig(middleware.CORSConfig{
+		ExposeHeaders: []string{servermiddleware.TraceResponseHeader},
+	}))
 
 	routes.Load(app)
 
-	port := ":" + env.Env.Port
-	zap.L().Info("starting server...", zap.String("port", port))
+	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
-	s := &http2.Server{}
-	if err := app.StartH2CServer(port, s); err != nil {
-		zap.L().Fatal("failed to start server", zap.Error(err))
+	go func() {
+		port := ":" + env.Env.Port
+		zap.L().Info("starting server...", zap.String("port", port))
+
+		if err := app.StartH2CServer(port, &http2.Server{}); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			zap.L().Fatal("failed to start server", zap.Error(err))
+		}
+	}()
+
+	<-signalCtx.Done()
+	stopSignals()
+	zap.L().Info("shutting down server...")
+
+	serverCtx, cancelServer := context.WithTimeout(context.Background(), serverShutdownTimeout)
+	defer cancelServer()
+	if err := app.Shutdown(serverCtx); err != nil {
+		zap.L().Error("failed to shut down server", zap.Error(err))
+	}
+
+	tracingCtx, cancelTracing := context.WithTimeout(context.Background(), traceFlushTimeout)
+	defer cancelTracing()
+	if err := shutdownTracing(tracingCtx); err != nil {
+		zap.L().Error("failed to flush traces", zap.Error(err))
 	}
 }

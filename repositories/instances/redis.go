@@ -1,6 +1,7 @@
 package instances
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,7 +9,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
 	"github.com/verbeux-ai/whatsmiau/models"
-	"golang.org/x/net/context"
 )
 
 // These verify if RedisInstance follows instances interface pattern
@@ -16,6 +16,8 @@ var _ interfaces.InstanceRepository = (*RedisInstance)(nil)
 
 var ErrorNotFound = errors.New("not found")
 var ErrorAlreadyExists = errors.New("instance already exists")
+
+const scanBatchSize = 100
 
 type RedisInstance struct {
 	db *redis.Client
@@ -146,20 +148,20 @@ func (s *RedisInstance) Update(ctx context.Context, id string, toUpdate *models.
 }
 
 func (s *RedisInstance) List(ctx context.Context, id string) ([]models.Instance, error) {
+	if id == "" {
+		return s.listAll(ctx)
+	}
+	return s.fetchReadableInstances(ctx, s.key(id))
+}
+
+func (s *RedisInstance) listAll(ctx context.Context) ([]models.Instance, error) {
 	var (
 		cursor uint64
 		keys   []string
 	)
 
-	pattern := "instance_"
-	if len(id) > 0 {
-		pattern = fmt.Sprintf("instance_%s", id)
-	} else {
-		pattern += "*"
-	}
-
 	for {
-		batch, newCursor, err := s.db.Scan(ctx, cursor, pattern, 100).Result()
+		batch, newCursor, err := s.db.Scan(ctx, cursor, s.key("*"), scanBatchSize).Result()
 		if err != nil {
 			return nil, err
 		}
@@ -170,6 +172,10 @@ func (s *RedisInstance) List(ctx context.Context, id string) ([]models.Instance,
 		}
 	}
 
+	return s.fetchReadableInstances(ctx, keys...)
+}
+
+func (s *RedisInstance) fetchReadableInstances(ctx context.Context, keys ...string) ([]models.Instance, error) {
 	if len(keys) == 0 {
 		return []models.Instance{}, nil
 	}
@@ -179,11 +185,8 @@ func (s *RedisInstance) List(ctx context.Context, id string) ([]models.Instance,
 		return nil, err
 	}
 
-	var instances []models.Instance
+	instances := []models.Instance{}
 	for _, raw := range rawVals {
-		if raw == nil {
-			continue
-		}
 		strVal, ok := raw.(string)
 		if !ok {
 			continue
