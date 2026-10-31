@@ -42,6 +42,8 @@ type SendText struct {
 type SendTextResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	// ServerID is only set for channel (newsletter) messages.
+	ServerID types.MessageServerID `json:"server_id,omitempty"`
 }
 
 func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResponse, error) {
@@ -56,6 +58,7 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 
 	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
 	data.RemoteJID = &resolved
+	data.Quote = quoteForChat(resolved, data.Quote)
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
@@ -63,9 +66,11 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 	}
 
 	if data.LinkPreview {
-		// Without the HQ upload, clients render the small card.
+		// Without the HQ upload, clients render the small card. Channels get
+		// only the inline thumbnail: a channel message carries a single media
+		// handle, and the HQ thumbnail is an extra encrypted upload.
 		uploadClient := client
-		if !data.largeLinkPreview() {
+		if !data.largeLinkPreview() || isNewsletter(resolved) {
 			uploadClient = nil
 		}
 
@@ -94,6 +99,7 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 	return &SendTextResponse{
 		ID:        res.ID,
 		CreatedAt: res.Timestamp,
+		ServerID:  res.ServerID,
 	}, nil
 }
 
@@ -229,6 +235,14 @@ func (s *Whatsmiau) UpdateMessage(ctx context.Context, data *UpdateMessage) (*Up
 // mention individually via ContextInfo.MentionedJID. The message text is left
 // untouched — mentions are delivered via ContextInfo.
 func (s *Whatsmiau) resolveMentions(remoteJID types.JID, mentionsEveryOne bool, mentioned []string) ([]string, bool, error) {
+	// Channel posts cannot mention anyone; drop the request instead of failing.
+	if isNewsletter(remoteJID) {
+		if mentionsEveryOne || len(mentioned) > 0 {
+			zap.L().Debug("mentions ignored for channel", zap.Stringer("remote", remoteJID))
+		}
+		return nil, false, nil
+	}
+
 	var jids []string
 	if len(mentioned) > 0 {
 		jids = make([]string, 0, len(mentioned))
@@ -269,6 +283,8 @@ type SendAudioRequest struct {
 type SendAudioResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	// ServerID is only set for channel (newsletter) messages.
+	ServerID types.MessageServerID `json:"server_id,omitempty"`
 }
 
 func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*SendAudioResponse, error) {
@@ -281,6 +297,10 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 		return nil, fmt.Errorf("remote_jid is required")
 	}
 
+	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
+	data.RemoteJID = &resolved
+	data.Quote = quoteForChat(resolved, data.Quote)
+
 	dataBytes, err := s.fetchBytes(ctx, data.AudioURL)
 	if err != nil {
 		return nil, err
@@ -291,7 +311,7 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, audioData, whatsmeow.MediaAudio)
+	uploaded, err := uploadMedia(ctx, client, resolved, audioData, whatsmeow.MediaAudio)
 	if err != nil {
 		return nil, err
 	}
@@ -309,9 +329,6 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 		Waveform:      waveForm,
 	}
 
-	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
-	data.RemoteJID = &resolved
-
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
 		return nil, err
@@ -320,7 +337,7 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 
 	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
 		AudioMessage: &audio,
-	})
+	}, mediaSendExtra(resolved, uploaded)...)
 	if err != nil {
 		return nil, err
 	}
@@ -328,6 +345,7 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 	return &SendAudioResponse{
 		ID:        res.ID,
 		CreatedAt: res.Timestamp,
+		ServerID:  res.ServerID,
 	}, nil
 }
 
@@ -346,6 +364,8 @@ type SendDocumentRequest struct {
 type SendDocumentResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	// ServerID is only set for channel (newsletter) messages.
+	ServerID types.MessageServerID `json:"server_id,omitempty"`
 }
 
 func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest) (*SendDocumentResponse, error) {
@@ -358,12 +378,16 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 		return nil, fmt.Errorf("remote_jid is required")
 	}
 
+	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
+	data.RemoteJID = &resolved
+	data.Quote = quoteForChat(resolved, data.Quote)
+
 	dataBytes, err := s.fetchBytes(ctx, data.MediaURL)
 	if err != nil {
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaDocument)
+	uploaded, err := uploadMedia(ctx, client, resolved, dataBytes, whatsmeow.MediaDocument)
 	if err != nil {
 		return nil, err
 	}
@@ -380,9 +404,6 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 		Caption:       proto.String(data.Caption),
 	}
 
-	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
-	data.RemoteJID = &resolved
-
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
 		return nil, err
@@ -391,7 +412,7 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 
 	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
 		DocumentMessage: &doc,
-	})
+	}, mediaSendExtra(resolved, uploaded)...)
 	if err != nil {
 		return nil, err
 	}
@@ -399,6 +420,7 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 	return &SendDocumentResponse{
 		ID:        res.ID,
 		CreatedAt: res.Timestamp,
+		ServerID:  res.ServerID,
 	}, nil
 }
 
@@ -415,6 +437,8 @@ type SendImageRequest struct {
 type SendImageResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	// ServerID is only set for channel (newsletter) messages.
+	ServerID types.MessageServerID `json:"server_id,omitempty"`
 }
 
 func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*SendImageResponse, error) {
@@ -427,12 +451,16 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 		return nil, fmt.Errorf("remote_jid is required")
 	}
 
+	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
+	data.RemoteJID = &resolved
+	data.Quote = quoteForChat(resolved, data.Quote)
+
 	dataBytes, err := s.fetchBytes(ctx, data.MediaURL)
 	if err != nil {
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaImage)
+	uploaded, err := uploadMedia(ctx, client, resolved, dataBytes, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, err
 	}
@@ -452,9 +480,6 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 		DirectPath:    proto.String(uploaded.DirectPath),
 	}
 
-	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
-	data.RemoteJID = &resolved
-
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
 		return nil, err
@@ -463,7 +488,7 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 
 	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
 		ImageMessage: &doc,
-	})
+	}, mediaSendExtra(resolved, uploaded)...)
 	if err != nil {
 		return nil, err
 	}
@@ -471,6 +496,7 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 	return &SendImageResponse{
 		ID:        res.ID,
 		CreatedAt: res.Timestamp,
+		ServerID:  res.ServerID,
 	}, nil
 }
 
@@ -499,6 +525,11 @@ func (s *Whatsmiau) SendReaction(ctx context.Context, data *SendReactionRequest)
 
 	if len(data.MessageID) <= 0 {
 		return nil, fmt.Errorf("invalid message_id")
+	}
+
+	// Channel reactions address the post by its server ID, not the message ID.
+	if err := rejectNewsletter(*data.RemoteJID, "reaction"); err != nil {
+		return nil, err
 	}
 
 	if client.Store == nil || client.Store.ID == nil {
@@ -565,6 +596,10 @@ func (s *Whatsmiau) SendList(ctx context.Context, data *SendListRequest) (*SendL
 
 	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
 	data.RemoteJID = &resolved
+	// Lists depend on the biz node, which the channel send path does not carry.
+	if err := rejectNewsletter(resolved, "list message"); err != nil {
+		return nil, err
+	}
 
 	// Build protobuf sections
 	protoSections := make([]*waE2E.ListMessage_Section, 0, len(data.Sections))
@@ -686,6 +721,10 @@ func (s *Whatsmiau) SendButtons(ctx context.Context, data *SendButtonsRequestDat
 
 	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
 	data.RemoteJID = &resolved
+	// Buttons depend on the biz node, which the channel send path does not carry.
+	if err := rejectNewsletter(resolved, "buttons message"); err != nil {
+		return nil, err
+	}
 
 	// Build buttons
 	protoButtons := make([]*waE2E.ButtonsMessage_Button, 0, len(data.Buttons))
@@ -795,6 +834,10 @@ func (s *Whatsmiau) SendPixPayment(ctx context.Context, data *SendPixPaymentRequ
 
 	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
 	data.RemoteJID = &resolved
+	// PIX depends on the biz node, which the channel send path does not carry.
+	if err := rejectNewsletter(resolved, "pix payment"); err != nil {
+		return nil, err
+	}
 
 	currency := data.Currency
 	if currency == "" {

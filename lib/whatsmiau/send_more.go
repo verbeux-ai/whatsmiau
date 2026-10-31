@@ -29,6 +29,8 @@ type SendVideoRequest struct {
 type SendVideoResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	// ServerID is only set for channel (newsletter) messages.
+	ServerID types.MessageServerID `json:"server_id,omitempty"`
 }
 
 func (s *Whatsmiau) SendVideo(ctx context.Context, data *SendVideoRequest) (*SendVideoResponse, error) {
@@ -37,6 +39,7 @@ func (s *Whatsmiau) SendVideo(ctx context.Context, data *SendVideoRequest) (*Sen
 		return nil, err
 	}
 	data.RemoteJID = &resolved
+	data.Quote = quoteForChat(resolved, data.Quote)
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
@@ -48,7 +51,7 @@ func (s *Whatsmiau) SendVideo(ctx context.Context, data *SendVideoRequest) (*Sen
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaVideo)
+	uploaded, err := uploadMedia(ctx, client, resolved, dataBytes, whatsmeow.MediaVideo)
 	if err != nil {
 		return nil, err
 	}
@@ -72,12 +75,12 @@ func (s *Whatsmiau) SendVideo(ctx context.Context, data *SendVideoRequest) (*Sen
 		video.GifPlayback = proto.Bool(true)
 	}
 
-	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{VideoMessage: &video})
+	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{VideoMessage: &video}, mediaSendExtra(resolved, uploaded)...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SendVideoResponse{ID: res.ID, CreatedAt: res.Timestamp}, nil
+	return &SendVideoResponse{ID: res.ID, CreatedAt: res.Timestamp, ServerID: res.ServerID}, nil
 }
 
 // --- SendPtv (Round/Note Video) ---
@@ -94,6 +97,8 @@ type SendPtvRequest struct {
 type SendPtvResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	// ServerID is only set for channel (newsletter) messages.
+	ServerID types.MessageServerID `json:"server_id,omitempty"`
 }
 
 func (s *Whatsmiau) SendPtv(ctx context.Context, data *SendPtvRequest) (*SendPtvResponse, error) {
@@ -102,6 +107,7 @@ func (s *Whatsmiau) SendPtv(ctx context.Context, data *SendPtvRequest) (*SendPtv
 		return nil, err
 	}
 	data.RemoteJID = &resolved
+	data.Quote = quoteForChat(resolved, data.Quote)
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
@@ -113,7 +119,7 @@ func (s *Whatsmiau) SendPtv(ctx context.Context, data *SendPtvRequest) (*SendPtv
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaVideo)
+	uploaded, err := uploadMedia(ctx, client, resolved, dataBytes, whatsmeow.MediaVideo)
 	if err != nil {
 		return nil, err
 	}
@@ -130,12 +136,12 @@ func (s *Whatsmiau) SendPtv(ctx context.Context, data *SendPtvRequest) (*SendPtv
 		ContextInfo:     buildContextInfo(data.Quote, mentioned, everyone),
 	}
 
-	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{PtvMessage: &video})
+	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{PtvMessage: &video}, mediaSendExtra(resolved, uploaded)...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SendPtvResponse{ID: res.ID, CreatedAt: res.Timestamp}, nil
+	return &SendPtvResponse{ID: res.ID, CreatedAt: res.Timestamp, ServerID: res.ServerID}, nil
 }
 
 // --- SendSticker ---
@@ -152,6 +158,8 @@ type SendStickerRequest struct {
 type SendStickerResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	// ServerID is only set for channel (newsletter) messages.
+	ServerID types.MessageServerID `json:"server_id,omitempty"`
 }
 
 func (s *Whatsmiau) SendSticker(ctx context.Context, data *SendStickerRequest) (*SendStickerResponse, error) {
@@ -160,6 +168,7 @@ func (s *Whatsmiau) SendSticker(ctx context.Context, data *SendStickerRequest) (
 		return nil, err
 	}
 	data.RemoteJID = &resolved
+	data.Quote = quoteForChat(resolved, data.Quote)
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
@@ -171,7 +180,7 @@ func (s *Whatsmiau) SendSticker(ctx context.Context, data *SendStickerRequest) (
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaImage)
+	uploaded, err := uploadMedia(ctx, client, resolved, dataBytes, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, err
 	}
@@ -187,12 +196,12 @@ func (s *Whatsmiau) SendSticker(ctx context.Context, data *SendStickerRequest) (
 		ContextInfo:   buildContextInfo(data.Quote, mentioned, everyone),
 	}
 
-	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{StickerMessage: &sticker})
+	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{StickerMessage: &sticker}, mediaSendExtra(resolved, uploaded)...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SendStickerResponse{ID: res.ID, CreatedAt: res.Timestamp}, nil
+	return &SendStickerResponse{ID: res.ID, CreatedAt: res.Timestamp, ServerID: res.ServerID}, nil
 }
 
 // --- SendLocation ---
@@ -220,6 +229,10 @@ func (s *Whatsmiau) SendLocation(ctx context.Context, data *SendLocationRequest)
 		return nil, err
 	}
 	data.RemoteJID = &resolved
+	// Channels cannot post locations.
+	if err := rejectNewsletter(resolved, "location message"); err != nil {
+		return nil, err
+	}
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
@@ -288,6 +301,10 @@ func (s *Whatsmiau) SendContact(ctx context.Context, data *SendContactRequest) (
 		return nil, err
 	}
 	data.RemoteJID = &resolved
+	// Channels cannot post contact cards.
+	if err := rejectNewsletter(resolved, "contact message"); err != nil {
+		return nil, err
+	}
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
@@ -337,6 +354,8 @@ type SendPollRequest struct {
 type SendPollResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
+	// ServerID is only set for channel (newsletter) messages.
+	ServerID types.MessageServerID `json:"server_id,omitempty"`
 }
 
 func (s *Whatsmiau) SendPoll(ctx context.Context, data *SendPollRequest) (*SendPollResponse, error) {
@@ -349,6 +368,7 @@ func (s *Whatsmiau) SendPoll(ctx context.Context, data *SendPollRequest) (*SendP
 		return nil, err
 	}
 	data.RemoteJID = &resolved
+	data.Quote = quoteForChat(resolved, data.Quote)
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
@@ -363,7 +383,7 @@ func (s *Whatsmiau) SendPoll(ctx context.Context, data *SendPollRequest) (*SendP
 		return nil, err
 	}
 
-	return &SendPollResponse{ID: res.ID, CreatedAt: res.Timestamp}, nil
+	return &SendPollResponse{ID: res.ID, CreatedAt: res.Timestamp, ServerID: res.ServerID}, nil
 }
 
 // --- SendStatus ---
