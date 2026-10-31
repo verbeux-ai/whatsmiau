@@ -79,6 +79,7 @@ func (s *Message) sendVideo(ctx echo.Context, request dto.SendDocumentRequest, g
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "videoMessage",
@@ -152,6 +153,7 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "ptvMessage",
@@ -218,6 +220,7 @@ func (s *Message) SendSticker(ctx echo.Context) error {
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "stickerMessage",
@@ -279,7 +282,7 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendLocation failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send location")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send location")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendLocationResponse{
@@ -357,7 +360,7 @@ func (s *Message) SendContact(ctx echo.Context) error {
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendContact failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send contact")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send contact")
 	}
 
 	messageType := "contactMessage"
@@ -438,6 +441,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "pollCreationMessage",

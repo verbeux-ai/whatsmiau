@@ -43,6 +43,9 @@ type MessageResponseKey struct {
 	RemoteJid string `json:"remoteJid,omitempty"`
 	FromMe    bool   `json:"fromMe,omitempty"`
 	Id        string `json:"id,omitempty"`
+	// ServerId is the server-assigned ID of a channel (newsletter) post,
+	// omitted for every other chat.
+	ServerId int `json:"serverId,omitempty"`
 }
 
 type SendTextResponse struct {
