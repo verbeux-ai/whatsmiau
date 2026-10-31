@@ -22,6 +22,7 @@ It's designed to be compatible with the Evolution API, making it a flexible choi
 - **Environment-based Configuration:** Easily configure the application using environment variables.
 - **Structured Logging:** Implements structured logging with Zap for better monitoring and debugging.
 - **Group & Community Management:** Full support for WhatsApp group and community operations.
+- **Channel Management:** List, look up, create, follow, unfollow and mute WhatsApp channels (newsletters).
 - **All Evolution API Message Types:** Compatible with all Evolution API message types for sending and receiving.
 - **Message Reactions:** Support for sending and receiving emoji reactions.
 - **Message Deletion:** Ability to delete messages for everyone.
@@ -138,7 +139,7 @@ Use publicly reachable media URLs or Base64 instead of internal storage URLs.
 
 WhatsMiau ships an English Swagger 2.0 contract for every application route:
 canonical endpoints, Evolution API compatibility aliases, instance management,
-messages, chats, groups, communities, webhooks, calls, and documentation
+messages, chats, groups, communities, channels, webhooks, calls, and documentation
 delivery itself.
 
 - Open the Swagger UI at `GET /docs`. Use Swagger's **Authorize** dialog to
@@ -154,6 +155,34 @@ delivery itself.
 
 Use HTTPS whenever the UI is exposed outside a trusted development network,
 because the API key is sent in request headers during “Try it out”.
+
+## Channels (Newsletters)
+
+WhatsApp channels are addressed by JIDs ending in `@newsletter`; the routes
+also accept the bare numeric ID. The Evolution API has no channel routes, so
+these are WhatsMiau-only endpoints under `/v1/instance/{instance}/newsletter`:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/fetchAll` | Channels the number follows or administers. |
+| `GET` | `/info?newsletterJid=` | One channel by JID. |
+| `GET` | `/inviteInfo?inviteCode=` | One channel by invite code or `https://whatsapp.com/channel/...` link. |
+| `POST` | `/create` | Create a channel: `name`, optional `description` and `picture` (URL, `data:` URI or base64). |
+| `POST` | `/follow`, `/unfollow`, `/mute`, `/unmute` | Body `{"newsletterJid": "..."}`. |
+
+Every lookup returns the same object: `id`, `name`, `description`,
+`inviteCode`, `inviteUrl`, `pictureUrl`, `previewUrl`, `subscribersCount`,
+`verified`, `state` (`active`, `suspended`, `geosuspended`), `role` (`owner`,
+`admin`, `subscriber`, `guest`), `muted` and `canPublish` (true for owners and
+admins). `role`, `muted` and `canPublish` are `null` when WhatsApp does not send
+viewer data, as in invite lookups.
+
+```bash
+curl 'http://localhost:8080/v1/instance/my-instance/newsletter/fetchAll' \
+-H 'apikey: YOUR_API_KEY'
+```
+
+Channel pictures sent by URL follow the media download rules above.
 
 ## Versioning
 
