@@ -9053,6 +9053,10 @@ const docTemplate = `{
                 },
                 "remoteJid": {
                     "type": "string"
+                },
+                "serverId": {
+                    "description": "ServerId is the server-assigned ID of a channel (newsletter) post,\nomitted for every other chat.",
+                    "type": "integer"
                 }
             }
         },

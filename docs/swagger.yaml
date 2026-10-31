@@ -516,6 +516,11 @@ definitions:
         type: string
       remoteJid:
         type: string
+      serverId:
+        description: |-
+          ServerId is the server-assigned ID of a channel (newsletter) post,
+          omitted for every other chat.
+        type: integer
     type: object
   dto.MigrationBuffer:
     properties:
