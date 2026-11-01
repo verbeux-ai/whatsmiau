@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // Channels (newsletters, "…@newsletter") receive plaintext messages: media is
@@ -18,6 +20,11 @@ import (
 // ErrNewsletterUnsupported is returned when a message type cannot be posted
 // to a channel. Callers should treat it as a client error.
 var ErrNewsletterUnsupported = errors.New("not supported in channels")
+
+// ErrNewsletterOnly is returned when a channel-only message type, such as a
+// quiz or a question, is sent to another chat. Callers should treat it as a
+// client error.
+var ErrNewsletterOnly = errors.New("only supported in channels")
 
 func isNewsletter(jid types.JID) bool {
 	return jid.Server == types.NewsletterServer
@@ -79,6 +86,58 @@ func quoteForChat(to types.JID, q *Quote) *Quote {
 		return nil
 	}
 	return q
+}
+
+// requireNewsletter fails fast for channel-only message types sent elsewhere.
+func requireNewsletter(to types.JID, kind string) error {
+	if !isNewsletter(to) {
+		return fmt.Errorf("%s: %w", kind, ErrNewsletterOnly)
+	}
+	return nil
+}
+
+// buildNewsletterPoll builds a channel poll the way the official app does: a
+// PollCreationMessageV3 without a message secret (the server rejects
+// whatsmeow's BuildPollCreation in channels with error 479). A correct answer
+// turns it into a single-choice quiz, sent as PollCreationMessageV5.
+func buildNewsletterPoll(name string, values []string, selectableCount int, correctAnswer string) (*waE2E.Message, error) {
+	options := make([]*waE2E.PollCreationMessage_Option, len(values))
+	for i, value := range values {
+		options[i] = &waE2E.PollCreationMessage_Option{OptionName: proto.String(value)}
+	}
+
+	if correctAnswer == "" {
+		if selectableCount < 0 || selectableCount > len(values) {
+			selectableCount = 0
+		}
+		return &waE2E.Message{PollCreationMessageV3: &waE2E.PollCreationMessage{
+			Name:                   proto.String(name),
+			Options:                options,
+			SelectableOptionsCount: proto.Uint32(uint32(selectableCount)),
+		}}, nil
+	}
+
+	if !slices.Contains(values, correctAnswer) {
+		return nil, fmt.Errorf("correct answer %q is not one of the values", correctAnswer)
+	}
+	return &waE2E.Message{PollCreationMessageV5: &waE2E.PollCreationMessage{
+		Name:                   proto.String(name),
+		Options:                options,
+		SelectableOptionsCount: proto.Uint32(1),
+		PollType:               waE2E.PollType_QUIZ.Enum(),
+		CorrectAnswer:          &waE2E.PollCreationMessage_Option{OptionName: proto.String(correctAnswer)},
+	}}, nil
+}
+
+// buildQuestionMessage builds a channel question, which followers answer
+// privately, as the official app sends it.
+func buildQuestionMessage(text string) *waE2E.Message {
+	return &waE2E.Message{QuestionMessage: &waE2E.FutureProofMessage{
+		Message: &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+			Text:        proto.String(text),
+			ContextInfo: &waE2E.ContextInfo{IsQuestion: proto.Bool(true)},
+		}},
+	}}
 }
 
 // rejectNewsletter fails fast for message types channels do not accept, so

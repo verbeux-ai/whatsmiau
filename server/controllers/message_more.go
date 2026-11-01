@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -406,6 +408,10 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
 	}
 
+	if request.CorrectAnswer != "" && !slices.Contains(request.Values, request.CorrectAnswer) {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, fmt.Errorf("correctAnswer must be one of values"), "invalid request body")
+	}
+
 	jid, err := numberToJid(request.Number)
 	if err != nil {
 		zap.L().Error("error converting number to jid", zap.Error(err))
@@ -427,6 +433,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 		Name:             request.Name,
 		SelectableCount:  request.SelectableCount,
 		Values:           request.Values,
+		CorrectAnswer:    request.CorrectAnswer,
 		Quote:            quote,
 		MentionsEveryOne: request.MentionsEveryOne,
 		Mentioned:        request.Mentioned,

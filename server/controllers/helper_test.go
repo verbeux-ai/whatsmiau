@@ -52,6 +52,10 @@ func TestSendFailStatusMapsChannelRejectionsToBadRequest(t *testing.T) {
 	if got := sendFailStatus(rejected); got != http.StatusBadRequest {
 		t.Fatalf("channel rejection status: got %d, want %d", got, http.StatusBadRequest)
 	}
+	channelOnly := fmt.Errorf("quiz: %w", whatsmiau.ErrNewsletterOnly)
+	if got := sendFailStatus(channelOnly); got != http.StatusBadRequest {
+		t.Fatalf("channel-only type elsewhere: status = %d, want 400", got)
+	}
 	if got := sendFailStatus(errors.New("server returned error 479")); got != http.StatusInternalServerError {
 		t.Fatalf("send failure status: got %d, want %d", got, http.StatusInternalServerError)
 	}

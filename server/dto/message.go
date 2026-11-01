@@ -9,6 +9,9 @@ type SendTextRequest struct {
 	LinkPreview      bool                  `json:"linkPreview,omitempty"`
 	MentionsEveryOne bool                  `json:"mentionsEveryOne,omitempty"`
 	Mentioned        []string              `json:"mentioned,omitempty"`
+	// Question posts the text as a question followers answer privately.
+	// Channels (newsletters) only.
+	Question bool `json:"question,omitempty"`
 
 	// Card image as an http(s) URL or base64 (raw or data URI). When any of
 	// linkPreviewImage/Title/Description is set (with linkPreview=true), the card

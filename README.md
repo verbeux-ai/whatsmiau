@@ -187,12 +187,15 @@ Channel pictures sent by URL follow the media download rules above.
 ### Sending to a channel
 
 The message routes accept `number` as `<id>@newsletter`. Text, image, video,
-audio and sticker messages are published to the channel; media is uploaded
-unencrypted and marked as such, as the official clients do. Stickers must
-already be WebP. In channels, `quoted`, `mentioned` and `mentionsEveryOne` are
-ignored, and link previews use only the small inline thumbnail. Document, poll,
-list, buttons, PIX, reaction, round video (PTV), location and contact messages
-return `400`. The response includes
+audio, sticker and poll messages are published to the channel; media is
+uploaded unencrypted and marked as such, as the official clients do. Stickers
+must already be WebP. Two channel-only options mirror the official app:
+`correctAnswer` on `sendPoll` turns the poll into a quiz, and `question: true`
+on `sendText` posts a question followers answer privately; both return `400`
+for other chats. In channels, `quoted`, `mentioned` and `mentionsEveryOne` are
+ignored, and link previews use only the small inline thumbnail. Document, list,
+buttons, PIX, reaction, round video (PTV), location and contact messages return
+`400`. The response includes
 `key.serverId`, the server-assigned ID of the post, present only for channel
 messages.
 

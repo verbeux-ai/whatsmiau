@@ -199,10 +199,6 @@ func TestUnsupportedMessageTypesAreRejectedForChannels(t *testing.T) {
 			_, err := s.SendDocument(ctx, &SendDocumentRequest{InstanceID: "instance", RemoteJID: &to})
 			return err
 		},
-		"poll": func() error {
-			_, err := s.SendPoll(ctx, &SendPollRequest{InstanceID: "instance", RemoteJID: &to, Name: "q", Values: []string{"a", "b"}})
-			return err
-		},
 		"ptv": func() error {
 			_, err := s.SendPtv(ctx, &SendPtvRequest{InstanceID: "instance", RemoteJID: &to})
 			return err
@@ -243,5 +239,61 @@ func TestMediaContextInfoMarksOnlyChannelMediaAsUnencrypted(t *testing.T) {
 	}
 	if got := mediaContextInfo(mustParseJID(t, "5511999999999@s.whatsapp.net"), nil); got != nil {
 		t.Fatalf("expected no context info for a contact, got %v", got)
+	}
+}
+
+func TestBuildNewsletterPollMatchesOfficialApp(t *testing.T) {
+	msg, err := buildNewsletterPoll("Best deal?", []string{"A", "B"}, 1, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	poll := msg.GetPollCreationMessageV3()
+	if poll == nil || msg.PollCreationMessage != nil || msg.MessageContextInfo != nil {
+		t.Fatalf("expected a bare PollCreationMessageV3, got %v", msg)
+	}
+	if poll.GetName() != "Best deal?" || len(poll.GetOptions()) != 2 || poll.GetSelectableOptionsCount() != 1 {
+		t.Fatalf("unexpected poll %v", poll)
+	}
+
+	msg, _ = buildNewsletterPoll("q", []string{"A", "B"}, 5, "")
+	if got := msg.GetPollCreationMessageV3().GetSelectableOptionsCount(); got != 0 {
+		t.Fatalf("expected an out-of-range count to mean any, got %d", got)
+	}
+}
+
+func TestBuildNewsletterPollQuiz(t *testing.T) {
+	msg, err := buildNewsletterPoll("Which store?", []string{"Shopee", "Amazon"}, 0, "Amazon")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	quiz := msg.GetPollCreationMessageV5()
+	if quiz == nil || quiz.GetPollType() != waE2E.PollType_QUIZ || quiz.GetCorrectAnswer().GetOptionName() != "Amazon" || quiz.GetSelectableOptionsCount() != 1 {
+		t.Fatalf("unexpected quiz %v", msg)
+	}
+
+	if _, err := buildNewsletterPoll("q", []string{"A", "B"}, 0, "C"); err == nil {
+		t.Fatal("expected an error for a correct answer outside the values")
+	}
+}
+
+func TestBuildQuestionMessage(t *testing.T) {
+	inner := buildQuestionMessage("What deal tomorrow?").GetQuestionMessage().GetMessage().GetExtendedTextMessage()
+	if inner.GetText() != "What deal tomorrow?" || !inner.GetContextInfo().GetIsQuestion() {
+		t.Fatalf("unexpected question %v", inner)
+	}
+}
+
+func TestChannelOnlyTypesAreRejectedElsewhere(t *testing.T) {
+	s := newChannelTestService()
+	ctx := context.Background()
+	group := mustParseJID(t, "120363000000000000@g.us")
+
+	_, err := s.SendPoll(ctx, &SendPollRequest{InstanceID: "instance", RemoteJID: &group, Name: "q", Values: []string{"A", "B"}, CorrectAnswer: "A"})
+	if !errors.Is(err, ErrNewsletterOnly) {
+		t.Errorf("quiz: expected ErrNewsletterOnly, got %v", err)
+	}
+	_, err = s.SendText(ctx, &SendText{InstanceID: "instance", RemoteJID: &group, Text: "q", Question: true})
+	if !errors.Is(err, ErrNewsletterOnly) {
+		t.Errorf("question: expected ErrNewsletterOnly, got %v", err)
 	}
 }

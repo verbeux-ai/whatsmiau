@@ -29,6 +29,8 @@ type SendText struct {
 	LinkPreview      bool       `json:"linkPreview,omitempty"`
 	MentionsEveryOne bool       `json:"mentionsEveryOne,omitempty"`
 	Mentioned        []string   `json:"mentioned,omitempty"`
+	// Question posts the text as a channel question, answered privately.
+	Question bool `json:"question,omitempty"`
 
 	// Caller-supplied card metadata; when set, the page is not fetched.
 	LinkPreviewImage       string `json:"linkPreviewImage,omitempty"`
@@ -59,6 +61,17 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
 	data.RemoteJID = &resolved
 	data.Quote = quoteForChat(resolved, data.Quote)
+
+	if data.Question {
+		if err := requireNewsletter(resolved, "question"); err != nil {
+			return nil, err
+		}
+		res, err := client.SendMessage(ctx, resolved, buildQuestionMessage(data.Text))
+		if err != nil {
+			return nil, err
+		}
+		return &SendTextResponse{ID: res.ID, CreatedAt: res.Timestamp, ServerID: res.ServerID}, nil
+	}
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {

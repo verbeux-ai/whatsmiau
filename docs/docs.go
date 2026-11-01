@@ -9862,6 +9862,10 @@ const docTemplate = `{
                 "values"
             ],
             "properties": {
+                "correctAnswer": {
+                    "description": "CorrectAnswer turns the poll into a single-choice quiz; it must be one of\nvalues. Channels (newsletters) only.",
+                    "type": "string"
+                },
                 "delay": {
                     "type": "integer",
                     "maximum": 300000,
@@ -10205,6 +10209,10 @@ const docTemplate = `{
                 "number": {
                     "description": "JID",
                     "type": "string"
+                },
+                "question": {
+                    "description": "Question posts the text as a question followers answer privately.\nChannels (newsletters) only.",
+                    "type": "boolean"
                 },
                 "quoted": {
                     "$ref": "#/definitions/dto.MessageRequestQuoted"

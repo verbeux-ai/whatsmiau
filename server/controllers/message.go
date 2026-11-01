@@ -76,6 +76,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 		LinkPreview:      request.LinkPreview,
 		MentionsEveryOne: request.MentionsEveryOne,
 		Mentioned:        request.Mentioned,
+		Question:         request.Question,
 
 		LinkPreviewImage:       request.LinkPreviewImage,
 		LinkPreviewTitle:       request.LinkPreviewTitle,
@@ -97,7 +98,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 	res, err := s.whatsmiau.SendText(c, sendText)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendText failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send text")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send text")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendTextResponse{

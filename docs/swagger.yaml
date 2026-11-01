@@ -1062,6 +1062,11 @@ definitions:
     type: object
   dto.SendPollRequest:
     properties:
+      correctAnswer:
+        description: |-
+          CorrectAnswer turns the poll into a single-choice quiz; it must be one of
+          values. Channels (newsletters) only.
+        type: string
       delay:
         maximum: 300000
         minimum: 0
@@ -1306,6 +1311,11 @@ definitions:
       number:
         description: JID
         type: string
+      question:
+        description: |-
+          Question posts the text as a question followers answer privately.
+          Channels (newsletters) only.
+        type: boolean
       quoted:
         $ref: '#/definitions/dto.MessageRequestQuoted'
       text:

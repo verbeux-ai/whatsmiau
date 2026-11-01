@@ -344,14 +344,16 @@ func (s *Whatsmiau) SendContact(ctx context.Context, data *SendContactRequest) (
 // --- SendPoll ---
 
 type SendPollRequest struct {
-	InstanceID       string     `json:"instance_id"`
-	RemoteJID        *types.JID `json:"remote_jid"`
-	Name             string     `json:"name"`
-	SelectableCount  int        `json:"selectable_count"`
-	Values           []string   `json:"values"`
-	Quote            *Quote     `json:"quote,omitempty"`
-	MentionsEveryOne bool       `json:"mentionsEveryOne,omitempty"`
-	Mentioned        []string   `json:"mentioned,omitempty"`
+	InstanceID      string     `json:"instance_id"`
+	RemoteJID       *types.JID `json:"remote_jid"`
+	Name            string     `json:"name"`
+	SelectableCount int        `json:"selectable_count"`
+	Values          []string   `json:"values"`
+	// CorrectAnswer turns a channel poll into a quiz; it must be one of Values.
+	CorrectAnswer    string   `json:"correct_answer,omitempty"`
+	Quote            *Quote   `json:"quote,omitempty"`
+	MentionsEveryOne bool     `json:"mentionsEveryOne,omitempty"`
+	Mentioned        []string `json:"mentioned,omitempty"`
 }
 
 type SendPollResponse struct {
@@ -371,9 +373,20 @@ func (s *Whatsmiau) SendPoll(ctx context.Context, data *SendPollRequest) (*SendP
 		return nil, err
 	}
 	data.RemoteJID = &resolved
-	// The server rejects whatsmeow's poll creation message in channels (error 479).
-	if err := rejectNewsletter(resolved, "poll"); err != nil {
-		return nil, err
+
+	if isNewsletter(resolved) {
+		pollMsg, err := buildNewsletterPoll(data.Name, data.Values, data.SelectableCount, data.CorrectAnswer)
+		if err != nil {
+			return nil, err
+		}
+		res, err := client.SendMessage(ctx, resolved, pollMsg)
+		if err != nil {
+			return nil, err
+		}
+		return &SendPollResponse{ID: res.ID, CreatedAt: res.Timestamp, ServerID: res.ServerID}, nil
+	}
+	if data.CorrectAnswer != "" {
+		return nil, requireNewsletter(resolved, "quiz")
 	}
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
