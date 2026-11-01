@@ -217,6 +217,13 @@ func TestFindNewsletterReportsMissingChannel(t *testing.T) {
 		t.Fatalf("error = %v, want ErrNewsletterNotFound", err)
 	}
 
+	// WhatsApp answers an unknown JID with an empty "non_existing" record.
+	nonExisting := &types.NewsletterMetadata{State: types.WrappedNewsletterState{Type: "non_existing"}}
+	_, err = findNewsletter(context.Background(), &fakeNewsletterClient{info: nonExisting}, testNewsletterJID)
+	if !errors.Is(err, ErrNewsletterNotFound) {
+		t.Fatalf("non_existing record: error = %v, want ErrNewsletterNotFound", err)
+	}
+
 	wantErr := errors.New("graphql error")
 	_, err = findNewsletter(context.Background(), &fakeNewsletterClient{infoErr: wantErr}, testNewsletterJID)
 	if !errors.Is(err, wantErr) {

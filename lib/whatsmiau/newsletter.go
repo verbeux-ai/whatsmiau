@@ -198,7 +198,8 @@ func findNewsletter(ctx context.Context, client newsletterClient, jid types.JID)
 	if err != nil {
 		return nil, err
 	}
-	if meta == nil {
+	// WhatsApp answers an unknown channel with an empty "non_existing" record.
+	if meta == nil || meta.ID.IsEmpty() {
 		return nil, fmt.Errorf("%w: %s", ErrNewsletterNotFound, jid)
 	}
 	resp := buildNewsletterResponse(meta)

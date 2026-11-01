@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 	"go.uber.org/zap"
 )
@@ -53,6 +54,22 @@ func mediaSendExtra(to types.JID, uploaded whatsmeow.UploadResponse) []whatsmeow
 		return nil
 	}
 	return []whatsmeow.SendRequestExtra{{MediaHandle: uploaded.Handle}}
+}
+
+// mediaContextInfo marks channel media as unencrypted, as the official clients
+// do; without it, receivers try to decrypt the file and show a broken
+// placeholder. Other chats keep ci unchanged.
+func mediaContextInfo(to types.JID, ci *waE2E.ContextInfo) *waE2E.ContextInfo {
+	if !isNewsletter(to) {
+		return ci
+	}
+	if ci == nil {
+		ci = &waE2E.ContextInfo{}
+	}
+	ci.MediaDomainInfo = &waE2E.MediaDomainInfo{
+		MediaKeyDomain: waE2E.MediaKeyDomain_MEDIA_KEY_DOMAIN_NON_E2EE.Enum(),
+	}
+	return ci
 }
 
 // quoteForChat drops the quote when posting to a channel, which has no replies.

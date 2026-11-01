@@ -433,7 +433,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendPoll failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send poll")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send poll")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendPollResponse{

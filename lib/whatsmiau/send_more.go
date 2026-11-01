@@ -69,7 +69,7 @@ func (s *Whatsmiau) SendVideo(ctx context.Context, data *SendVideoRequest) (*Sen
 		MediaKey:      uploaded.MediaKey,
 		FileEncSHA256: uploaded.FileEncSHA256,
 		DirectPath:    proto.String(uploaded.DirectPath),
-		ContextInfo:   buildContextInfo(data.Quote, mentioned, everyone),
+		ContextInfo:   mediaContextInfo(resolved, buildContextInfo(data.Quote, mentioned, everyone)),
 	}
 	if data.GifPlayback {
 		video.GifPlayback = proto.Bool(true)
@@ -196,7 +196,7 @@ func (s *Whatsmiau) SendSticker(ctx context.Context, data *SendStickerRequest) (
 		MediaKey:      uploaded.MediaKey,
 		FileEncSHA256: uploaded.FileEncSHA256,
 		DirectPath:    proto.String(uploaded.DirectPath),
-		ContextInfo:   buildContextInfo(data.Quote, mentioned, everyone),
+		ContextInfo:   mediaContextInfo(resolved, buildContextInfo(data.Quote, mentioned, everyone)),
 	}
 
 	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{StickerMessage: &sticker}, mediaSendExtra(resolved, uploaded)...)
@@ -371,7 +371,10 @@ func (s *Whatsmiau) SendPoll(ctx context.Context, data *SendPollRequest) (*SendP
 		return nil, err
 	}
 	data.RemoteJID = &resolved
-	data.Quote = quoteForChat(resolved, data.Quote)
+	// The server rejects whatsmeow's poll creation message in channels (error 479).
+	if err := rejectNewsletter(resolved, "poll"); err != nil {
+		return nil, err
+	}
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {

@@ -288,7 +288,7 @@ func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest
 	res, err := s.whatsmiau.SendDocument(c, sendData)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendDocument failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send document")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send document")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendDocumentResponse{
@@ -362,7 +362,7 @@ func (s *Message) sendImage(ctx echo.Context, request dto.SendDocumentRequest) e
 	res, err := s.whatsmiau.SendImage(c, sendData)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendDocument failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send document")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send document")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendDocumentResponse{

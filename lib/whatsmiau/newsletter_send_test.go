@@ -7,7 +7,9 @@ import (
 
 	"github.com/puzpuzpuz/xsync/v4"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
+	"google.golang.org/protobuf/proto"
 )
 
 func mustParseJID(t *testing.T, raw string) types.JID {
@@ -193,6 +195,14 @@ func TestUnsupportedMessageTypesAreRejectedForChannels(t *testing.T) {
 			_, err := s.SendReaction(ctx, &SendReactionRequest{InstanceID: "instance", RemoteJID: &to, MessageID: "ABC123", Reaction: "\U0001F44D"})
 			return err
 		},
+		"document": func() error {
+			_, err := s.SendDocument(ctx, &SendDocumentRequest{InstanceID: "instance", RemoteJID: &to})
+			return err
+		},
+		"poll": func() error {
+			_, err := s.SendPoll(ctx, &SendPollRequest{InstanceID: "instance", RemoteJID: &to, Name: "q", Values: []string{"a", "b"}})
+			return err
+		},
 		"ptv": func() error {
 			_, err := s.SendPtv(ctx, &SendPtvRequest{InstanceID: "instance", RemoteJID: &to})
 			return err
@@ -218,5 +228,20 @@ func TestChatPresenceSkipsChannels(t *testing.T) {
 	to := testNewsletterJID
 	if err := s.ChatPresence(&ChatPresenceRequest{InstanceID: "instance", RemoteJID: &to, Presence: types.ChatPresenceComposing}); err != nil {
 		t.Fatalf("expected presence to be skipped for a channel, got %v", err)
+	}
+}
+
+func TestMediaContextInfoMarksOnlyChannelMediaAsUnencrypted(t *testing.T) {
+	ci := mediaContextInfo(testNewsletterJID, nil)
+	if ci.GetMediaDomainInfo().GetMediaKeyDomain() != waE2E.MediaKeyDomain_MEDIA_KEY_DOMAIN_NON_E2EE {
+		t.Fatalf("expected channel media marked NON_E2EE, got %v", ci)
+	}
+
+	group := &waE2E.ContextInfo{StanzaID: proto.String("ABC123")}
+	if got := mediaContextInfo(mustParseJID(t, "120363000000000000@g.us"), group); got != group || got.MediaDomainInfo != nil {
+		t.Fatalf("expected the group context info untouched, got %v", got)
+	}
+	if got := mediaContextInfo(mustParseJID(t, "5511999999999@s.whatsapp.net"), nil); got != nil {
+		t.Fatalf("expected no context info for a contact, got %v", got)
 	}
 }

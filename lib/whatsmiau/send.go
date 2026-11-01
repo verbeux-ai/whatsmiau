@@ -333,7 +333,7 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 	if err != nil {
 		return nil, err
 	}
-	audio.ContextInfo = buildContextInfo(data.Quote, mentioned, everyone)
+	audio.ContextInfo = mediaContextInfo(resolved, buildContextInfo(data.Quote, mentioned, everyone))
 
 	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
 		AudioMessage: &audio,
@@ -380,7 +380,10 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 
 	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
 	data.RemoteJID = &resolved
-	data.Quote = quoteForChat(resolved, data.Quote)
+	// Channels do not render documents: receivers are told to update WhatsApp.
+	if err := rejectNewsletter(resolved, "document"); err != nil {
+		return nil, err
+	}
 
 	dataBytes, err := s.fetchBytes(ctx, data.MediaURL)
 	if err != nil {
@@ -408,7 +411,7 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 	if err != nil {
 		return nil, err
 	}
-	doc.ContextInfo = buildContextInfo(data.Quote, mentioned, everyone)
+	doc.ContextInfo = mediaContextInfo(resolved, buildContextInfo(data.Quote, mentioned, everyone))
 
 	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
 		DocumentMessage: &doc,
@@ -484,7 +487,7 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 	if err != nil {
 		return nil, err
 	}
-	doc.ContextInfo = buildContextInfo(data.Quote, mentioned, everyone)
+	doc.ContextInfo = mediaContextInfo(resolved, buildContextInfo(data.Quote, mentioned, everyone))
 
 	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
 		ImageMessage: &doc,
