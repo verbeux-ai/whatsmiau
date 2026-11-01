@@ -1729,11 +1729,6 @@ definitions:
         type: string
       subscribersCount:
         type: integer
-      verification:
-        enum:
-        - verified
-        - unverified
-        type: string
       verified:
         type: boolean
     type: object

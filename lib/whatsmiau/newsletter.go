@@ -45,7 +45,6 @@ type NewsletterResponse struct {
 	PreviewURL        string  `json:"previewUrl,omitempty"`
 	SubscribersCount  int     `json:"subscribersCount"`
 	Verified          bool    `json:"verified"`
-	Verification      string  `json:"verification,omitempty" enums:"verified,unverified"`
 	State             string  `json:"state,omitempty" enums:"active,suspended,geosuspended"`
 	Creation          int64   `json:"creation,omitempty"`
 	ReactionsMode     string  `json:"reactionsMode,omitempty" enums:"all,basic,none,blocklist"`
@@ -64,7 +63,6 @@ func buildNewsletterResponse(meta *types.NewsletterMetadata) NewsletterResponse 
 		PreviewURL:       thread.Preview.URL,
 		SubscribersCount: thread.SubscriberCount,
 		Verified:         thread.VerificationState == types.NewsletterVerificationStateVerified,
-		Verification:     string(thread.VerificationState),
 		State:            string(meta.State.Type),
 		ReactionsMode:    string(thread.Settings.ReactionCodes.Value),
 	}

@@ -187,11 +187,11 @@ Channel pictures sent by URL follow the media download rules above.
 ### Sending to a channel
 
 The message routes accept `number` as `<id>@newsletter`. Text, image, video,
-audio, document, sticker, round video (PTV) and poll messages are published to
-the channel; media is uploaded unencrypted, as WhatsApp requires for channels.
-In channels, `quoted`, `mentioned` and `mentionsEveryOne` are ignored, and link
-previews use only the small inline thumbnail. List, buttons, PIX, reaction,
-location and contact messages return `400`. The response includes
+audio, document, sticker and poll messages are published to the channel; media
+is uploaded unencrypted, as WhatsApp requires for channels. In channels,
+`quoted`, `mentioned` and `mentionsEveryOne` are ignored, and link previews use
+only the small inline thumbnail. List, buttons, PIX, reaction, round video
+(PTV), location and contact messages return `400`. The response includes
 `key.serverId`, the server-assigned ID of the post, present only for channel
 messages.
 

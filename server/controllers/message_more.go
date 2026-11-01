@@ -145,7 +145,7 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendPtv failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send ptv")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send ptv")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendPtvResponse{

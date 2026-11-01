@@ -10,8 +10,6 @@ import (
 	"go.mau.fi/whatsmeow/types"
 )
 
-const testNewsletterJID = "120363144038483540@newsletter"
-
 func mustParseJID(t *testing.T, raw string) types.JID {
 	t.Helper()
 	jid, err := types.ParseJID(raw)
@@ -23,7 +21,8 @@ func mustParseJID(t *testing.T, raw string) types.JID {
 
 // fakeUploader records which upload endpoint was used.
 type fakeUploader struct {
-	called string
+	called   string
+	noHandle bool
 }
 
 func (f *fakeUploader) Upload(_ context.Context, data []byte, _ whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
@@ -38,24 +37,31 @@ func (f *fakeUploader) Upload(_ context.Context, data []byte, _ whatsmeow.MediaT
 
 func (f *fakeUploader) UploadNewsletter(_ context.Context, data []byte, _ whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
 	f.called = "newsletter"
-	return whatsmeow.UploadResponse{
+	resp := whatsmeow.UploadResponse{
 		DirectPath: "/plain",
 		Handle:     "handle-1",
 		FileLength: uint64(len(data)),
-	}, nil
+	}
+	if f.noHandle {
+		resp.Handle = ""
+	}
+	return resp, nil
 }
 
 func TestUploadMediaUsesNewsletterUploadForChannels(t *testing.T) {
 	up := &fakeUploader{}
-	resp, err := uploadMedia(context.Background(), up, mustParseJID(t, testNewsletterJID), []byte("img"), whatsmeow.MediaImage)
-	if err != nil {
+	if _, err := uploadMedia(context.Background(), up, testNewsletterJID, []byte("img"), whatsmeow.MediaImage); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if up.called != "newsletter" {
 		t.Fatalf("expected the newsletter upload, got %q", up.called)
 	}
-	if resp.MediaKey != nil || resp.FileEncSHA256 != nil {
-		t.Fatalf("channel media must not carry encryption fields, got key=%v enc=%v", resp.MediaKey, resp.FileEncSHA256)
+}
+
+func TestUploadMediaFailsWithoutChannelHandle(t *testing.T) {
+	up := &fakeUploader{noHandle: true}
+	if _, err := uploadMedia(context.Background(), up, testNewsletterJID, []byte("img"), whatsmeow.MediaImage); err == nil {
+		t.Fatal("expected an error when the channel upload returns no media handle")
 	}
 }
 
@@ -79,7 +85,7 @@ func TestUploadMediaKeepsEncryptedUploadForOtherChats(t *testing.T) {
 func TestMediaSendExtraPassesHandleOnlyToChannels(t *testing.T) {
 	uploaded := whatsmeow.UploadResponse{Handle: "handle-1"}
 
-	extra := mediaSendExtra(mustParseJID(t, testNewsletterJID), uploaded)
+	extra := mediaSendExtra(testNewsletterJID, uploaded)
 	if len(extra) != 1 || extra[0].MediaHandle != "handle-1" {
 		t.Fatalf("expected one extra with the media handle, got %+v", extra)
 	}
@@ -90,15 +96,12 @@ func TestMediaSendExtraPassesHandleOnlyToChannels(t *testing.T) {
 	if extra := mediaSendExtra(mustParseJID(t, "5511999999999@s.whatsapp.net"), uploaded); extra != nil {
 		t.Fatalf("expected no extra for a contact, got %+v", extra)
 	}
-	if extra := mediaSendExtra(mustParseJID(t, testNewsletterJID), whatsmeow.UploadResponse{}); extra != nil {
-		t.Fatalf("expected no extra without a handle, got %+v", extra)
-	}
 }
 
 func TestQuoteForChatDropsQuoteOnlyForChannels(t *testing.T) {
 	q := &Quote{MessageID: "ABC123", Message: "original"}
 
-	if got := quoteForChat(mustParseJID(t, testNewsletterJID), q); got != nil {
+	if got := quoteForChat(testNewsletterJID, q); got != nil {
 		t.Fatalf("expected no quote for a channel, got %+v", got)
 	}
 	if got := quoteForChat(mustParseJID(t, "120363000000000000@g.us"), q); got != q {
@@ -109,7 +112,7 @@ func TestQuoteForChatDropsQuoteOnlyForChannels(t *testing.T) {
 func TestResolveMentionsIgnoredForChannels(t *testing.T) {
 	s := &Whatsmiau{}
 	// Even an invalid mention is ignored: channels have no mentions at all.
-	jids, everyone, err := s.resolveMentions(mustParseJID(t, testNewsletterJID), true, []string{"5511999999999", "bad@@jid"})
+	jids, everyone, err := s.resolveMentions(testNewsletterJID, true, []string{"5511999999999", "bad@@jid"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -120,7 +123,7 @@ func TestResolveMentionsIgnoredForChannels(t *testing.T) {
 
 func TestBuildSendTextMessageForChannelIsPlainConversation(t *testing.T) {
 	s := &Whatsmiau{}
-	to := mustParseJID(t, testNewsletterJID)
+	to := testNewsletterJID
 	data := &SendText{
 		Text:      "hello channel",
 		RemoteJID: &to,
@@ -142,7 +145,7 @@ func TestBuildSendTextMessageForChannelIsPlainConversation(t *testing.T) {
 
 func TestResolveJIDKeepsChannelJID(t *testing.T) {
 	s := &Whatsmiau{}
-	jid := mustParseJID(t, testNewsletterJID)
+	jid := testNewsletterJID
 	// Non-phone JIDs return before the client is used.
 	if got := s.resolveJID(context.Background(), nil, jid); got != jid {
 		t.Fatalf("expected %s unchanged, got %s", jid, got)
@@ -150,7 +153,7 @@ func TestResolveJIDKeepsChannelJID(t *testing.T) {
 }
 
 func TestRejectNewsletter(t *testing.T) {
-	if err := rejectNewsletter(mustParseJID(t, testNewsletterJID), "list message"); !errors.Is(err, ErrNewsletterUnsupported) {
+	if err := rejectNewsletter(testNewsletterJID, "list message"); !errors.Is(err, ErrNewsletterUnsupported) {
 		t.Fatalf("expected ErrNewsletterUnsupported, got %v", err)
 	}
 	for _, raw := range []string{"120363000000000000@g.us", "5511999999999@s.whatsapp.net", "status@broadcast"} {
@@ -171,7 +174,7 @@ func newChannelTestService() *Whatsmiau {
 func TestUnsupportedMessageTypesAreRejectedForChannels(t *testing.T) {
 	s := newChannelTestService()
 	ctx := context.Background()
-	to := mustParseJID(t, testNewsletterJID)
+	to := testNewsletterJID
 
 	cases := map[string]func() error{
 		"list": func() error {
@@ -188,6 +191,10 @@ func TestUnsupportedMessageTypesAreRejectedForChannels(t *testing.T) {
 		},
 		"reaction": func() error {
 			_, err := s.SendReaction(ctx, &SendReactionRequest{InstanceID: "instance", RemoteJID: &to, MessageID: "ABC123", Reaction: "\U0001F44D"})
+			return err
+		},
+		"ptv": func() error {
+			_, err := s.SendPtv(ctx, &SendPtvRequest{InstanceID: "instance", RemoteJID: &to})
 			return err
 		},
 		"location": func() error {
@@ -208,7 +215,7 @@ func TestUnsupportedMessageTypesAreRejectedForChannels(t *testing.T) {
 
 func TestChatPresenceSkipsChannels(t *testing.T) {
 	s := newChannelTestService()
-	to := mustParseJID(t, testNewsletterJID)
+	to := testNewsletterJID
 	if err := s.ChatPresence(&ChatPresenceRequest{InstanceID: "instance", RemoteJID: &to, Presence: types.ChatPresenceComposing}); err != nil {
 		t.Fatalf("expected presence to be skipped for a channel, got %v", err)
 	}

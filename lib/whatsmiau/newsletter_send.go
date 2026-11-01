@@ -32,17 +32,24 @@ type mediaUploader interface {
 // its response has no MediaKey or FileEncSHA256, so messages built from it
 // leave those fields unset, as whatsmeow expects for newsletters.
 func uploadMedia(ctx context.Context, client mediaUploader, to types.JID, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
-	if isNewsletter(to) {
-		return client.UploadNewsletter(ctx, data, mediaType)
+	if !isNewsletter(to) {
+		return client.Upload(ctx, data, mediaType)
 	}
-	return client.Upload(ctx, data, mediaType)
+	uploaded, err := client.UploadNewsletter(ctx, data, mediaType)
+	if err != nil {
+		return uploaded, err
+	}
+	if uploaded.Handle == "" {
+		return uploaded, errors.New("channel upload returned no media handle")
+	}
+	return uploaded, nil
 }
 
 // mediaSendExtra returns the SendMessage options for media uploaded with
 // uploadMedia: channels need the upload handle (sent as media_id), other chats
 // need nothing.
 func mediaSendExtra(to types.JID, uploaded whatsmeow.UploadResponse) []whatsmeow.SendRequestExtra {
-	if !isNewsletter(to) || uploaded.Handle == "" {
+	if !isNewsletter(to) {
 		return nil
 	}
 	return []whatsmeow.SendRequestExtra{{MediaHandle: uploaded.Handle}}

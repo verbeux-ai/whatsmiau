@@ -86,7 +86,7 @@ func TestBuildNewsletterResponseMapsEveryField(t *testing.T) {
 	if resp.PictureID != "pic-1" || resp.PictureURL != "https://mmg.whatsapp.net/full.jpg" || resp.PictureDirectPath != "/v/full.jpg" || resp.PreviewURL != "https://mmg.whatsapp.net/preview.jpg" {
 		t.Fatalf("picture fields = %+v", resp)
 	}
-	if resp.SubscribersCount != 1234 || !resp.Verified || resp.Verification != "verified" || resp.State != "active" || resp.Creation != 1700000000 || resp.ReactionsMode != "basic" {
+	if resp.SubscribersCount != 1234 || !resp.Verified || resp.State != "active" || resp.Creation != 1700000000 || resp.ReactionsMode != "basic" {
 		t.Fatalf("metadata fields = %+v", resp)
 	}
 	if resp.Role == nil || *resp.Role != "owner" || resp.Muted == nil || !*resp.Muted || resp.CanPublish == nil || !*resp.CanPublish {

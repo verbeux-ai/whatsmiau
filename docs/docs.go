@@ -10836,13 +10836,6 @@ const docTemplate = `{
                 "subscribersCount": {
                     "type": "integer"
                 },
-                "verification": {
-                    "type": "string",
-                    "enum": [
-                        "verified",
-                        "unverified"
-                    ]
-                },
                 "verified": {
                     "type": "boolean"
                 }

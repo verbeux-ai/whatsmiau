@@ -107,7 +107,10 @@ func (s *Whatsmiau) SendPtv(ctx context.Context, data *SendPtvRequest) (*SendPtv
 		return nil, err
 	}
 	data.RemoteJID = &resolved
-	data.Quote = quoteForChat(resolved, data.Quote)
+	// whatsmeow has no channel post type for round videos.
+	if err := rejectNewsletter(resolved, "round video"); err != nil {
+		return nil, err
+	}
 
 	mentioned, everyone, err := s.resolveMentions(resolved, data.MentionsEveryOne, data.Mentioned)
 	if err != nil {
