@@ -1031,7 +1031,15 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 		}
 	} else if br := m.GetButtonsResponseMessage(); br != nil {
 		messageType = "buttonsResponseMessage"
-		raw.Conversation = br.GetSelectedDisplayText()
+		selectedButtonID := br.GetSelectedButtonID()
+		selectedDisplayText := br.GetSelectedDisplayText()
+		if selectedButtonID != "" || selectedDisplayText != "" {
+			raw.ButtonsResponseMessage = &WookButtonsResponseMessageRaw{
+				SelectedButtonID:    selectedButtonID,
+				SelectedDisplayText: selectedDisplayText,
+			}
+		}
+		raw.Conversation = selectedDisplayText
 		ci = br.GetContextInfo()
 	} else if img := m.GetImageMessage(); img != nil {
 		messageType = "imageMessage"
