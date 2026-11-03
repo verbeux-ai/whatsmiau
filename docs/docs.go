@@ -5998,7 +5998,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Sends an interactive buttons message (reply type) or PIX payment",
+                "description": "Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6702,7 +6702,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Sends an interactive buttons message (reply type) or PIX payment",
+                "description": "Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8775,8 +8775,13 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "reply",
+                        "url",
                         "pix"
                     ]
+                },
+                "url": {
+                    "description": "Required when type is url. Must be an absolute HTTP(S) URL.",
+                    "type": "string"
                 }
             }
         },

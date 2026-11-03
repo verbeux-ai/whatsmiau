@@ -1106,8 +1106,13 @@
                 "type": {
                     "enum": [
                         "reply",
+                        "url",
                         "pix"
                     ],
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Required when type is url. Must be an absolute HTTP(S) URL.",
                     "type": "string"
                 }
             },
@@ -9732,7 +9737,7 @@
                 "consumes": [
                     "application/json"
                 ],
-                "description": "Sends an interactive buttons message (reply type) or PIX payment",
+                "description": "Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.",
                 "operationId": "postV1InstanceByInstanceMessageButtons",
                 "parameters": [
                     {
@@ -10513,7 +10518,7 @@
                 "consumes": [
                     "application/json"
                 ],
-                "description": "Sends an interactive buttons message (reply type) or PIX payment",
+                "description": "Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.",
                 "operationId": "postV1MessageSendButtonsByInstance",
                 "parameters": [
                     {
