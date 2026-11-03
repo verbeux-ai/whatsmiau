@@ -86,7 +86,7 @@ func (s *Whatsmiau) SendText(ctx context.Context, data *SendText) (*SendTextResp
 	// mentionsEveryOne uses the classic E2E path with ContextInfo.NonJIDMentions=1
 	// (same approach mautrix-whatsapp uses for @room). The message body must
 	// contain the literal "@all" for the client to render the highlight.
-	res, err := client.SendMessage(ctx, *data.RemoteJID, buildSendTextMessage(data, mentioned, everyone))
+	res, err := sendMessage(ctx, client, *data.RemoteJID, buildSendTextMessage(data, mentioned, everyone))
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (s *Whatsmiau) UpdateMessage(ctx context.Context, data *UpdateMessage) (*Up
 
 	chat := s.resolveJID(ctx, client, *data.RemoteJID)
 
-	res, err := client.SendMessage(ctx, chat, client.BuildEdit(chat, types.MessageID(data.Key.ID), &waE2E.Message{
+	res, err := sendMessage(ctx, client, chat, client.BuildEdit(chat, types.MessageID(data.Key.ID), &waE2E.Message{
 		Conversation: proto.String(data.Text),
 	}))
 	if err != nil {
@@ -291,7 +291,7 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, audioData, whatsmeow.MediaAudio)
+	uploaded, err := uploadMedia(ctx, client, audioData, whatsmeow.MediaAudio)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +318,7 @@ func (s *Whatsmiau) SendAudio(ctx context.Context, data *SendAudioRequest) (*Sen
 	}
 	audio.ContextInfo = buildContextInfo(data.Quote, mentioned, everyone)
 
-	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
+	res, err := sendMessage(ctx, client, *data.RemoteJID, &waE2E.Message{
 		AudioMessage: &audio,
 	})
 	if err != nil {
@@ -363,7 +363,7 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaDocument)
+	uploaded, err := uploadMedia(ctx, client, dataBytes, whatsmeow.MediaDocument)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +389,7 @@ func (s *Whatsmiau) SendDocument(ctx context.Context, data *SendDocumentRequest)
 	}
 	doc.ContextInfo = buildContextInfo(data.Quote, mentioned, everyone)
 
-	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
+	res, err := sendMessage(ctx, client, *data.RemoteJID, &waE2E.Message{
 		DocumentMessage: &doc,
 	})
 	if err != nil {
@@ -432,7 +432,7 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaImage)
+	uploaded, err := uploadMedia(ctx, client, dataBytes, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +461,7 @@ func (s *Whatsmiau) SendImage(ctx context.Context, data *SendImageRequest) (*Sen
 	}
 	doc.ContextInfo = buildContextInfo(data.Quote, mentioned, everyone)
 
-	res, err := client.SendMessage(ctx, *data.RemoteJID, &waE2E.Message{
+	res, err := sendMessage(ctx, client, *data.RemoteJID, &waE2E.Message{
 		ImageMessage: &doc,
 	})
 	if err != nil {
@@ -514,7 +514,7 @@ func (s *Whatsmiau) SendReaction(ctx context.Context, data *SendReactionRequest)
 	}
 
 	doc := client.BuildReaction(*data.RemoteJID, *sender, data.MessageID, data.Reaction)
-	res, err := client.SendMessage(ctx, *data.RemoteJID, doc)
+	res, err := sendMessage(ctx, client, *data.RemoteJID, doc)
 	if err != nil {
 		return nil, err
 	}
@@ -640,7 +640,7 @@ func (s *Whatsmiau) SendList(ctx context.Context, data *SendListRequest) (*SendL
 		}},
 	}}
 
-	res, err := client.SendMessage(ctx, *data.RemoteJID, message, whatsmeow.SendRequestExtra{
+	res, err := sendMessage(ctx, client, *data.RemoteJID, message, whatsmeow.SendRequestExtra{
 		AdditionalNodes: &extraNodes,
 	})
 	if err != nil {
@@ -753,7 +753,7 @@ func (s *Whatsmiau) SendButtons(ctx context.Context, data *SendButtonsRequestDat
 		}},
 	}}
 
-	res, err := client.SendMessage(ctx, *data.RemoteJID, message, whatsmeow.SendRequestExtra{
+	res, err := sendMessage(ctx, client, *data.RemoteJID, message, whatsmeow.SendRequestExtra{
 		AdditionalNodes: &extraNodes,
 	})
 	if err != nil {
@@ -883,7 +883,7 @@ func (s *Whatsmiau) SendPixPayment(ctx context.Context, data *SendPixPaymentRequ
 		},
 	}}
 
-	res, err := client.SendMessage(ctx, *data.RemoteJID, message, whatsmeow.SendRequestExtra{
+	res, err := sendMessage(ctx, client, *data.RemoteJID, message, whatsmeow.SendRequestExtra{
 		AdditionalNodes: &extraNodes,
 	})
 	if err != nil {

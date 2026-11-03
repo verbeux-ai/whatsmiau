@@ -6,7 +6,7 @@ import (
 )
 
 func Load(app *echo.Echo) {
-	v1 := app.Group("/v1", middleware.Simplify(middleware.Auth))
+	v1 := app.Group("/v1", middleware.Simplify(middleware.Auth), middleware.Tracing)
 	Documentation(app, v1)
 	V1(v1)
 }

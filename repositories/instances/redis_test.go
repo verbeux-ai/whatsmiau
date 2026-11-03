@@ -206,3 +206,110 @@ func TestUpdateOnlyTouchesBase64WhenProvided(t *testing.T) {
 		t.Fatalf("explicit false was not persisted: %v", updated.Webhook.Base64)
 	}
 }
+
+func TestListByIDTreatsGlobCharactersLiterally(t *testing.T) {
+	repo, _, _ := newTestRepository(t)
+	ctx := context.Background()
+	for _, id := range []string{"ab", "ac"} {
+		if err := repo.Create(ctx, &models.Instance{ID: id}); err != nil {
+			t.Fatalf("create %s: %v", id, err)
+		}
+	}
+
+	for _, pattern := range []string{"a*", "a?", "a[bc]"} {
+		found, err := repo.List(ctx, pattern)
+		if err != nil {
+			t.Fatalf("list %q: %v", pattern, err)
+		}
+		if len(found) != 0 {
+			t.Errorf("list %q matched %d instances, want none", pattern, len(found))
+		}
+	}
+}
+
+func TestListByIDReturnsOnlyThatInstance(t *testing.T) {
+	repo, _, _ := newTestRepository(t)
+	ctx := context.Background()
+	for _, id := range []string{"target", "target-other"} {
+		if err := repo.Create(ctx, &models.Instance{ID: id}); err != nil {
+			t.Fatalf("create %s: %v", id, err)
+		}
+	}
+
+	found, err := repo.List(ctx, "target")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(found) != 1 || found[0].ID != "target" {
+		t.Fatalf("list returned %+v, want only the target instance", found)
+	}
+}
+
+func TestListByIDReturnsEmptyForMissingInstance(t *testing.T) {
+	repo, _, _ := newTestRepository(t)
+
+	found, err := repo.List(context.Background(), "missing")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(found) != 0 {
+		t.Fatalf("list returned %d instances, want none", len(found))
+	}
+}
+
+func TestListWithoutIDReturnsEveryInstanceAndIgnoresOtherKeys(t *testing.T) {
+	repo, _, server := newTestRepository(t)
+	ctx := context.Background()
+	for _, id := range []string{"one", "two"} {
+		if err := repo.Create(ctx, &models.Instance{ID: id}); err != nil {
+			t.Fatalf("create %s: %v", id, err)
+		}
+	}
+	if err := server.Set("poll:cache:chat:msg", "{}"); err != nil {
+		t.Fatalf("seed unrelated key: %v", err)
+	}
+
+	found, err := repo.List(ctx, "")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(found) != 2 {
+		t.Fatalf("list returned %d instances, want 2", len(found))
+	}
+}
+
+func TestListByIDTreatsUnreadableInstanceAsMissing(t *testing.T) {
+	tests := []struct {
+		name string
+		seed func(*miniredis.Miniredis) error
+	}{
+		{
+			name: "malformed json",
+			seed: func(server *miniredis.Miniredis) error { return server.Set("instance_broken", "{not json") },
+		},
+		{
+			name: "key holding a hash",
+			seed: func(server *miniredis.Miniredis) error {
+				server.HSet("instance_broken", "id", "broken")
+				return nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo, _, server := newTestRepository(t)
+			if err := tt.seed(server); err != nil {
+				t.Fatalf("seed: %v", err)
+			}
+
+			found, err := repo.List(context.Background(), "broken")
+			if err != nil {
+				t.Fatalf("list: %v", err)
+			}
+			if len(found) != 0 {
+				t.Fatalf("list returned %d instances, want none", len(found))
+			}
+		})
+	}
+}

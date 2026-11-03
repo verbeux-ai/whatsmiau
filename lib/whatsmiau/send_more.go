@@ -48,7 +48,7 @@ func (s *Whatsmiau) SendVideo(ctx context.Context, data *SendVideoRequest) (*Sen
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaVideo)
+	uploaded, err := uploadMedia(ctx, client, dataBytes, whatsmeow.MediaVideo)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (s *Whatsmiau) SendVideo(ctx context.Context, data *SendVideoRequest) (*Sen
 		video.GifPlayback = proto.Bool(true)
 	}
 
-	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{VideoMessage: &video})
+	res, err := sendMessage(ctx, client, resolved, &waE2E.Message{VideoMessage: &video})
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (s *Whatsmiau) SendPtv(ctx context.Context, data *SendPtvRequest) (*SendPtv
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaVideo)
+	uploaded, err := uploadMedia(ctx, client, dataBytes, whatsmeow.MediaVideo)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (s *Whatsmiau) SendPtv(ctx context.Context, data *SendPtvRequest) (*SendPtv
 		ContextInfo:     buildContextInfo(data.Quote, mentioned, everyone),
 	}
 
-	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{PtvMessage: &video})
+	res, err := sendMessage(ctx, client, resolved, &waE2E.Message{PtvMessage: &video})
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (s *Whatsmiau) SendSticker(ctx context.Context, data *SendStickerRequest) (
 		return nil, err
 	}
 
-	uploaded, err := client.Upload(ctx, dataBytes, whatsmeow.MediaImage)
+	uploaded, err := uploadMedia(ctx, client, dataBytes, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (s *Whatsmiau) SendSticker(ctx context.Context, data *SendStickerRequest) (
 		ContextInfo:   buildContextInfo(data.Quote, mentioned, everyone),
 	}
 
-	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{StickerMessage: &sticker})
+	res, err := sendMessage(ctx, client, resolved, &waE2E.Message{StickerMessage: &sticker})
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func (s *Whatsmiau) SendLocation(ctx context.Context, data *SendLocationRequest)
 		loc.Address = proto.String(data.Address)
 	}
 
-	res, err := client.SendMessage(ctx, resolved, &waE2E.Message{LocationMessage: loc})
+	res, err := sendMessage(ctx, client, resolved, &waE2E.Message{LocationMessage: loc})
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (s *Whatsmiau) SendContact(ctx context.Context, data *SendContactRequest) (
 		}
 	}
 
-	res, err := client.SendMessage(ctx, resolved, msg)
+	res, err := sendMessage(ctx, client, resolved, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +358,7 @@ func (s *Whatsmiau) SendPoll(ctx context.Context, data *SendPollRequest) (*SendP
 	pollMsg := client.BuildPollCreation(data.Name, data.Values, data.SelectableCount)
 	pollMsg.PollCreationMessage.ContextInfo = buildContextInfo(data.Quote, mentioned, everyone)
 
-	res, err := client.SendMessage(ctx, resolved, pollMsg)
+	res, err := sendMessage(ctx, client, resolved, pollMsg)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +416,7 @@ func (s *Whatsmiau) buildImageStatus(ctx context.Context, client *whatsmeow.Clie
 	if err != nil {
 		return nil, err
 	}
-	uploaded, err := client.Upload(ctx, bytesData, whatsmeow.MediaImage)
+	uploaded, err := uploadMedia(ctx, client, bytesData, whatsmeow.MediaImage)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +443,7 @@ func (s *Whatsmiau) buildVideoStatus(ctx context.Context, client *whatsmeow.Clie
 	if err != nil {
 		return nil, err
 	}
-	uploaded, err := client.Upload(ctx, bytesData, whatsmeow.MediaVideo)
+	uploaded, err := uploadMedia(ctx, client, bytesData, whatsmeow.MediaVideo)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +470,7 @@ func (s *Whatsmiau) buildAudioStatus(ctx context.Context, client *whatsmeow.Clie
 	if err != nil {
 		return nil, err
 	}
-	uploaded, err := client.Upload(ctx, audioData, whatsmeow.MediaAudio)
+	uploaded, err := uploadMedia(ctx, client, audioData, whatsmeow.MediaAudio)
 	if err != nil {
 		return nil, err
 	}
@@ -514,7 +514,7 @@ func (s *Whatsmiau) SendStatus(ctx context.Context, data *SendStatusRequest) (*S
 		return nil, err
 	}
 
-	res, err := client.SendMessage(ctx, types.StatusBroadcastJID, msg)
+	res, err := sendMessage(ctx, client, types.StatusBroadcastJID, msg)
 	if err != nil {
 		return nil, err
 	}

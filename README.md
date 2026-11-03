@@ -112,6 +112,12 @@ The application is configured using environment variables. The following variabl
 | `GCL_APP_NAME` | The GCL application name. | `whatsmiau-br-1` |
 | `GCL_ENABLED` | Enable or disable Google Cloud Logging. | `false` |
 | `GCL_PROJECT_ID` | The GCL project ID. | `` |
+| `OTEL_TRACES_EXPORTER` | Trace exporter: `otlp` sends spans over OTLP/HTTP, `none` disables tracing. | `none` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP/HTTP endpoint, ideally an OpenTelemetry Collector. Example: `http://otel-collector:4318` | `http://localhost:4318` |
+| `OTEL_SERVICE_NAME` | Service name reported on spans. | `whatsmiau` |
+| `OTEL_TRACES_SAMPLER` | Sampler. Use `parentbased_traceidratio` with `OTEL_TRACES_SAMPLER_ARG` (e.g. `0.1`) in production. | `parentbased_always_on` |
+| `OTEL_TRACES_SAMPLER_ARG` | Sampling ratio for requests without a `traceparent` header, from `0.0` to `1.0`. Example: `0.1` | `1.0` |
+| `OTEL_RESOURCE_ATTRIBUTES` | Extra attributes reported on every span. Example: `service.version=v1.6.0,deployment.environment.name=production` | `` |
 | `EMITTER_BUFFER_SIZE` | The emitter buffer size. | `2048` |
 | `EMITTER_WORKERS` | The number of emitter workers. | `50` |
 | `HANDLER_SEMAPHORE_SIZE` | The handler semaphore size. | `512` |
@@ -133,6 +139,12 @@ other environment proxies, which could bypass destination validation. The
 WhatsApp instance proxy and `PROXY_NO_MEDIA` continue to control WhatsApp
 connections and uploads/downloads performed by the WhatsApp client independently.
 Use publicly reachable media URLs or Base64 instead of internal storage URLs.
+
+### Tracing
+
+With `OTEL_TRACES_EXPORTER=otlp`, every authenticated `/v1` request produces a server span with child spans for WhatsApp sends, media uploads, outbound HTTP fetches, Redis commands and SQL session-store queries. WhatsApp send spans carry the per-stage timings reported by whatsmeow as `whatsapp.send.timing.*_ms` attributes. Group and status sends encrypt for every recipient device, so their SQL queries are not traced; use the `group_encrypt` and `peer_encrypt` timings instead. Work outside a request, such as incoming events, is not traced. To continue a trace from your system, send the W3C `traceparent` header; the response carries a `traceresponse` header with the resulting trace and span IDs. Error logs include `trace_id` and `span_id`.
+
+Only OTLP over HTTP is supported. Apart from `OTEL_TRACES_EXPORTER`, the `OTEL_*` variables are read directly by the OpenTelemetry SDK instead of `env/env.go`, so other standard `OTEL_EXPORTER_OTLP_*` variables are honored too; `OTEL_SDK_DISABLED` is not implemented by the Go SDK, so use `OTEL_TRACES_EXPORTER=none` instead.
 
 ## API Documentation
 

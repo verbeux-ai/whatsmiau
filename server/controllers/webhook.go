@@ -7,6 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
+	log_connect "github.com/verbeux-ai/whatsmiau/lib/log-connect"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
@@ -59,7 +60,7 @@ func (s *Webhook) Set(ctx echo.Context) error {
 
 	stored, err := s.repo.List(c, request.InstanceID)
 	if err != nil {
-		zap.L().Error("failed to list instances", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("failed to list instances", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to update webhook")
 	}
 	if len(stored) == 0 {
@@ -96,7 +97,7 @@ func (s *Webhook) Set(ctx echo.Context) error {
 		if errors.Is(err, instances.ErrorNotFound) {
 			return utils.HTTPFail(ctx, http.StatusNotFound, err, "instance not found")
 		}
-		zap.L().Error("failed to update webhook", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("failed to update webhook", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to update webhook")
 	}
 
@@ -131,7 +132,7 @@ func (s *Webhook) Find(ctx echo.Context) error {
 	c := ctx.Request().Context()
 	result, err := s.repo.List(c, request.InstanceID)
 	if err != nil {
-		zap.L().Error("failed to list instances", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("failed to list instances", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to get instance")
 	}
 

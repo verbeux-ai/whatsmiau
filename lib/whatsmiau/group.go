@@ -442,7 +442,7 @@ func (s *Whatsmiau) SendGroupInvite(ctx context.Context, req *SendGroupInviteReq
 			}
 
 			resolved := s.resolveJID(ctx, client, *target)
-			_, sendErr := client.SendMessage(ctx, resolved, &waE2E.Message{
+			_, sendErr := sendMessage(ctx, client, resolved, &waE2E.Message{
 				Conversation: &body,
 			})
 			if sendErr != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	log_connect "github.com/verbeux-ai/whatsmiau/lib/log-connect"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
@@ -43,13 +44,13 @@ func (s *Message) SendVideo(ctx echo.Context) error {
 func (s *Message) sendVideo(ctx echo.Context, request dto.SendDocumentRequest, gif bool) error {
 	jid, err := numberToJid(request.Number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
 	quote, err := buildQuote(request.Quoted)
 	if err != nil {
-		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting quoted participant to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
 	}
 
@@ -70,7 +71,7 @@ func (s *Message) sendVideo(ctx echo.Context, request dto.SendDocumentRequest, g
 
 	res, err := s.whatsmiau.SendVideo(c, sendData)
 	if err != nil {
-		zap.L().Error("Whatsmiau.SendVideo failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SendVideo failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send video")
 	}
 
@@ -113,24 +114,24 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 
 	jid, err := numberToJid(request.Number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
 	c := ctx.Request().Context()
-	if err := s.whatsmiau.ChatPresence(&whatsmiau.ChatPresenceRequest{
+	if err := s.whatsmiau.ChatPresence(ctx.Request().Context(), &whatsmiau.ChatPresenceRequest{
 		InstanceID: request.InstanceID,
 		RemoteJID:  jid,
 		Presence:   types.ChatPresenceComposing,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.ChatPresence", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.ChatPresence", zap.Error(err))
 	} else {
 		time.Sleep(time.Millisecond * time.Duration(request.Delay))
 	}
 
 	quote, err := buildQuote(request.Quoted)
 	if err != nil {
-		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting quoted participant to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
 	}
 
@@ -143,7 +144,7 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SendPtv failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SendPtv failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send ptv")
 	}
 
@@ -187,7 +188,7 @@ func (s *Message) SendSticker(ctx echo.Context) error {
 
 	jid, err := numberToJid(request.Number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
@@ -196,7 +197,7 @@ func (s *Message) SendSticker(ctx echo.Context) error {
 
 	quote, err := buildQuote(request.Quoted)
 	if err != nil {
-		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting quoted participant to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
 	}
 
@@ -209,7 +210,7 @@ func (s *Message) SendSticker(ctx echo.Context) error {
 		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SendSticker failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SendSticker failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send sticker")
 	}
 
@@ -253,7 +254,7 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 
 	jid, err := numberToJid(request.Number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
@@ -262,7 +263,7 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 
 	quote, err := buildQuote(request.Quoted)
 	if err != nil {
-		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting quoted participant to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
 	}
 
@@ -278,7 +279,7 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SendLocation failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SendLocation failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send location")
 	}
 
@@ -322,7 +323,7 @@ func (s *Message) SendContact(ctx echo.Context) error {
 
 	jid, err := numberToJid(request.Number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
@@ -343,7 +344,7 @@ func (s *Message) SendContact(ctx echo.Context) error {
 
 	quote, err := buildQuote(request.Quoted)
 	if err != nil {
-		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting quoted participant to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
 	}
 
@@ -356,7 +357,7 @@ func (s *Message) SendContact(ctx echo.Context) error {
 		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SendContact failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SendContact failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send contact")
 	}
 
@@ -405,7 +406,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 
 	jid, err := numberToJid(request.Number)
 	if err != nil {
-		zap.L().Error("error converting number to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting number to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
@@ -414,7 +415,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 
 	quote, err := buildQuote(request.Quoted)
 	if err != nil {
-		zap.L().Error("error converting quoted participant to jid", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("error converting quoted participant to jid", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid quoted participant format")
 	}
 
@@ -429,7 +430,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SendPoll failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SendPoll failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send poll")
 	}
 
@@ -483,7 +484,7 @@ func (s *Message) SendStatus(ctx echo.Context) error {
 		AllContacts:     request.AllContacts,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SendStatus failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SendStatus failed", zap.Error(err))
 		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send status")
 	}
 

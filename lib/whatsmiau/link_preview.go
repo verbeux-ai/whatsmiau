@@ -118,14 +118,14 @@ func newLinkPreviewHTTPClient() *http.Client {
 		Control:   linkPreviewDialControl,
 	}
 	return &http.Client{
-		Transport: &http.Transport{
+		Transport: tracingTransport{operation: "link_preview.fetch", base: &http.Transport{
 			DialContext:           dialer.DialContext,
 			ForceAttemptHTTP2:     true,
 			MaxIdleConns:          10,
 			IdleConnTimeout:       30 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: time.Second,
-		},
+		}},
 	}
 }
 
@@ -215,7 +215,7 @@ func (s *Whatsmiau) uploadLinkPreviewHQ(ctx context.Context, client *whatsmeow.C
 	if len(original) == 0 {
 		return nil
 	}
-	uploaded, err := client.Upload(ctx, original, whatsmeow.MediaLinkThumbnail)
+	uploaded, err := uploadMedia(ctx, client, original, whatsmeow.MediaLinkThumbnail)
 	if err != nil {
 		return err
 	}

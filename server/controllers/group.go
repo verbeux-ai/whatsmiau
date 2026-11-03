@@ -7,6 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
+	log_connect "github.com/verbeux-ai/whatsmiau/lib/log-connect"
 	"github.com/verbeux-ai/whatsmiau/lib/whatsmiau"
 	"github.com/verbeux-ai/whatsmiau/server/dto"
 	"github.com/verbeux-ai/whatsmiau/utils"
@@ -88,7 +89,7 @@ func (s *Group) CreateGroup(ctx echo.Context) error {
 		PromoteParticipants: request.PromoteParticipants,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.CreateGroup failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.CreateGroup failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -131,7 +132,7 @@ func (s *Group) UpdateGroupSubject(ctx echo.Context) error {
 		GroupJID:   groupJid,
 		Subject:    request.Subject,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.SetGroupSubject failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SetGroupSubject failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -175,7 +176,7 @@ func (s *Group) UpdateGroupPicture(ctx echo.Context) error {
 		Image:      request.Image,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SetGroupPicture failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SetGroupPicture failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -218,7 +219,7 @@ func (s *Group) UpdateGroupDescription(ctx echo.Context) error {
 		GroupJID:    groupJid,
 		Description: request.Description,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.SetGroupDescription failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SetGroupDescription failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -260,7 +261,7 @@ func (s *Group) FindGroupInfos(ctx echo.Context) error {
 		GroupJID:   groupJid,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.FindGroup failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.FindGroup failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -298,7 +299,7 @@ func (s *Group) FetchAllGroups(ctx echo.Context) error {
 		GetParticipants: request.GetParticipants == "true",
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.FetchAllGroups failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.FetchAllGroups failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -340,7 +341,7 @@ func (s *Group) FindParticipants(ctx echo.Context) error {
 		GroupJID:   groupJid,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.FindParticipants failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.FindParticipants failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -382,7 +383,7 @@ func (s *Group) InviteCode(ctx echo.Context) error {
 		GroupJID:   groupJid,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.GetGroupInviteCode failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.GetGroupInviteCode failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -420,7 +421,7 @@ func (s *Group) InviteInfo(ctx echo.Context) error {
 		Code:       request.InviteCode,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.GetGroupInviteInfo failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.GetGroupInviteInfo failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -458,7 +459,7 @@ func (s *Group) AcceptInviteCode(ctx echo.Context) error {
 		Code:       request.InviteCode,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.AcceptGroupInvite failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.AcceptGroupInvite failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -503,7 +504,7 @@ func (s *Group) SendInvite(ctx echo.Context) error {
 		Numbers:     request.Numbers,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.SendGroupInvite failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SendGroupInvite failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -546,7 +547,7 @@ func (s *Group) RevokeInviteCode(ctx echo.Context) error {
 		GroupJID:   groupJid,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.RevokeGroupInviteCode failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.RevokeGroupInviteCode failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -591,7 +592,7 @@ func (s *Group) UpdateParticipant(ctx echo.Context) error {
 		Participants: request.Participants,
 	})
 	if err != nil {
-		zap.L().Error("Whatsmiau.UpdateGroupParticipant failed",
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.UpdateGroupParticipant failed",
 			zap.Error(err),
 			zap.String("instance", request.InstanceID),
 			zap.String("group_jid", request.GroupJid),
@@ -641,7 +642,7 @@ func (s *Group) SetMemberAddMode(ctx echo.Context) error {
 		GroupJID:   groupJid,
 		Mode:       request.Mode,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.SetGroupMemberAddMode failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.SetGroupMemberAddMode failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -684,7 +685,7 @@ func (s *Group) UpdateSetting(ctx echo.Context) error {
 		GroupJID:   groupJid,
 		Action:     request.Action,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.UpdateGroupSetting failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.UpdateGroupSetting failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -727,7 +728,7 @@ func (s *Group) ToggleEphemeral(ctx echo.Context) error {
 		GroupJID:   groupJid,
 		Expiration: request.Expiration,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.ToggleGroupEphemeral failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.ToggleGroupEphemeral failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}
@@ -768,7 +769,7 @@ func (s *Group) LeaveGroup(ctx echo.Context) error {
 		InstanceID: request.InstanceID,
 		GroupJID:   groupJid,
 	}); err != nil {
-		zap.L().Error("Whatsmiau.LeaveGroup failed", zap.Error(err))
+		log_connect.WithTrace(ctx.Request().Context()).Error("Whatsmiau.LeaveGroup failed", zap.Error(err))
 		code, msg := mapGroupError(err)
 		return utils.HTTPFail(ctx, code, err, msg)
 	}

@@ -1,6 +1,7 @@
 package whatsmiau
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -8,7 +9,6 @@ import (
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 )
 
 type ReadMessageRequest struct {
@@ -25,7 +25,7 @@ type ReadMessageRequest struct {
 	Played bool `json:"played"`
 }
 
-func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
+func (s *Whatsmiau) ReadMessage(ctx context.Context, data *ReadMessageRequest) error {
 	client, ok := s.clients.Load(data.InstanceID)
 	if !ok {
 		return whatsmeow.ErrClientIsNil
@@ -43,7 +43,7 @@ func (s *Whatsmiau) ReadMessage(data *ReadMessageRequest) error {
 		receiptType = append(receiptType, types.ReceiptTypePlayed)
 	}
 
-	return client.MarkRead(context.TODO(), data.MessageIDs, time.Now(), *data.RemoteJID, sender, receiptType...)
+	return client.MarkRead(ctx, data.MessageIDs, time.Now(), *data.RemoteJID, sender, receiptType...)
 }
 
 type ChatPresenceRequest struct {
@@ -53,13 +53,13 @@ type ChatPresenceRequest struct {
 	Media      types.ChatPresenceMedia `json:"media"`
 }
 
-func (s *Whatsmiau) ChatPresence(data *ChatPresenceRequest) error {
+func (s *Whatsmiau) ChatPresence(ctx context.Context, data *ChatPresenceRequest) error {
 	client, ok := s.clients.Load(data.InstanceID)
 	if !ok {
 		return whatsmeow.ErrClientIsNil
 	}
 
-	return client.SendChatPresence(context.TODO(), *data.RemoteJID, data.Presence, data.Media)
+	return client.SendChatPresence(ctx, *data.RemoteJID, data.Presence, data.Media)
 }
 
 type NumberExistsRequest struct {
@@ -82,7 +82,7 @@ func (s *Whatsmiau) NumberExists(ctx context.Context, data *NumberExistsRequest)
 		return nil, whatsmeow.ErrClientIsNil
 	}
 
-	resp, err := client.IsOnWhatsApp(context.TODO(), data.Numbers)
+	resp, err := client.IsOnWhatsApp(ctx, data.Numbers)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (s *Whatsmiau) DeleteMessageForEveryone(ctx context.Context, req *DeleteMes
 	}
 
 	msg := client.BuildRevoke(chat, sender, types.MessageID(req.MessageID))
-	_, err := client.SendMessage(ctx, chat, msg)
+	_, err := sendMessage(ctx, client, chat, msg)
 	return err
 }
 
