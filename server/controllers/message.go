@@ -573,6 +573,9 @@ func (s *Message) SendButtons(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, fmt.Errorf("button types cannot be mixed in one message"), "invalid button types")
 	}
 	if hasURL {
+		if len(request.Buttons) != 1 {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, fmt.Errorf("exactly one URL button is allowed"), "invalid button count")
+		}
 		for _, btn := range request.Buttons {
 			parsed, parseErr := url.ParseRequestURI(strings.TrimSpace(btn.URL))
 			if parseErr != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
