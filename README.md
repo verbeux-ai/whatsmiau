@@ -109,6 +109,15 @@ The application is configured using environment variables. The following variabl
 | `GCS_BUCKET` | The GCS bucket name. | `whatsmiau` |
 | `GCS_URL` | The GCS URL. | `https://storage.googleapis.com` |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to GCP service account JSON key. | `` |
+| `S3_ENABLED` | Enable S3-compatible media storage. Cannot be combined with `GCS_ENABLED=true`. | `false` |
+| `S3_BUCKET` | Existing bucket name; required when S3 is enabled. | `` |
+| `S3_REGION` | Override the AWS SDK region. Otherwise use the standard AWS configuration, falling back to `us-east-1`. | `` |
+| `S3_ENDPOINT` | Optional absolute HTTP(S) endpoint for an S3-compatible service. Leave empty for AWS S3. | `` |
+| `S3_USE_PATH_STYLE` | Address objects as `endpoint/bucket/key`, useful for compatible services. | `false` |
+| `S3_PREFIX` | Optional object prefix within the bucket, for example `core/media`. | `` |
+| `S3_PUBLIC_URL` | Optional public/CDN base URL already pointing at the bucket, without query parameters. Otherwise return signed GET URLs. | `` |
+| `S3_PRESIGN_TTL` | Signed URL lifetime, from `1s` to `168h`. Temporary credentials can expire sooner. | `1h` |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` | Optional credentials for the standard AWS SDK credential chain. IAM roles and shared AWS profiles are also supported. | `` |
 | `GCL_APP_NAME` | The GCL application name. | `whatsmiau-br-1` |
 | `GCL_ENABLED` | Enable or disable Google Cloud Logging. | `false` |
 | `GCL_PROJECT_ID` | The GCL project ID. | `` |
@@ -133,6 +142,71 @@ other environment proxies, which could bypass destination validation. The
 WhatsApp instance proxy and `PROXY_NO_MEDIA` continue to control WhatsApp
 connections and uploads/downloads performed by the WhatsApp client independently.
 Use publicly reachable media URLs or Base64 instead of internal storage URLs.
+
+### S3 media storage
+
+S3 plugs into the same storage interface as GCS: received media includes
+`mediaUrl` in the existing webhook payload, and profile pictures use the same
+provider. The existing `saveMedia` setting continues to control message-media
+uploads. Storage stays disabled unless a provider is explicitly enabled.
+
+For a private AWS S3 bucket, configure the **core** environment:
+
+```dotenv
+GCS_ENABLED=false
+S3_ENABLED=true
+S3_BUCKET=your-existing-media-bucket
+S3_REGION=us-east-1
+S3_PREFIX=core/media
+S3_PRESIGN_TTL=1h
+```
+
+Use an IAM role or provide the standard AWS credentials through your secret
+manager. The core does not create buckets, change ACLs, set retention policies,
+or copy existing GCS objects. Uploads use the AWS SDK transfer manager, including
+multipart uploads for large inputs. Profile-picture uploads use an atomic
+`If-None-Match: *` write: an existing object is reused across replicas/restarts
+without an in-memory existence cache.
+
+The role needs `s3:PutObject`, `s3:GetObject`, and `s3:AbortMultipartUpload` on
+the configured object prefix. Bucket lifecycle/cleanup and any public/CDN access
+are provisioned separately. No public-read ACL is sent. Providers must support
+conditional writes to preserve `UploadBase64IfDontExists` semantics.
+
+Without `S3_PUBLIC_URL`, returned URLs are temporary signed GET links. Do not
+treat these links as permanent storage identifiers; their validity is limited
+by `S3_PRESIGN_TTL` and the signing credentials. To return stable URLs, configure
+`S3_PUBLIC_URL` with a public/CDN base URL that already includes the bucket path
+when needed, such as `https://cdn.example.com/media-bucket`. The object prefix
+and escaped key are appended to that URL; configuring it does not grant access.
+
+For a compatible service, additionally set `S3_ENDPOINT` and, where required,
+`S3_USE_PATH_STYLE=true`. Signed links point at that endpoint, so it must be
+reachable by the consumers of the webhooks. Custom endpoints are trusted server
+configuration; the media-download protections described above still apply to
+URLs supplied through the API.
+
+#### Test with Podman
+
+The isolated test Compose file starts SeaweedFS with development-only credentials
+on `127.0.0.1:19000`, independently of the application stack:
+
+```sh
+podman compose -p whatsmiau-s3-test -f docker-compose.s3-test.yml up -d
+S3_TEST_ENDPOINT=http://127.0.0.1:19000 \
+  AWS_ACCESS_KEY_ID=whatsmiau-s3-test \
+  AWS_SECRET_ACCESS_KEY=whatsmiau-s3-test-secret \
+  AWS_EC2_METADATA_DISABLED=true \
+  go test -race ./lib/storage/...
+podman compose -p whatsmiau-s3-test -f docker-compose.s3-test.yml down -v
+```
+
+The integration test creates a unique test bucket and removes it afterwards. It
+verifies a multipart upload from a non-seekable reader, byte-for-byte download
+through a signed URL, denial of unsigned access, and conditional reuse after
+creating a fresh provider. Without `S3_TEST_ENDPOINT`, this test is explicitly
+skipped; the HTTP-backed adapter and configuration tests still run. The PR
+workflow runs the full core test suite and build with the disposable S3 service.
 
 ## API Documentation
 
