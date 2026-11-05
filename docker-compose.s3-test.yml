@@ -1,0 +1,9 @@
+services:
+  s3:
+    image: docker.io/chrislusf/seaweedfs:4.52
+    command: ["mini", "-dir=/data", "-ip.bind=0.0.0.0"]
+    ports:
+      - "127.0.0.1:19000:8333"
+    environment:
+      AWS_ACCESS_KEY_ID: whatsmiau-s3-test
+      AWS_SECRET_ACCESS_KEY: whatsmiau-s3-test-secret

@@ -1,0 +1,33 @@
+name: Test core
+
+on:
+  pull_request:
+  push:
+    branches: [develop, master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      S3_TEST_ENDPOINT: http://127.0.0.1:19000
+      AWS_ACCESS_KEY_ID: whatsmiau-s3-test
+      AWS_SECRET_ACCESS_KEY: whatsmiau-s3-test-secret
+      AWS_EC2_METADATA_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Start disposable S3 service
+        run: docker compose -p whatsmiau-s3-test -f docker-compose.s3-test.yml up -d
+      - name: Test core and S3 integration
+        run: go test ./...
+      - name: Build core
+        run: go build ./...
+      - name: Stop disposable S3 service
+        if: always()
+        run: docker compose -p whatsmiau-s3-test -f docker-compose.s3-test.yml down -v

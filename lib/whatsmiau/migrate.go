@@ -6,10 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waAdv"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
@@ -179,6 +179,11 @@ func (s *Whatsmiau) Migrate(ctx context.Context, instanceID string, credsRaw jso
 		PushName:       creds.Me.Name,
 	}
 
+	// Serialize persisted session replacement with connect, restart and logout.
+	lock, _ := s.lockConnection.LoadOrStore(instanceID, &sync.Mutex{})
+	lock.Lock()
+	defer lock.Unlock()
+
 	// Save device
 	if err := s.container.PutDevice(ctx, device); err != nil {
 		return nil, fmt.Errorf("failed to save device: %w", err)
@@ -202,8 +207,8 @@ func (s *Whatsmiau) Migrate(ctx context.Context, instanceID string, credsRaw jso
 	}
 
 	// Create client and connect
-	client := whatsmeow.NewClient(device, s.logger)
-	client.AddEventHandler(s.Handle(instanceID))
+	client := newWhatsmeowClient(device, s.logger)
+	client.AddEventHandler(s.handleClient(instanceID, client))
 	s.storeClient(instanceID, client)
 
 	connected := false
