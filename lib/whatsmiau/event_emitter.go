@@ -506,7 +506,7 @@ func (s *Whatsmiau) resolveEditContent(id string, e *events.Message) (*WookKey, 
 }
 
 func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance, e *events.Message, eventMap map[webhookConfigEvent]bool) {
-	if !eventMap[webhookConfigMessagesEdited] && !eventMap[webhookConfigMessagesUpsert] {
+	if !eventMap[webhookConfigMessagesEdited] {
 		return
 	}
 
@@ -522,8 +522,7 @@ func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance,
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	remoteJid, remoteLid := s.GetJidLid(ctx, id, e.Info.Chat)
-	senderJid, _ := s.GetJidLid(ctx, id, e.Info.Sender)
+	remoteJid, _ := s.GetJidLid(ctx, id, e.Info.Chat)
 
 	if originalKey.RemoteJid == "" {
 		originalKey.RemoteJid = remoteJid
@@ -536,67 +535,29 @@ func (s *Whatsmiau) handleMessageEditEvent(id string, instance *models.Instance,
 		status = "sent"
 	}
 
-	if eventMap[webhookConfigMessagesEdited] {
-		editData := &WookMessageEditData{
-			Key:              originalKey,
-			EditedMessage:    raw,
-			MessageType:      messageType,
-			InstanceId:       instance.ID,
-			PushName:         e.Info.PushName,
-			Status:           status,
-			MessageTimestamp: int(e.Info.Timestamp.Unix()),
-			Source:           "whatsapp",
-		}
-
-		wookEvent := &WookEvent[WookMessageEditData]{
-			Instance: instance.ID,
-			Data:     editData,
-			DateTime: e.Info.Timestamp,
-			Event:    WookMessagesEdited,
-		}
-		zap.L().Debug("message edit event",
-			zap.String("instance", id),
-			zap.String("original_id", originalKey.Id),
-			zap.String("message_type", messageType),
-		)
-		s.emit(wookEvent, instance.Webhook)
+	editData := &WookMessageEditData{
+		Key:              originalKey,
+		EditedMessage:    raw,
+		MessageType:      messageType,
+		InstanceId:       instance.ID,
+		PushName:         e.Info.PushName,
+		Status:           status,
+		MessageTimestamp: int(e.Info.Timestamp.Unix()),
+		Source:           "whatsapp",
 	}
 
-	// TODO: remove after 2026-11-04. Legacy path for instances that have not
-	// opted into messages.edited yet; emits the edit as messages.upsert.
-	if !eventMap[webhookConfigMessagesEdited] && eventMap[webhookConfigMessagesUpsert] {
-		addressingMode := "lid"
-		if remoteLid == "" {
-			addressingMode = "jid"
-		}
-		upsertData := &WookMessageData{
-			Key: &WookKey{
-				RemoteJid:      remoteJid,
-				RemoteLid:      remoteLid,
-				FromMe:         e.Info.IsFromMe,
-				Id:             e.Info.ID,
-				Participant:    senderJid,
-				AddressingMode: addressingMode,
-			},
-			PushName:         e.Info.PushName,
-			Status:           status,
-			Message:          raw,
-			MessageType:      "editedMessage",
-			MessageTimestamp: int(e.Info.Timestamp.Unix()),
-			InstanceId:       instance.ID,
-			Source:           "whatsapp",
-			ContextInfo: &WookMessageContextInfo{
-				StanzaId: originalKey.Id,
-			},
-		}
-		wookUpsert := &WookEvent[WookMessageData]{
-			Instance: instance.ID,
-			Data:     upsertData,
-			Event:    WookMessagesUpsert,
-			DateTime: e.Info.Timestamp,
-		}
-		s.emit(wookUpsert, instance.Webhook)
+	wookEvent := &WookEvent[WookMessageEditData]{
+		Instance: instance.ID,
+		Data:     editData,
+		DateTime: e.Info.Timestamp,
+		Event:    WookMessagesEdited,
 	}
+	zap.L().Debug("message edit event",
+		zap.String("instance", id),
+		zap.String("original_id", originalKey.Id),
+		zap.String("message_type", messageType),
+	)
+	s.emit(wookEvent, instance.Webhook)
 }
 
 func (s *Whatsmiau) handleReceiptEvent(id string, instance *models.Instance, e *events.Receipt, eventMap map[webhookConfigEvent]bool) {
