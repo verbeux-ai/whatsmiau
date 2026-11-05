@@ -46,6 +46,10 @@ type WookPollCreationMessageRaw struct {
 	Name                   string           `json:"name,omitempty"`
 	Options                []WookPollOption `json:"options,omitempty"`
 	SelectableOptionsCount uint32           `json:"selectableOptionsCount,omitempty"`
+	// PollType and CorrectAnswer are set for channel quizzes
+	// (pollCreationMessageV5).
+	PollType      string          `json:"pollType,omitempty"`
+	CorrectAnswer *WookPollOption `json:"correctAnswer,omitempty"`
 }
 
 type WookPollVote struct {

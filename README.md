@@ -199,6 +199,10 @@ buttons, PIX, reaction, round video (PTV), location and contact messages return
 `key.serverId`, the server-assigned ID of the post, present only for channel
 messages.
 
+In `messages.upsert` webhooks, a quiz arrives as `pollCreationMessageV5`, with
+`pollType: "QUIZ"` and `correctAnswer` in `message.pollCreationMessage`, and a
+question arrives as `questionMessage`, with its text in `message.conversation`.
+
 ## Versioning
 
 We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/verbeux-ai/whatsmiau/tags).
