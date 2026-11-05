@@ -2668,6 +2668,47 @@
             },
             "type": "object"
         },
+        "whatsmiau.WookInteractiveMessageBodyRaw": {
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "whatsmiau.WookInteractiveMessageFooterRaw": {
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "whatsmiau.WookInteractiveMessageHeaderRaw": {
+            "properties": {
+                "title": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "whatsmiau.WookInteractiveMessageRaw": {
+            "properties": {
+                "body": {
+                    "$ref": "#/definitions/whatsmiau.WookInteractiveMessageBodyRaw"
+                },
+                "footer": {
+                    "$ref": "#/definitions/whatsmiau.WookInteractiveMessageFooterRaw"
+                },
+                "header": {
+                    "$ref": "#/definitions/whatsmiau.WookInteractiveMessageHeaderRaw"
+                },
+                "nativeFlowMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookNativeFlowMessageRaw"
+                }
+            },
+            "type": "object"
+        },
         "whatsmiau.WookKey": {
             "properties": {
                 "addressingMode": {
@@ -3020,6 +3061,9 @@
                 "imageMessage": {
                     "$ref": "#/definitions/whatsmiau.WookImageMessageRaw"
                 },
+                "interactiveMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookInteractiveMessageRaw"
+                },
                 "listResponseMessage": {
                     "$ref": "#/definitions/whatsmiau.WookListMessageRaw"
                 },
@@ -3050,6 +3094,31 @@
                 },
                 "videoMessage": {
                     "$ref": "#/definitions/whatsmiau.WookVideoMessageRaw"
+                }
+            },
+            "type": "object"
+        },
+        "whatsmiau.WookNativeFlowButtonRaw": {
+            "properties": {
+                "buttonParamsJson": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "whatsmiau.WookNativeFlowMessageRaw": {
+            "properties": {
+                "buttons": {
+                    "items": {
+                        "$ref": "#/definitions/whatsmiau.WookNativeFlowButtonRaw"
+                    },
+                    "type": "array"
+                },
+                "messageVersion": {
+                    "type": "integer"
                 }
             },
             "type": "object"
