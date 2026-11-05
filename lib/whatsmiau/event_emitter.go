@@ -1041,6 +1041,33 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 		}
 		raw.Conversation = selectedDisplayText
 		ci = br.GetContextInfo()
+	} else if im := m.GetInteractiveMessage(); im != nil {
+		messageType = "interactiveMessage"
+		ci = im.GetContextInfo()
+		interactive := &WookInteractiveMessageRaw{}
+		if header := im.GetHeader(); header != nil {
+			interactive.Header = &WookInteractiveMessageHeaderRaw{Title: header.GetTitle()}
+		}
+		if body := im.GetBody(); body != nil {
+			interactive.Body = &WookInteractiveMessageBodyRaw{Text: body.GetText()}
+		}
+		if footer := im.GetFooter(); footer != nil {
+			interactive.Footer = &WookInteractiveMessageFooterRaw{Text: footer.GetText()}
+		}
+		if nativeFlow := im.GetNativeFlowMessage(); nativeFlow != nil {
+			buttons := make([]WookNativeFlowButtonRaw, 0, len(nativeFlow.GetButtons()))
+			for _, button := range nativeFlow.GetButtons() {
+				buttons = append(buttons, WookNativeFlowButtonRaw{
+					Name:             button.GetName(),
+					ButtonParamsJSON: button.GetButtonParamsJSON(),
+				})
+			}
+			interactive.NativeFlowMessage = &WookNativeFlowMessageRaw{
+				MessageVersion: nativeFlow.GetMessageVersion(),
+				Buttons:        buttons,
+			}
+		}
+		raw.InteractiveMessage = interactive
 	} else if img := m.GetImageMessage(); img != nil {
 		messageType = "imageMessage"
 		ci = img.GetContextInfo()

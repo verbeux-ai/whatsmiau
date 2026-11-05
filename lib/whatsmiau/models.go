@@ -112,6 +112,7 @@ type WookMessageRaw struct {
 
 	ListResponseMessage    *WookListMessageRaw            `json:"listResponseMessage,omitempty"`
 	ButtonsResponseMessage *WookButtonsResponseMessageRaw `json:"buttonsResponseMessage,omitempty"`
+	InteractiveMessage     *WookInteractiveMessageRaw     `json:"interactiveMessage,omitempty"`
 	StickerMessage         *WookStickerMessageRaw         `json:"stickerMessage,omitempty"`
 	LocationMessage        *WookLocationMessageRaw        `json:"locationMessage,omitempty"`
 	LiveLocationMessage    *WookLiveLocationMessageRaw    `json:"liveLocationMessage,omitempty"`
@@ -147,6 +148,35 @@ type WookListMessageRaw struct {
 type WookButtonsResponseMessageRaw struct {
 	SelectedButtonID    string `json:"selectedButtonId,omitempty"`
 	SelectedDisplayText string `json:"selectedDisplayText,omitempty"`
+}
+
+type WookInteractiveMessageRaw struct {
+	Header            *WookInteractiveMessageHeaderRaw `json:"header,omitempty"`
+	Body              *WookInteractiveMessageBodyRaw   `json:"body,omitempty"`
+	Footer            *WookInteractiveMessageFooterRaw `json:"footer,omitempty"`
+	NativeFlowMessage *WookNativeFlowMessageRaw        `json:"nativeFlowMessage,omitempty"`
+}
+
+type WookInteractiveMessageHeaderRaw struct {
+	Title string `json:"title,omitempty"`
+}
+
+type WookInteractiveMessageBodyRaw struct {
+	Text string `json:"text,omitempty"`
+}
+
+type WookInteractiveMessageFooterRaw struct {
+	Text string `json:"text,omitempty"`
+}
+
+type WookNativeFlowMessageRaw struct {
+	MessageVersion int32                     `json:"messageVersion,omitempty"`
+	Buttons        []WookNativeFlowButtonRaw `json:"buttons,omitempty"`
+}
+
+type WookNativeFlowButtonRaw struct {
+	Name             string `json:"name,omitempty"`
+	ButtonParamsJSON string `json:"buttonParamsJson,omitempty"`
 }
 
 type WookListMessageRawListSingleSelectReply struct {

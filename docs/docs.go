@@ -5998,7 +5998,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Sends an interactive buttons message (reply type) or PIX payment",
+                "description": "Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6702,7 +6702,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Sends an interactive buttons message (reply type) or PIX payment",
+                "description": "Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8775,8 +8775,13 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "reply",
+                        "url",
                         "pix"
                     ]
+                },
+                "url": {
+                    "description": "Required when type is url. Must be an absolute HTTP(S) URL.",
+                    "type": "string"
                 }
             }
         },
@@ -10326,6 +10331,47 @@ const docTemplate = `{
                 }
             }
         },
+        "whatsmiau.WookInteractiveMessageBodyRaw": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookInteractiveMessageFooterRaw": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookInteractiveMessageHeaderRaw": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookInteractiveMessageRaw": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "$ref": "#/definitions/whatsmiau.WookInteractiveMessageBodyRaw"
+                },
+                "footer": {
+                    "$ref": "#/definitions/whatsmiau.WookInteractiveMessageFooterRaw"
+                },
+                "header": {
+                    "$ref": "#/definitions/whatsmiau.WookInteractiveMessageHeaderRaw"
+                },
+                "nativeFlowMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookNativeFlowMessageRaw"
+                }
+            }
+        },
         "whatsmiau.WookKey": {
             "type": "object",
             "properties": {
@@ -10679,6 +10725,9 @@ const docTemplate = `{
                 "imageMessage": {
                     "$ref": "#/definitions/whatsmiau.WookImageMessageRaw"
                 },
+                "interactiveMessage": {
+                    "$ref": "#/definitions/whatsmiau.WookInteractiveMessageRaw"
+                },
                 "listResponseMessage": {
                     "$ref": "#/definitions/whatsmiau.WookListMessageRaw"
                 },
@@ -10709,6 +10758,31 @@ const docTemplate = `{
                 },
                 "videoMessage": {
                     "$ref": "#/definitions/whatsmiau.WookVideoMessageRaw"
+                }
+            }
+        },
+        "whatsmiau.WookNativeFlowButtonRaw": {
+            "type": "object",
+            "properties": {
+                "buttonParamsJson": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "whatsmiau.WookNativeFlowMessageRaw": {
+            "type": "object",
+            "properties": {
+                "buttons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/whatsmiau.WookNativeFlowButtonRaw"
+                    }
+                },
+                "messageVersion": {
+                    "type": "integer"
                 }
             }
         },

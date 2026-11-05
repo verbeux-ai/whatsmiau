@@ -242,9 +242,10 @@ type SendListResponse struct {
 // --- sendButtons DTOs ---
 
 type SendButtonsRequestButton struct {
-	Type        string `json:"type,omitempty" validate:"required,oneof=reply pix"`
+	Type        string `json:"type,omitempty" validate:"required,oneof=reply url pix"`
 	DisplayText string `json:"displayText,omitempty" validate:"required"`
 	Id          string `json:"id,omitempty"`
+	URL         string `json:"url,omitempty" validate:"required_if=Type url"`
 	// PIX fields
 	Currency string `json:"currency,omitempty"`
 	Name     string `json:"name,omitempty" validate:"required_if=Type pix"`
