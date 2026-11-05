@@ -59,6 +59,12 @@ func (s *Whatsmiau) ChatPresence(data *ChatPresenceRequest) error {
 		return whatsmeow.ErrClientIsNil
 	}
 
+	// Channels have no typing indicator: skip it so the caller's send delay
+	// still applies.
+	if data.RemoteJID != nil && isNewsletter(*data.RemoteJID) {
+		return nil
+	}
+
 	return client.SendChatPresence(context.TODO(), *data.RemoteJID, data.Presence, data.Media)
 }
 

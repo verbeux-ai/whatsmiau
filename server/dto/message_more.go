@@ -100,11 +100,14 @@ type SendContactResponse struct {
 // --- sendPoll ---
 
 type SendPollRequest struct {
-	InstanceID       string                `param:"instance" swaggerignore:"true"`
-	Number           string                `json:"number,omitempty" validate:"required"`
-	Name             string                `json:"name,omitempty" validate:"required"`
-	SelectableCount  int                   `json:"selectableCount,omitempty" validate:"min=0,max=10"`
-	Values           []string              `json:"values,omitempty" validate:"required,min=2,max=10"`
+	InstanceID      string   `param:"instance" swaggerignore:"true"`
+	Number          string   `json:"number,omitempty" validate:"required"`
+	Name            string   `json:"name,omitempty" validate:"required"`
+	SelectableCount int      `json:"selectableCount,omitempty" validate:"min=0,max=10"`
+	Values          []string `json:"values,omitempty" validate:"required,min=2,max=10"`
+	// CorrectAnswer turns the poll into a single-choice quiz; it must be one of
+	// values. Channels (newsletters) only.
+	CorrectAnswer    string                `json:"correctAnswer,omitempty"`
 	Delay            int                   `json:"delay,omitempty" validate:"omitempty,min=0,max=300000"`
 	Quoted           *MessageRequestQuoted `json:"quoted,omitempty"`
 	MentionsEveryOne bool                  `json:"mentionsEveryOne,omitempty"`

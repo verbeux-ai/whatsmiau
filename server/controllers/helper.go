@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -109,4 +111,14 @@ func buildQuote(q *dto.MessageRequestQuoted) (*whatsmiau.Quote, error) {
 		quote.Participant = p
 	}
 	return quote, nil
+}
+
+// sendFailStatus maps a send error to its HTTP status: a message type that
+// channels do not accept, or a channel-only type sent elsewhere, is a client
+// error; anything else stays a 500.
+func sendFailStatus(err error) int {
+	if errors.Is(err, whatsmiau.ErrNewsletterUnsupported) || errors.Is(err, whatsmiau.ErrNewsletterOnly) {
+		return http.StatusBadRequest
+	}
+	return http.StatusInternalServerError
 }

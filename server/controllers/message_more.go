@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -79,6 +81,7 @@ func (s *Message) sendVideo(ctx echo.Context, request dto.SendDocumentRequest, g
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "videoMessage",
@@ -144,7 +147,7 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendPtv failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send ptv")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send ptv")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendPtvResponse{
@@ -152,6 +155,7 @@ func (s *Message) SendPtv(ctx echo.Context) error {
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "ptvMessage",
@@ -218,6 +222,7 @@ func (s *Message) SendSticker(ctx echo.Context) error {
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "stickerMessage",
@@ -279,7 +284,7 @@ func (s *Message) SendLocation(ctx echo.Context) error {
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendLocation failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send location")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send location")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendLocationResponse{
@@ -357,7 +362,7 @@ func (s *Message) SendContact(ctx echo.Context) error {
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendContact failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send contact")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send contact")
 	}
 
 	messageType := "contactMessage"
@@ -403,6 +408,10 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid request body")
 	}
 
+	if request.CorrectAnswer != "" && !slices.Contains(request.Values, request.CorrectAnswer) {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, fmt.Errorf("correctAnswer must be one of values"), "invalid request body")
+	}
+
 	jid, err := numberToJid(request.Number)
 	if err != nil {
 		zap.L().Error("error converting number to jid", zap.Error(err))
@@ -424,13 +433,14 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 		Name:             request.Name,
 		SelectableCount:  request.SelectableCount,
 		Values:           request.Values,
+		CorrectAnswer:    request.CorrectAnswer,
 		Quote:            quote,
 		MentionsEveryOne: request.MentionsEveryOne,
 		Mentioned:        request.Mentioned,
 	})
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendPoll failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send poll")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send poll")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendPollResponse{
@@ -438,6 +448,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "pollCreationMessage",

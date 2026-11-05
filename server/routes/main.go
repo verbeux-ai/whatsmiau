@@ -19,6 +19,7 @@ func V1(group *echo.Group) {
 	Chat(group.Group("/instance/:instance/chat"))
 	Group(group.Group("/instance/:instance/group"))
 	Community(group.Group("/instance/:instance/community"))
+	Newsletter(group.Group("/instance/:instance/newsletter"))
 	Contact(group.Group("/instance/:instance/contact"))
 
 	ChatEVO(group.Group("/chat"))
