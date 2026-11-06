@@ -406,13 +406,10 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		Event:    WookMessagesUpsert,
 	}
 
-	if wookMessage.Data.Message != nil && len(wookMessage.Data.Message.Base64) > 0 {
-		b64Temp := wookMessage.Data.Message.Base64
-		wookMessage.Data.Message.Base64 = ""
-		zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
-		wookMessage.Data.Message.Base64 = b64Temp
-	} else if wookMessage.Data.Message != nil {
-		zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
+	if wookMessage.Data.Message != nil {
+		if entry := zap.L().Check(zap.DebugLevel, "message event"); entry != nil {
+			entry.Write(zap.String("instance", id), zap.Any("data", sanitizeMessageDataForLog(wookMessage.Data)))
+		}
 	}
 
 	s.emit(wookMessage, instance.Webhook)
