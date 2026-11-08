@@ -20,11 +20,13 @@ import (
 	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
+	"google.golang.org/protobuf/proto"
 )
 
 func b64(b []byte) string {
@@ -486,7 +488,12 @@ func (s *Whatsmiau) buildMessageDataFromHistory(msg *waWeb.WebMessageInfo, convN
 		return nil
 	}
 
-	messageType, raw, ci := s.parseWAMessage(msg.Message)
+	rawMessage := msg.Message
+	if rawMessage.MessageContextInfo != nil {
+		rawMessage = proto.Clone(rawMessage).(*waE2E.Message)
+	}
+	event := (&events.Message{RawMessage: rawMessage}).UnwrapRaw()
+	messageType, raw, ci := s.parseWAMessage(event.Message)
 	if messageType == "" {
 		return nil
 	}
@@ -524,17 +531,9 @@ func (s *Whatsmiau) buildMessageDataFromHistory(msg *waWeb.WebMessageInfo, convN
 	}
 
 	var contextInfo *WookMessageContextInfo
+	messageContext := s.convertMessageContext(ci)
 	if ci != nil {
-		contextInfo = &WookMessageContextInfo{
-			StanzaId:     ci.GetStanzaID(),
-			Participant:  ci.GetParticipant(),
-			Expiration:   int(ci.GetExpiration()),
-			MentionedJid: ci.GetMentionedJID(),
-		}
-		if qm := ci.GetQuotedMessage(); qm != nil {
-			_, qmRaw, _ := s.parseWAMessage(qm)
-			contextInfo.QuotedMessage = qmRaw
-		}
+		contextInfo = &messageContext
 	}
 
 	return &WookMessageData{
@@ -546,6 +545,8 @@ func (s *Whatsmiau) buildMessageDataFromHistory(msg *waWeb.WebMessageInfo, convN
 		MessageTimestamp: int(msg.GetMessageTimestamp()),
 		Source:           "unknown",
 		ContextInfo:      contextInfo,
+		Referral:         compactAdReferral(messageContext.ExternalAdReply),
+		CtwaClid:         ci.GetExternalAdReply().GetCtwaClid(),
 	}
 }
 
