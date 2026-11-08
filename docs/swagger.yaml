@@ -1951,11 +1951,21 @@ definitions:
     type: object
   whatsmiau.WookMessageContextInfo:
     properties:
+      alwaysShowAdAttribution:
+        type: boolean
       conversionData:
+        description: Base64-encoded bytes, preserving the existing WhatsMiau API representation.
+        format: byte
         type: string
       conversionDelaySeconds:
         type: integer
       conversionSource:
+        type: string
+      ctwaPayload:
+        description: Base64-encoded bytes, preserving the existing WhatsMiau API representation.
+        format: byte
+        type: string
+      ctwaSignals:
         type: string
       disappearingMode:
         $ref: '#/definitions/whatsmiau.ContextInfoDisappearingMode'
@@ -1963,6 +1973,10 @@ definitions:
         type: string
       entryPointConversionDelaySeconds:
         type: integer
+      entryPointConversionExternalMedium:
+        type: string
+      entryPointConversionExternalSource:
+        type: string
       entryPointConversionSource:
         type: string
       ephemeralSettingTimestamp:
@@ -1977,27 +1991,91 @@ definitions:
         type: array
       participant:
         type: string
+      quotedAd:
+        $ref: '#/definitions/whatsmiau.WookMessageQuotedAd'
       quotedMessage:
         $ref: '#/definitions/whatsmiau.WookMessageRaw'
+      smbClientCampaignId:
+        type: string
+      smbServerCampaignId:
+        type: string
       stanzaId:
         type: string
       trustBannerAction:
         type: integer
+      utm:
+        $ref: '#/definitions/whatsmiau.WookMessageUTMInfo'
     type: object
   whatsmiau.WookMessageContextInfoExternalAdReply:
     properties:
+      adContextPreviewDismissed:
+        type: boolean
+      adPreviewUrl:
+        type: string
+      adType:
+        description: Protocol enum name, preserving the existing WhatsMiau API representation.
+        type: string
+      agmHeaderInteractionStrategy:
+        type: integer
+      agmSubtitleStrategy:
+        type: integer
+      agmThumbnailStrategy:
+        type: integer
+      agmTitleStrategy:
+        type: integer
+      automatedGreetingMessageCtaType:
+        type: string
+      automatedGreetingMessageShown:
+        type: boolean
       body:
         type: string
+      clickToWhatsappCall:
+        type: boolean
       containsAutoReply:
         type: boolean
+      containsCtwaFlowsAutoLabel:
+        type: boolean
+      containsCtwaFlowsAutoReply:
+        type: boolean
+      containsCtwaPromo:
+        type: boolean
+      ctaPayload:
+        type: string
       ctwaClid:
         type: string
+      ctwaPromoAdEntryId:
+        type: string
+      ctwaPromoAdgroupId:
+        type: string
+      ctwaPromoOfferId:
+        type: string
+      ctwaPromoResponseExpiresAtSeconds:
+        type: integer
+      ctwaPromoResponseId:
+        type: string
+      ctwaPromoSchemaVersion:
+        type: integer
+      disableNudge:
+        type: boolean
+      greetingMessageBody:
+        type: string
       mediaType:
+        description: Protocol enum name, preserving the existing WhatsMiau API representation.
+        type: string
+      mediaUrl:
+        type: string
+      originalImageUrl:
+        type: string
+      productId:
+        type: string
+      ref:
         type: string
       renderLargerThumbnail:
         type: boolean
       showAdAttribution:
         type: boolean
+      sourceApp:
+        type: string
       sourceId:
         type: string
       sourceType:
@@ -2005,16 +2083,28 @@ definitions:
       sourceUrl:
         type: string
       thumbnail:
+        description: Base64-encoded ad thumbnail. Omitted from messages.upsert delivery
+          when the complete webhook exceeds 4 MiB; attribution identifiers and URLs
+          are preserved.
+        format: byte
         type: string
       thumbnailUrl:
         type: string
       title:
+        type: string
+      wtwaAdFormat:
+        type: boolean
+      wtwaWebsiteUrl:
         type: string
     type: object
   whatsmiau.WookMessageData:
     properties:
       contextInfo:
         $ref: '#/definitions/whatsmiau.WookMessageContextInfo'
+      ctwaClid:
+        description: Additive alias of contextInfo.externalAdReply.ctwaClid; never
+          derived from opaque payloads.
+        type: string
       instanceId:
         type: string
       key:
@@ -2031,9 +2121,29 @@ definitions:
         type: array
       pushName:
         type: string
+      referral:
+        $ref: '#/definitions/whatsmiau.WookMessageContextInfoExternalAdReply'
+        description: Attribution alias excluding binary thumbnails; the complete ad
+          remains in contextInfo.externalAdReply.
       source:
         type: string
       status:
+        type: string
+    type: object
+  whatsmiau.WookMessageQuotedAd:
+    properties:
+      advertiserName:
+        type: string
+      caption:
+        type: string
+      jpegThumbnail:
+        description: Base64-encoded ad thumbnail. Omitted from messages.upsert delivery
+          when the complete webhook exceeds 4 MiB; attribution identifiers and URLs
+          are preserved.
+        format: byte
+        type: string
+      mediaType:
+        description: Protocol enum name, preserving the existing WhatsMiau API representation.
         type: string
     type: object
   whatsmiau.WookMessageRaw:
@@ -2077,6 +2187,13 @@ definitions:
         $ref: '#/definitions/whatsmiau.WookStickerMessageRaw'
       videoMessage:
         $ref: '#/definitions/whatsmiau.WookVideoMessageRaw'
+    type: object
+  whatsmiau.WookMessageUTMInfo:
+    properties:
+      utmCampaign:
+        type: string
+      utmSource:
+        type: string
     type: object
   whatsmiau.WookNativeFlowButtonRaw:
     properties:
@@ -3805,8 +3922,8 @@ paths:
     post:
       description: Initiates connection for an instance. Returns a base64-encoded
         QR code PNG if not yet connected, or a connected status message. While QR
-        generation or a saved session reconnection is pending, returns 200 with
-        connected=false and no base64. Saved sessions are preserved during reconnection.
+        generation or a saved session reconnection is pending, returns 200 with connected=false
+        and no base64. Saved sessions are preserved during reconnection.
       operationId: postV1InstanceByIdConnect
       parameters:
       - description: Instance ID
@@ -6122,7 +6239,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.
+      description: Sends interactive reply, URL, or PIX buttons. URL buttons open
+        the supplied HTTP(S) link when tapped.
       operationId: postV1InstanceByInstanceMessageButtons
       parameters:
       - description: Instance ID
@@ -6628,8 +6746,8 @@ paths:
     get:
       description: Initiates connection for an instance. Returns a base64-encoded
         QR code PNG if not yet connected, or a connected status message. While QR
-        generation or a saved session reconnection is pending, returns 200 with
-        connected=false and no base64. Saved sessions are preserved during reconnection.
+        generation or a saved session reconnection is pending, returns 200 with connected=false
+        and no base64. Saved sessions are preserved during reconnection.
       operationId: getV1InstanceConnectById
       parameters:
       - description: Instance ID
@@ -6995,7 +7113,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.
+      description: Sends interactive reply, URL, or PIX buttons. URL buttons open
+        the supplied HTTP(S) link when tapped.
       operationId: postV1MessageSendButtonsByInstance
       parameters:
       - description: Instance ID

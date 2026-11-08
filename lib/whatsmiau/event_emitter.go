@@ -103,10 +103,16 @@ func (s *Whatsmiau) startEmitter() {
 }
 
 func (s *Whatsmiau) processEmit(event emitter) {
-	data, err := json.Marshal(event.data)
+	data, thumbnailsOmitted, err := marshalWebhookPayload(event.data)
 	if err != nil {
 		zap.L().Error("failed to marshal event", zap.Error(err))
 		return
+	}
+	if thumbnailsOmitted {
+		zap.L().Warn("omitted ad thumbnail bytes from oversized webhook",
+			zap.Int("payload_bytes", len(data)),
+			zap.Int("limit_bytes", webhookPayloadLimit),
+		)
 	}
 
 	const maxRetries = 2
@@ -400,13 +406,10 @@ func (s *Whatsmiau) handleMessageEvent(id string, instance *models.Instance, e *
 		Event:    WookMessagesUpsert,
 	}
 
-	if wookMessage.Data.Message != nil && len(wookMessage.Data.Message.Base64) > 0 {
-		b64Temp := wookMessage.Data.Message.Base64
-		wookMessage.Data.Message.Base64 = ""
-		zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
-		wookMessage.Data.Message.Base64 = b64Temp
-	} else if wookMessage.Data.Message != nil {
-		zap.L().Debug("message event", zap.String("instance", id), zap.Any("data", wookMessage.Data))
+	if wookMessage.Data.Message != nil {
+		if entry := zap.L().Check(zap.DebugLevel, "message event"); entry != nil {
+			entry.Write(zap.String("instance", id), zap.Any("data", sanitizeMessageDataForLog(wookMessage.Data)))
+		}
 	}
 
 	s.emit(wookMessage, instance.Webhook)
@@ -979,6 +982,7 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 		}
 	} else if lr := m.GetListResponseMessage(); lr != nil {
 		messageType = "listResponseMessage"
+		ci = lr.GetContextInfo()
 		listType := lr.GetListType().String()
 		var selectedRowID string
 		if ssr := lr.GetSingleSelectReply(); ssr != nil {
@@ -1257,6 +1261,8 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 		}
 	} else {
 		messageType = "unknown"
+		// Retain attribution on empty text without changing its legacy type.
+		ci = m.GetExtendedTextMessage().GetContextInfo()
 	}
 
 	return messageType, raw, ci
@@ -1450,52 +1456,11 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 		}
 	}
 
-	// Map MessageContextInfo (quoted, mentions, disappearing mode, external ad reply)
-	var messageContext WookMessageContextInfo
-	if ci != nil {
-		messageContext.EphemeralSettingTimestamp = i64(ci.GetEphemeralSettingTimestamp())
-		messageContext.StanzaId = ci.GetStanzaID()
-		messageContext.Participant = ci.GetParticipant()
-		messageContext.Expiration = int(ci.GetExpiration())
-		messageContext.MentionedJid = ci.GetMentionedJID()
-		messageContext.ConversionSource = ci.GetConversionSource()
-		messageContext.ConversionData = b64(ci.GetConversionData())
-		messageContext.ConversionDelaySeconds = int(ci.GetConversionDelaySeconds())
-		messageContext.EntryPointConversionSource = ci.GetEntryPointConversionSource()
-		messageContext.EntryPointConversionApp = ci.GetEntryPointConversionApp()
-		messageContext.EntryPointConversionDelaySeconds = int(ci.GetEntryPointConversionDelaySeconds())
-		messageContext.TrustBannerAction = ci.GetTrustBannerAction()
-
-		if dm := ci.GetDisappearingMode(); dm != nil {
-			messageContext.DisappearingMode = &ContextInfoDisappearingMode{
-				Initiator:     dm.GetInitiator().String(),
-				Trigger:       dm.GetTrigger().String(),
-				InitiatedByMe: dm.GetInitiatedByMe(),
-			}
-		}
-
-		if ear := ci.GetExternalAdReply(); ear != nil {
-			messageType = "conversation"
-			messageContext.ExternalAdReply = &WookMessageContextInfoExternalAdReply{
-				Title:                 ear.GetTitle(),
-				Body:                  ear.GetBody(),
-				MediaType:             ear.GetMediaType().String(),
-				ThumbnailUrl:          ear.GetThumbnailURL(),
-				Thumbnail:             b64(ear.GetThumbnail()),
-				SourceType:            ear.GetSourceType(),
-				SourceId:              ear.GetSourceID(),
-				SourceUrl:             ear.GetSourceURL(),
-				ContainsAutoReply:     ear.GetContainsAutoReply(),
-				RenderLargerThumbnail: ear.GetRenderLargerThumbnail(),
-				ShowAdAttribution:     ear.GetShowAdAttribution(),
-				CtwaClid:              ear.GetCtwaClid(),
-			}
-		}
-
-		if qm := ci.GetQuotedMessage(); qm != nil {
-			_, qmRaw, _ := s.parseWAMessage(qm)
-			messageContext.QuotedMessage = qmRaw
-		}
+	messageContext := s.convertMessageContext(ci)
+	// Preserve live ad webhook classification. List responses and empty text
+	// only gained context extraction in this feature and keep their old types.
+	if messageContext.ExternalAdReply != nil && messageType != "listResponseMessage" && messageType != "unknown" {
+		messageType = "conversation"
 	}
 
 	// Decrypt poll vote and build pollUpdates
@@ -1556,6 +1521,8 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 		Status:           status,
 		Message:          raw,
 		ContextInfo:      &messageContext,
+		Referral:         compactAdReferral(messageContext.ExternalAdReply),
+		CtwaClid:         ci.GetExternalAdReply().GetCtwaClid(),
 		MessageType:      messageType,
 		MessageTimestamp: int(ts.Unix()),
 		InstanceId:       id,
