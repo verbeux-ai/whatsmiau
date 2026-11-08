@@ -85,23 +85,23 @@ func TestHistoryMessagePreservesLiveAdAttribution(t *testing.T) {
 	ci := historyAttributionContext()
 	text := &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{Text: proto.String("hello"), ContextInfo: ci}}
 	cases := []struct {
-		name    string
-		message *waE2E.Message
+		name, wantType string
+		message        *waE2E.Message
 	}{
-		{"text", text},
-		{"empty text", &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{ContextInfo: ci}}},
-		{"image", &waE2E.Message{ImageMessage: &waE2E.ImageMessage{ContextInfo: ci}}},
-		{"video", &waE2E.Message{VideoMessage: &waE2E.VideoMessage{ContextInfo: ci}}},
-		{"audio", &waE2E.Message{AudioMessage: &waE2E.AudioMessage{ContextInfo: ci}}},
-		{"document", &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{ContextInfo: ci}}},
-		{"sticker", &waE2E.Message{StickerMessage: &waE2E.StickerMessage{ContextInfo: ci}}},
-		{"list response", &waE2E.Message{ListResponseMessage: &waE2E.ListResponseMessage{ContextInfo: ci}}},
-		{"button response", &waE2E.Message{ButtonsResponseMessage: &waE2E.ButtonsResponseMessage{ContextInfo: ci}}},
-		{"ephemeral", &waE2E.Message{EphemeralMessage: &waE2E.FutureProofMessage{Message: text}}},
-		{"view once", &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{Message: text}}},
-		{"view once v2", &waE2E.Message{ViewOnceMessageV2: &waE2E.FutureProofMessage{Message: text}}},
-		{"document with caption", &waE2E.Message{DocumentWithCaptionMessage: &waE2E.FutureProofMessage{Message: &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{ContextInfo: ci}}}}},
-		{"ephemeral with envelope context", &waE2E.Message{
+		{"text", "conversation", text},
+		{"empty text", "unknown", &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{ContextInfo: ci}}},
+		{"image", "imageMessage", &waE2E.Message{ImageMessage: &waE2E.ImageMessage{ContextInfo: ci}}},
+		{"video", "videoMessage", &waE2E.Message{VideoMessage: &waE2E.VideoMessage{ContextInfo: ci}}},
+		{"audio", "audioMessage", &waE2E.Message{AudioMessage: &waE2E.AudioMessage{ContextInfo: ci}}},
+		{"document", "documentMessage", &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{ContextInfo: ci}}},
+		{"sticker", "stickerMessage", &waE2E.Message{StickerMessage: &waE2E.StickerMessage{ContextInfo: ci}}},
+		{"list response", "listResponseMessage", &waE2E.Message{ListResponseMessage: &waE2E.ListResponseMessage{ContextInfo: ci}}},
+		{"button response", "buttonsResponseMessage", &waE2E.Message{ButtonsResponseMessage: &waE2E.ButtonsResponseMessage{ContextInfo: ci}}},
+		{"ephemeral", "conversation", &waE2E.Message{EphemeralMessage: &waE2E.FutureProofMessage{Message: text}}},
+		{"view once", "conversation", &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{Message: text}}},
+		{"view once v2", "conversation", &waE2E.Message{ViewOnceMessageV2: &waE2E.FutureProofMessage{Message: text}}},
+		{"document with caption", "documentMessage", &waE2E.Message{DocumentWithCaptionMessage: &waE2E.FutureProofMessage{Message: &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{ContextInfo: ci}}}}},
+		{"ephemeral with envelope context", "conversation", &waE2E.Message{
 			MessageContextInfo: &waE2E.MessageContextInfo{MessageSecret: []byte("message-secret")},
 			EphemeralMessage:   &waE2E.FutureProofMessage{Message: text},
 		}},
@@ -112,8 +112,11 @@ func TestHistoryMessagePreservesLiveAdAttribution(t *testing.T) {
 			history := (&Whatsmiau{}).buildMessageDataFromHistory(historyMessageForAttribution(tc.message), "", "")
 			assertHistoricalAttribution(t, history)
 			live := convertAttributionTestMessage(t, proto.Clone(tc.message).(*waE2E.Message))
-			if history.MessageType != live.MessageType || !bytes.Equal(mustMarshalAdWebhook(t, history.ContextInfo), mustMarshalAdWebhook(t, live.ContextInfo)) {
-				t.Fatal("history and live events disagree on message type or context")
+			if history.MessageType != tc.wantType {
+				t.Fatalf("history messageType=%q, want %q", history.MessageType, tc.wantType)
+			}
+			if !bytes.Equal(mustMarshalAdWebhook(t, history.ContextInfo), mustMarshalAdWebhook(t, live.ContextInfo)) {
+				t.Fatal("history and live events disagree on attribution context")
 			}
 			if history.Key.Id != "ADS-HISTORY" || history.Key.FromMe || history.MessageTimestamp != 1700000000 || history.PushName != "Contact" || history.Status != "DELIVERY_ACK" || history.Source != "unknown" {
 				t.Fatal("ad attribution changed historical message identity or lifecycle metadata")

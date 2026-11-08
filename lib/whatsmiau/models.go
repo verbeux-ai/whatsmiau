@@ -144,7 +144,7 @@ type WookMessageExtendedTextMessageContextInfo struct {
 type WookKey struct {
 	RemoteJid      string `json:"remoteJid,omitempty"`
 	RemoteLid      string `json:"remoteLid,omitempty"`
-	FromMe         bool   `json:"fromMe"`
+	FromMe         bool   `json:"fromMe,omitempty"`
 	Id             string `json:"id,omitempty"`
 	Participant    string `json:"participant,omitempty"`
 	AddressingMode string `json:"addressingMode,omitempty"`

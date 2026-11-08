@@ -108,22 +108,22 @@ func TestAdAttributionSurvivesReceiveConversionForTextMediaAndWrappers(t *testin
 		message        *waE2E.Message
 	}{
 		{"text", "conversation", &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{Text: proto.String("hello"), ContextInfo: ci}}},
-		{"empty text", "conversation", &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{ContextInfo: ci}}},
+		{"empty text", "unknown", &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{ContextInfo: ci}}},
 		{"list response", "listResponseMessage", &waE2E.Message{ListResponseMessage: &waE2E.ListResponseMessage{ContextInfo: ci}}},
-		{"button response", "buttonsResponseMessage", &waE2E.Message{ButtonsResponseMessage: &waE2E.ButtonsResponseMessage{ContextInfo: ci}}},
-		{"image", "imageMessage", &waE2E.Message{ImageMessage: &waE2E.ImageMessage{ContextInfo: ci}}},
-		{"video", "videoMessage", &waE2E.Message{VideoMessage: &waE2E.VideoMessage{ContextInfo: ci}}},
-		{"audio", "audioMessage", &waE2E.Message{AudioMessage: &waE2E.AudioMessage{ContextInfo: ci}}},
-		{"document", "documentMessage", &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{ContextInfo: ci}}},
-		{"sticker", "stickerMessage", &waE2E.Message{StickerMessage: &waE2E.StickerMessage{ContextInfo: ci}}},
+		{"button response", "conversation", &waE2E.Message{ButtonsResponseMessage: &waE2E.ButtonsResponseMessage{ContextInfo: ci}}},
+		{"image", "conversation", &waE2E.Message{ImageMessage: &waE2E.ImageMessage{ContextInfo: ci}}},
+		{"video", "conversation", &waE2E.Message{VideoMessage: &waE2E.VideoMessage{ContextInfo: ci}}},
+		{"audio", "conversation", &waE2E.Message{AudioMessage: &waE2E.AudioMessage{ContextInfo: ci}}},
+		{"document", "conversation", &waE2E.Message{DocumentMessage: &waE2E.DocumentMessage{ContextInfo: ci}}},
+		{"sticker", "conversation", &waE2E.Message{StickerMessage: &waE2E.StickerMessage{ContextInfo: ci}}},
 		{"ephemeral", "conversation", &waE2E.Message{EphemeralMessage: &waE2E.FutureProofMessage{Message: &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{Text: proto.String("hello"), ContextInfo: ci}}}}},
-		{"view once", "imageMessage", &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{Message: &waE2E.Message{ImageMessage: &waE2E.ImageMessage{ContextInfo: ci}}}}},
+		{"view once", "conversation", &waE2E.Message{ViewOnceMessage: &waE2E.FutureProofMessage{Message: &waE2E.Message{ImageMessage: &waE2E.ImageMessage{ContextInfo: ci}}}}},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			data := convertAttributionTestMessage(t, tt.message)
-			if data == nil || data.MessageType != tt.wantType {
-				t.Fatalf("ad changed message type: %+v; want %s", data, tt.wantType)
+			if data.MessageType != tt.wantType {
+				t.Fatalf("ad webhook changed legacy classification: got %s, want %s", data.MessageType, tt.wantType)
 			}
 			if data.CtwaClid != "click-id" || data.Referral != data.ContextInfo.ExternalAdReply {
 				t.Fatal("aliases did not preserve original attribution")
@@ -143,8 +143,8 @@ func TestAdAttributionSurvivesReceiveConversionForTextMediaAndWrappers(t *testin
 			if !reflect.DeepEqual(body["referral"], body["contextInfo"].(map[string]interface{})["externalAdReply"]) {
 				t.Fatal("referral differs from externalAdReply in webhook JSON")
 			}
-			if fromMe, exists := body["key"].(map[string]interface{})["fromMe"]; !exists || fromMe != false {
-				t.Fatal("incoming messages must expose key.fromMe=false for n8n filters")
+			if _, exists := body["key"].(map[string]interface{})["fromMe"]; exists {
+				t.Fatal("incoming messages must preserve the legacy omitted false fromMe field")
 			}
 			wireContext := body["contextInfo"].(map[string]interface{})
 			if wireContext["conversionDelaySeconds"] != float64(0) || wireContext["entryPointConversionDelaySeconds"] != float64(0) {

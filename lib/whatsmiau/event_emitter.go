@@ -1241,7 +1241,7 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 	} else if conv := strings.TrimSpace(m.GetConversation()); conv != "" {
 		messageType = "conversation"
 		raw.Conversation = conv
-	} else if et := m.GetExtendedTextMessage(); et != nil {
+	} else if et := m.GetExtendedTextMessage(); et != nil && len(et.GetText()) > 0 {
 		messageType = "conversation"
 		raw.Conversation = et.GetText()
 		ci = et.GetContextInfo()
@@ -1261,6 +1261,8 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 		}
 	} else {
 		messageType = "unknown"
+		// Retain attribution on empty text without changing its legacy type.
+		ci = m.GetExtendedTextMessage().GetContextInfo()
 	}
 
 	return messageType, raw, ci
@@ -1455,6 +1457,11 @@ func (s *Whatsmiau) convertEventMessage(id string, instance *models.Instance, ev
 	}
 
 	messageContext := s.convertMessageContext(ci)
+	// Preserve live ad webhook classification. List responses and empty text
+	// only gained context extraction in this feature and keep their old types.
+	if messageContext.ExternalAdReply != nil && messageType != "listResponseMessage" && messageType != "unknown" {
+		messageType = "conversation"
+	}
 
 	// Decrypt poll vote and build pollUpdates
 	var pollUpdates []WookPollUpdate
