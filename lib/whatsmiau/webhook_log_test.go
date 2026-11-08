@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/puzpuzpuz/xsync/v4"
 	"github.com/verbeux-ai/whatsmiau/models"
@@ -39,12 +41,20 @@ func TestMessageEventDebugLogRedactsAdMetadataAndPreservesWebhook(t *testing.T) 
 				ConversionSource: proto.String("FB_Ads"),
 				ConversionData:   []byte("PRIVATE_CONVERSION"),
 				CtwaPayload:      []byte("PRIVATE_CTWA"),
+				CtwaSignals:      proto.String("PRIVATE_SIGNALS"),
 			}
 			if withAd {
 				context.ExternalAdReply = &waE2E.ContextInfo_ExternalAdReplyInfo{
 					SourceType: proto.String("ad"), SourceID: proto.String("9007199254740993"),
 					CtwaClid: proto.String("CLICK-001"), ContainsAutoReply: proto.Bool(false),
 					GreetingMessageBody: proto.String("PRIVATE_GREETING"), CtaPayload: proto.String("PRIVATE_CTA"),
+					Title: proto.String("PRIVATE_TITLE"), Body: proto.String("PRIVATE_BODY"),
+					Thumbnail: bytes.Repeat([]byte{255}, 512*1024), ThumbnailURL: proto.String("https://example.invalid/PRIVATE_THUMBNAIL"),
+					MediaURL: proto.String("https://example.invalid/PRIVATE_MEDIA"), SourceURL: proto.String("https://example.invalid/PRIVATE_SOURCE"),
+				}
+				context.QuotedAd = &waE2E.ContextInfo_AdReplyInfo{
+					AdvertiserName: proto.String("PRIVATE_ADVERTISER"), Caption: proto.String("PRIVATE_CAPTION"),
+					JPEGThumbnail: bytes.Repeat([]byte{255}, 3*1024*1024), MediaType: waE2E.ContextInfo_AdReplyInfo_IMAGE.Enum(),
 				}
 			}
 			message := &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{Text: proto.String("hello"), ContextInfo: context}}
@@ -83,6 +93,9 @@ func TestMessageEventDebugLogRedactsAdMetadataAndPreservesWebhook(t *testing.T) 
 			if logged == nil {
 				t.Fatal("message debug log was not emitted")
 			}
+			if bytes.Contains(output.Bytes(), []byte("PRIVATE_")) || len(output.Bytes()) >= 8*1024 {
+				t.Fatalf("debug log retained private ad content or grew too large: %d bytes", len(output.Bytes()))
+			}
 			var expected map[string]interface{}
 			if err := json.Unmarshal(original, &expected); err != nil {
 				t.Fatal(err)
@@ -90,16 +103,114 @@ func TestMessageEventDebugLogRedactsAdMetadataAndPreservesWebhook(t *testing.T) 
 			logContext := expected["contextInfo"].(map[string]interface{})
 			delete(logContext, "ctwaPayload")
 			delete(logContext, "conversionData")
+			delete(logContext, "ctwaSignals")
 			if withAd {
 				for _, ad := range []map[string]interface{}{logContext["externalAdReply"].(map[string]interface{}), expected["referral"].(map[string]interface{})} {
-					delete(ad, "greetingMessageBody")
-					delete(ad, "ctaPayload")
+					for _, field := range []string{"greetingMessageBody", "ctaPayload", "title", "body", "thumbnail", "thumbnailUrl", "mediaUrl", "sourceUrl"} {
+						delete(ad, field)
+					}
 				}
+				logContext["quotedAd"] = map[string]interface{}{"mediaType": "IMAGE"}
 			}
 			if !reflect.DeepEqual(logged, expected) {
 				t.Fatal("debug log must omit private ad metadata and preserve other fields")
 			}
 		})
+	}
+}
+
+func TestMessageLogSanitizationBoundsAdMetadataWithoutMutatingWebhook(t *testing.T) {
+	for _, large := range []string{strings.Repeat("x", 1024), strings.Repeat("€", 1024)} {
+		message := adWebhookForSizeTest(t).Data
+		message.CtwaClid = large
+		for _, ad := range []*WookMessageContextInfoExternalAdReply{message.ContextInfo.ExternalAdReply, message.Referral} {
+			ad.SourceType = large
+			ad.SourceId = large
+			ad.CtwaClid = large
+			ad.MediaType = large
+			ad.AdType = large
+			ad.SourceApp = large
+		}
+		context := message.ContextInfo
+		context.ConversionSource = large
+		context.EntryPointConversionSource = large
+		context.EntryPointConversionApp = large
+		context.EntryPointConversionExternalSource = large
+		context.EntryPointConversionExternalMedium = large
+		context.SmbClientCampaignId = large
+		context.SmbServerCampaignId = large
+		context.Utm.UtmSource = large
+		context.Utm.UtmCampaign = large
+		context.QuotedAd.MediaType = large
+		before := mustMarshalAdWebhook(t, message)
+
+		logged := sanitizeMessageDataForLog(message)
+		logContext := logged.ContextInfo
+		fields := []string{
+			logged.CtwaClid, logContext.ConversionSource, logContext.EntryPointConversionSource,
+			logContext.EntryPointConversionApp, logContext.EntryPointConversionExternalSource,
+			logContext.EntryPointConversionExternalMedium, logContext.SmbClientCampaignId,
+			logContext.SmbServerCampaignId, logContext.Utm.UtmSource, logContext.Utm.UtmCampaign,
+			logContext.QuotedAd.MediaType,
+		}
+		for _, ad := range []*WookMessageContextInfoExternalAdReply{logContext.ExternalAdReply, logged.Referral} {
+			fields = append(fields, ad.SourceType, ad.SourceId, ad.CtwaClid, ad.MediaType, ad.AdType, ad.SourceApp)
+		}
+		for _, field := range fields {
+			if len(field) > 256 || !utf8.ValidString(field) || !strings.HasSuffix(field, "...") {
+				t.Fatalf("ad log field was not bounded safely: bytes=%d validUTF8=%v", len(field), utf8.ValidString(field))
+			}
+		}
+		if !bytes.Equal(before, mustMarshalAdWebhook(t, message)) {
+			t.Fatal("bounding ad log metadata changed the original webhook")
+		}
+	}
+}
+
+func TestMessageLogSanitizationKeepsOnlyApprovedAdFields(t *testing.T) {
+	ad := &WookMessageContextInfoExternalAdReply{}
+	fields := reflect.ValueOf(ad).Elem()
+	for i := 0; i < fields.NumField(); i++ {
+		field := fields.Field(i)
+		switch field.Kind() {
+		case reflect.String:
+			field.SetString("ad-metadata")
+		case reflect.Pointer:
+			field.Set(reflect.New(field.Type().Elem()))
+		}
+	}
+	allowed := map[string]bool{
+		"sourceType": true, "sourceId": true, "ctwaClid": true, "sourceApp": true,
+		"mediaType": true, "adType": true,
+		"containsAutoReply": true, "renderLargerThumbnail": true, "showAdAttribution": true,
+	}
+	message := &WookMessageData{
+		ContextInfo: &WookMessageContextInfo{ExternalAdReply: ad, QuotedAd: &WookMessageQuotedAd{
+			AdvertiserName: "private advertiser", Caption: "private caption", JpegThumbnail: "private thumbnail", MediaType: "IMAGE",
+		}},
+		Referral: ad,
+	}
+	before := mustMarshalAdWebhook(t, message)
+	logged := sanitizeMessageDataForLog(message)
+	for _, sanitized := range []*WookMessageContextInfoExternalAdReply{logged.ContextInfo.ExternalAdReply, logged.Referral} {
+		var actual map[string]interface{}
+		if err := json.Unmarshal(mustMarshalAdWebhook(t, sanitized), &actual); err != nil {
+			t.Fatal(err)
+		}
+		for field := range actual {
+			if !allowed[field] {
+				t.Errorf("unapproved ad field remains in debug log: %s", field)
+			}
+		}
+		if len(actual) != len(allowed) {
+			t.Errorf("lost approved ad log fields: got %d, want %d", len(actual), len(allowed))
+		}
+	}
+	if got := string(mustMarshalAdWebhook(t, logged.ContextInfo.QuotedAd)); got != `{"mediaType":"IMAGE"}` {
+		t.Fatalf("quoted ad retained content in debug log: %s", got)
+	}
+	if !bytes.Equal(before, mustMarshalAdWebhook(t, message)) {
+		t.Fatal("ad log allowlist changed the original webhook")
 	}
 }
 
