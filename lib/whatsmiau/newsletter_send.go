@@ -148,3 +148,25 @@ func rejectNewsletter(to types.JID, kind string) error {
 	}
 	return nil
 }
+
+// TextMessageType is the messageType reported for a sent text: a channel
+// question is a questionMessage, as the webhook reports it.
+func TextMessageType(question bool) string {
+	if question {
+		return "questionMessage"
+	}
+	return "conversation"
+}
+
+// PollMessageType is the messageType reported for a sent poll. Channel polls
+// are built as V3 polls and quizzes as V5 (see buildNewsletterPoll), and the
+// webhook reports them with those types.
+func PollMessageType(to types.JID, correctAnswer string) string {
+	if !isNewsletter(to) {
+		return "pollCreationMessage"
+	}
+	if correctAnswer != "" {
+		return "pollCreationMessageV5"
+	}
+	return "pollCreationMessageV3"
+}

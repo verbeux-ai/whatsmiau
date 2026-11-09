@@ -59,9 +59,27 @@ type WookPollVote struct {
 }
 
 type WookPollUpdateMessageRaw struct {
-	PollCreationMessageKey *WookKey     `json:"pollCreationMessageKey,omitempty"`
+	PollCreationMessageKey *WookKey      `json:"pollCreationMessageKey,omitempty"`
 	Vote                   *WookPollVote `json:"vote,omitempty"`
-	SenderTimestampMs      string       `json:"senderTimestampMs,omitempty"`
+	SenderTimestampMs      string        `json:"senderTimestampMs,omitempty"`
+	// VoteCounts is set for channel polls and quizzes, whose votes are
+	// anonymous: the total for every option.
+	VoteCounts []WookPollVoteCount `json:"voteCounts,omitempty"`
+}
+
+type WookPollVoteCount struct {
+	OptionName string `json:"optionName,omitempty"`
+	// OptionHash is the hex SHA-256 of the option name, as WhatsApp sends it.
+	OptionHash string `json:"optionHash"`
+	Count      int    `json:"count"`
+}
+
+// WookQuestionResponseMessageRaw reports the number of private responses to
+// a channel question. WhatsApp does not send the responses themselves to
+// linked devices.
+type WookQuestionResponseMessageRaw struct {
+	Key            *WookKey `json:"key,omitempty"`
+	ResponsesCount int      `json:"responsesCount"`
 }
 
 type WookPollUpdate struct {

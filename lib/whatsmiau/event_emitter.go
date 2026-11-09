@@ -243,8 +243,15 @@ func (s *Whatsmiau) handleClient(id string, source *whatsmeow.Client) whatsmeow.
 
 			// Handle lifecycle events regardless of webhook enabled state
 			if _, ok := evt.(*events.LoggedOut); ok {
+				stopNewsletterLiveUpdates(id)
 				s.handleClientLoggedOut(id, source)
 				return
+			}
+			switch evt.(type) {
+			case *events.Connected:
+				s.startNewsletterLiveUpdates(id)
+			case *events.Disconnected, *events.ConnectFailure, *events.StreamReplaced:
+				stopNewsletterLiveUpdates(id)
 			}
 			if env.Env.CallDebug {
 				if offer, ok := evt.(*events.CallOffer); ok {
@@ -314,6 +321,8 @@ func (s *Whatsmiau) handleClient(id string, source *whatsmeow.Client) whatsmeow.
 				s.stopHistorySyncWatchdog(id)
 			case *events.StreamReplaced:
 				s.stopHistorySyncWatchdog(id)
+			case *events.NewsletterLiveUpdate:
+				s.handleNewsletterLiveUpdate(id, instance, e, eventMap)
 			default:
 				zap.L().Debug("unknown event", zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 			}

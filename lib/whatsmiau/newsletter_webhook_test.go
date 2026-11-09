@@ -101,7 +101,7 @@ func jsonObject(t *testing.T, v any, field string) map[string]any {
 	return obj
 }
 
-func pollOptionNames(t *testing.T, poll map[string]any) []string {
+func webhookPollOptionNames(t *testing.T, poll map[string]any) []string {
 	t.Helper()
 	list, ok := poll["options"].([]any)
 	if !ok {
@@ -141,7 +141,7 @@ func TestChannelQuizWebhookKeepsOptionsAndCorrectAnswer(t *testing.T) {
 	if poll["name"] != "Which store has free shipping?" {
 		t.Fatalf("unexpected poll name %#v", poll["name"])
 	}
-	assertNames(t, pollOptionNames(t, poll), []string{"Store A", "Store B"})
+	assertNames(t, webhookPollOptionNames(t, poll), []string{"Store A", "Store B"})
 	if poll["selectableOptionsCount"] != float64(1) {
 		t.Fatalf("expected selectableOptionsCount 1, got %#v", poll["selectableOptionsCount"])
 	}
@@ -207,7 +207,7 @@ func TestPollWebhooksWithoutQuizFieldsAreUnchanged(t *testing.T) {
 			if got["name"] != "Lunch?" {
 				t.Fatalf("unexpected poll name %#v", got["name"])
 			}
-			assertNames(t, pollOptionNames(t, got), []string{"Yes", "No"})
+			assertNames(t, webhookPollOptionNames(t, got), []string{"Yes", "No"})
 			for _, field := range []string{"pollType", "correctAnswer"} {
 				if _, ok := got[field]; ok {
 					t.Fatalf("%s must be omitted for a regular poll, got %#v", field, got[field])

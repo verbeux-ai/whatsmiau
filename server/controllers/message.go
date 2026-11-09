@@ -112,7 +112,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 		Message: dto.SendTextResponseMessage{
 			Conversation: request.Text,
 		},
-		MessageType:      "conversation",
+		MessageType:      whatsmiau.TextMessageType(request.Question),
 		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})

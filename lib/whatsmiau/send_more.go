@@ -3,6 +3,7 @@ package whatsmiau
 import (
 	"context"
 	"fmt"
+	"github.com/verbeux-ai/whatsmiau/services"
 	"strings"
 	"time"
 
@@ -383,6 +384,8 @@ func (s *Whatsmiau) SendPoll(ctx context.Context, data *SendPollRequest) (*SendP
 		if err != nil {
 			return nil, err
 		}
+		// Vote updates only carry the server ID and option hashes.
+		rememberNewsletterPost(ctx, services.Redis(), resolved, res.ServerID, res.ID, pollMsg)
 		return &SendPollResponse{ID: res.ID, CreatedAt: res.Timestamp, ServerID: res.ServerID}, nil
 	}
 	if data.CorrectAnswer != "" {

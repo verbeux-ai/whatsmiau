@@ -96,6 +96,8 @@ type WookKey struct {
 	Id             string `json:"id,omitempty"`
 	Participant    string `json:"participant,omitempty"`
 	AddressingMode string `json:"addressingMode,omitempty"`
+	// ServerId is the server-assigned ID of a channel post.
+	ServerId int `json:"serverId,omitempty"`
 }
 
 type WookMessageRaw struct {
@@ -116,9 +118,11 @@ type WookMessageRaw struct {
 	LiveLocationMessage *WookLiveLocationMessageRaw `json:"liveLocationMessage,omitempty"`
 	PollCreationMessage *WookPollCreationMessageRaw `json:"pollCreationMessage,omitempty"`
 	PollUpdateMessage   *WookPollUpdateMessageRaw   `json:"pollUpdateMessage,omitempty"`
-	PtvMessage          *WookPtvMessageRaw          `json:"ptvMessage,omitempty"`
-	EncCommentMessage   *WookEncCommentMessageRaw   `json:"encCommentMessage,omitempty"`
-	MediaURL            string                      `json:"mediaUrl,omitempty"` // Sent when connect with some storage
+
+	QuestionResponseMessage *WookQuestionResponseMessageRaw `json:"questionResponseMessage,omitempty"`
+	PtvMessage              *WookPtvMessageRaw              `json:"ptvMessage,omitempty"`
+	EncCommentMessage       *WookEncCommentMessageRaw       `json:"encCommentMessage,omitempty"`
+	MediaURL                string                          `json:"mediaUrl,omitempty"` // Sent when connect with some storage
 }
 
 type ContactsArrayMessageRaw struct {
@@ -181,6 +185,10 @@ type ReactionMessageRaw struct {
 	Key               *WookKey `json:"key,omitempty"`
 	Text              string   `json:"text,omitempty"`
 	SenderTimestampMs string   `json:"senderTimestampMs,omitempty"`
+	// Count and ReactionCounts are set for channel posts, whose reactions
+	// are anonymous: the new total for Text, and the totals per emoji.
+	Count          int            `json:"count,omitempty"`
+	ReactionCounts map[string]int `json:"reactionCounts,omitempty"`
 }
 
 type WookEncCommentMessageRaw struct {

@@ -202,6 +202,24 @@ messages.
 In `messages.upsert` webhooks, a quiz arrives as `pollCreationMessageV5`, with
 `pollType: "QUIZ"` and `correctAnswer` in `message.pollCreationMessage`, and a
 question arrives as `questionMessage`, with its text in `message.conversation`.
+`sendText` with `question: true` returns `messageType: "questionMessage"`, and
+`sendPoll` to a channel returns `pollCreationMessageV3` (or
+`pollCreationMessageV5` for a quiz).
+
+In channels, reactions, votes and question responses are anonymous: WhatsApp
+sends the owner only running totals per post. While connected, an instance
+subscribes to the live updates of every channel it owns or administers and
+emits each change as a `messages.upsert` event, with the post in `key` (`id`
+and `serverId`):
+
+| Change | `messageType` | Payload in `message` |
+|---|---|---|
+| reaction | `reactionMessage` | `reactionMessage.text` (the emoji that changed), `count` and `reactionCounts` (total per emoji) |
+| vote on a poll or quiz | `pollUpdateMessage` | `pollUpdateMessage.voteCounts`: `optionName`, `optionHash` and `count` for every option |
+| question response | `questionResponseMessage` | `questionResponseMessage.responsesCount` |
+
+The text of question responses is not sent to linked devices, so it is not
+available.
 
 ## Versioning
 

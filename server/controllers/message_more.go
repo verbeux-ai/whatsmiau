@@ -451,7 +451,7 @@ func (s *Message) SendPoll(ctx echo.Context) error {
 			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
-		MessageType:      "pollCreationMessage",
+		MessageType:      whatsmiau.PollMessageType(*jid, request.CorrectAnswer),
 		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})

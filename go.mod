@@ -126,4 +126,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace go.mau.fi/whatsmeow => github.com/verbeux-ai/whatsmeow v1.3.7
+replace go.mau.fi/whatsmeow => github.com/jotage0410/whatsmeow v1.3.8-0.20261109191621-f86715029f09
