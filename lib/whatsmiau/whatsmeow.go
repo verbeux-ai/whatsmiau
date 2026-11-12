@@ -12,7 +12,7 @@ import (
 	"github.com/puzpuzpuz/xsync/v4"
 	"github.com/verbeux-ai/whatsmiau/env"
 	"github.com/verbeux-ai/whatsmiau/interfaces"
-	"github.com/verbeux-ai/whatsmiau/lib/storage/gcs"
+	filestorage "github.com/verbeux-ai/whatsmiau/lib/storage"
 	"github.com/verbeux-ai/whatsmiau/models"
 	"github.com/verbeux-ai/whatsmiau/repositories/instances"
 	"github.com/verbeux-ai/whatsmiau/services"
@@ -177,12 +177,9 @@ func LoadMiau(ctx context.Context, container *sqlstore.Container) {
 		}
 	})
 
-	var storage interfaces.Storage
-	if env.Env.GCSEnabled {
-		storage, err = gcs.New(env.Env.GCSBucket)
-		if err != nil {
-			zap.L().Panic("failed to create GCS storage", zap.Error(err))
-		}
+	storage, err := filestorage.New(ctx, env.Env)
+	if err != nil {
+		zap.L().Panic("failed to create media storage", zap.Error(err))
 	}
 
 	instance = &Whatsmiau{

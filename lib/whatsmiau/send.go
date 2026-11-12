@@ -720,6 +720,20 @@ type SendButtonsRequestData struct {
 	Buttons     []SendButtonItem `json:"buttons"`
 }
 
+type SendURLButtonItem struct {
+	DisplayText string `json:"display_text"`
+	URL         string `json:"url"`
+}
+
+type SendURLButtonsRequestData struct {
+	InstanceID  string              `json:"instance_id"`
+	RemoteJID   *types.JID          `json:"remote_jid"`
+	Title       string              `json:"title"`
+	Description string              `json:"description"`
+	Footer      string              `json:"footer"`
+	Buttons     []SendURLButtonItem `json:"buttons"`
+}
+
 type SendButtonsResponse struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
@@ -819,6 +833,81 @@ func (s *Whatsmiau) SendButtons(ctx context.Context, data *SendButtonsRequestDat
 		ID:        res.ID,
 		CreatedAt: res.Timestamp,
 	}, nil
+}
+
+func (s *Whatsmiau) SendURLButtons(ctx context.Context, data *SendURLButtonsRequestData) (*SendButtonsResponse, error) {
+	client, ok := s.clients.Load(data.InstanceID)
+	if !ok {
+		return nil, whatsmeow.ErrClientIsNil
+	}
+	if data.RemoteJID == nil {
+		return nil, fmt.Errorf("remote_jid is required")
+	}
+	if len(data.Buttons) == 0 {
+		return nil, fmt.Errorf("at least one URL button is required")
+	}
+
+	resolved := s.resolveJID(ctx, client, *data.RemoteJID)
+	data.RemoteJID = &resolved
+
+	buttons := make([]*waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton, 0, len(data.Buttons))
+	for _, button := range data.Buttons {
+		displayText := strings.TrimSpace(button.DisplayText)
+		link := strings.TrimSpace(button.URL)
+		if displayText == "" || link == "" {
+			return nil, fmt.Errorf("URL button display_text and url are required")
+		}
+
+		paramsJSON, err := json.Marshal(map[string]string{
+			"display_text": displayText,
+			"url":          link,
+			"merchant_url": link,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("marshal URL button parameters: %w", err)
+		}
+		buttons = append(buttons, &waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
+			Name:             proto.String("cta_url"),
+			ButtonParamsJSON: proto.String(string(paramsJSON)),
+		})
+	}
+
+	interactive := &waE2E.InteractiveMessage{
+		Body: &waE2E.InteractiveMessage_Body{Text: proto.String(data.Description)},
+		InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
+			NativeFlowMessage: &waE2E.InteractiveMessage_NativeFlowMessage{
+				MessageVersion: proto.Int32(1),
+				Buttons:        buttons,
+			},
+		},
+	}
+	if data.Title != "" {
+		interactive.Header = &waE2E.InteractiveMessage_Header{Title: proto.String(data.Title)}
+	}
+	if data.Footer != "" {
+		interactive.Footer = &waE2E.InteractiveMessage_Footer{Text: proto.String(data.Footer)}
+	}
+
+	message := &waE2E.Message{InteractiveMessage: interactive}
+	extraNodes := []waBinary.Node{{
+		Tag: "biz",
+		Content: []waBinary.Node{{
+			Tag:   "interactive",
+			Attrs: waBinary.Attrs{"type": "native_flow", "v": "1"},
+			Content: []waBinary.Node{{
+				Tag:   "native_flow",
+				Attrs: waBinary.Attrs{"v": "9", "name": "mixed"},
+			}},
+		}},
+	}}
+
+	res, err := client.SendMessage(ctx, *data.RemoteJID, message, whatsmeow.SendRequestExtra{
+		AdditionalNodes: &extraNodes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &SendButtonsResponse{ID: res.ID, CreatedAt: res.Timestamp}, nil
 }
 
 // --- SendPixPayment ---

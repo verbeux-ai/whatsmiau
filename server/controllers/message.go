@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -532,7 +534,7 @@ func (s *Message) SendList(ctx echo.Context) error {
 
 // SendButtons godoc
 // @Summary      Send a buttons message
-// @Description  Sends an interactive buttons message (reply type) or PIX payment
+// @Description  Sends interactive reply, URL, or PIX buttons. URL buttons open the supplied HTTP(S) link when tapped.
 // @Tags         Message
 // @Accept       json
 // @Produce      json
@@ -561,14 +563,29 @@ func (s *Message) SendButtons(ctx echo.Context) error {
 		return utils.HTTPFail(ctx, http.StatusBadRequest, err, "invalid number format")
 	}
 
-	// Classify button types (already validated by oneof=reply pix)
-	var hasReply, hasPix bool
+	var hasReply, hasURL, hasPix bool
 	for _, btn := range request.Buttons {
 		switch btn.Type {
 		case "reply":
 			hasReply = true
+		case "url":
+			hasURL = true
 		case "pix":
 			hasPix = true
+		}
+	}
+	if (hasReply && hasURL) || (hasReply && hasPix) || (hasURL && hasPix) {
+		return utils.HTTPFail(ctx, http.StatusBadRequest, fmt.Errorf("button types cannot be mixed in one message"), "invalid button types")
+	}
+	if hasURL {
+		if len(request.Buttons) != 1 {
+			return utils.HTTPFail(ctx, http.StatusBadRequest, fmt.Errorf("exactly one URL button is allowed"), "invalid button count")
+		}
+		for _, btn := range request.Buttons {
+			parsed, parseErr := url.ParseRequestURI(strings.TrimSpace(btn.URL))
+			if parseErr != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+				return utils.HTTPFail(ctx, http.StatusBadRequest, fmt.Errorf("button URL must be an absolute HTTP(S) URL"), "invalid button URL")
+			}
 		}
 	}
 
@@ -588,12 +605,51 @@ func (s *Message) SendButtons(ctx echo.Context) error {
 		return s.sendPixButtons(ctx, c, request, jid)
 	}
 
+	if hasURL {
+		return s.sendURLButtons(ctx, c, request, jid)
+	}
+
 	// Reply buttons flow
 	if hasReply {
 		return s.sendReplyButtons(ctx, c, request, jid)
 	}
 
 	return utils.HTTPFail(ctx, http.StatusBadRequest, fmt.Errorf("no valid buttons"), "no valid buttons provided")
+}
+
+func (s *Message) sendURLButtons(ctx echo.Context, c context.Context, request dto.SendButtonsRequest, jid *types.JID) error {
+	buttons := make([]whatsmiau.SendURLButtonItem, 0, len(request.Buttons))
+	for _, button := range request.Buttons {
+		buttons = append(buttons, whatsmiau.SendURLButtonItem{
+			DisplayText: button.DisplayText,
+			URL:         strings.TrimSpace(button.URL),
+		})
+	}
+
+	res, err := s.whatsmiau.SendURLButtons(c, &whatsmiau.SendURLButtonsRequestData{
+		InstanceID:  request.InstanceID,
+		RemoteJID:   jid,
+		Title:       request.Title,
+		Description: request.Description,
+		Footer:      request.Footer,
+		Buttons:     buttons,
+	})
+	if err != nil {
+		zap.L().Error("Whatsmiau.SendURLButtons failed", zap.Error(err))
+		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send URL buttons")
+	}
+
+	return ctx.JSON(http.StatusOK, dto.SendButtonsResponse{
+		Key: dto.MessageResponseKey{
+			RemoteJid: request.Number,
+			FromMe:    true,
+			Id:        res.ID,
+		},
+		Status:           "sent",
+		MessageType:      "interactiveMessage",
+		MessageTimestamp: int(res.CreatedAt.Unix()),
+		InstanceId:       request.InstanceID,
+	})
 }
 
 func (s *Message) sendReplyButtons(ctx echo.Context, c context.Context, request dto.SendButtonsRequest, jid *types.JID) error {

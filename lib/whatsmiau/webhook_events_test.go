@@ -153,6 +153,91 @@ func TestMessageWebhookAcceptsCanonicalAndPayloadConfiguration(t *testing.T) {
 	}
 }
 
+func TestMessageEditWebhookRequiresMessagesEditedSubscription(t *testing.T) {
+	tests := []struct {
+		name   string
+		events []string
+		want   bool
+	}{
+		{name: "messages.edited selected", events: []string{"MESSAGES_EDITED"}, want: true},
+		{name: "both events selected", events: []string{"MESSAGES_UPSERT", "MESSAGES_EDITED"}, want: true},
+		{name: "only messages.upsert selected", events: []string{"MESSAGES_UPSERT"}},
+		{name: "unrelated event selected", events: []string{"MESSAGES_UPDATE"}},
+		{name: "empty selection", events: []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &Whatsmiau{
+				clients: xsync.NewMap[string, *whatsmeow.Client](),
+				emitter: make(chan emitter, 2),
+			}
+			instance := &models.Instance{
+				ID: "instance-1",
+				Webhook: models.InstanceWebhook{
+					Url:    "https://webhook.example/messages",
+					Events: tt.events,
+				},
+			}
+			service.handleMessageEvent("instance-1", instance, testMessageEditEvent(), webhookEventMap(tt.events))
+
+			select {
+			case emitted := <-service.emitter:
+				if !tt.want {
+					t.Fatalf("unexpected edit webhook for events %v: %#v", tt.events, emitted.data)
+				}
+				payload, ok := emitted.data.(*WookEvent[WookMessageEditData])
+				if !ok {
+					t.Fatalf("unexpected emitted data type %T", emitted.data)
+				}
+				if payload.Event != WookMessagesEdited {
+					t.Fatalf("event=%q, want %q", payload.Event, WookMessagesEdited)
+				}
+				if payload.Data.Key.Id != "original-message" || payload.Data.EditedMessage.Conversation != "edited text" {
+					t.Fatalf("unexpected edit payload: %+v", payload.Data)
+				}
+			default:
+				if tt.want {
+					t.Fatalf("expected messages.edited webhook for events %v", tt.events)
+				}
+			}
+
+			select {
+			case emitted := <-service.emitter:
+				t.Fatalf("expected at most one edit webhook, got an extra event: %#v", emitted.data)
+			default:
+			}
+		})
+	}
+}
+
+func testMessageEditEvent() *events.Message {
+	editType := waE2E.ProtocolMessage_MESSAGE_EDIT
+	originalJID := "5511999999999@s.whatsapp.net"
+	originalID := "original-message"
+	fromMe := false
+	conversation := "edited text"
+	return &events.Message{
+		Info: types.MessageInfo{
+			MessageSource: types.MessageSource{
+				Chat:   types.NewJID("5511999999999", types.DefaultUserServer),
+				Sender: types.NewJID("5511888888888", types.DefaultUserServer),
+			},
+			ID:        "edit-event",
+			Timestamp: time.Date(2026, time.November, 4, 12, 0, 0, 0, time.UTC),
+		},
+		Message: &waE2E.Message{ProtocolMessage: &waE2E.ProtocolMessage{
+			Type: &editType,
+			Key: &waCommon.MessageKey{
+				RemoteJID: &originalJID,
+				ID:        &originalID,
+				FromMe:    &fromMe,
+			},
+			EditedMessage: &waE2E.Message{Conversation: &conversation},
+		}},
+	}
+}
+
 func TestEmitConnectionUpdateAcceptsCanonicalAndPayloadConfiguration(t *testing.T) {
 	for _, configuredEvent := range []string{"CONNECTION_UPDATE", "connection.update"} {
 		t.Run(configuredEvent, func(t *testing.T) {
