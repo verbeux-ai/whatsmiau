@@ -249,8 +249,15 @@ func (s *Whatsmiau) handleClient(id string, source *whatsmeow.Client) whatsmeow.
 
 			// Handle lifecycle events regardless of webhook enabled state
 			if _, ok := evt.(*events.LoggedOut); ok {
+				stopNewsletterLiveUpdates(id)
 				s.handleClientLoggedOut(id, source)
 				return
+			}
+			switch evt.(type) {
+			case *events.Connected:
+				s.startNewsletterLiveUpdates(id)
+			case *events.Disconnected, *events.ConnectFailure, *events.StreamReplaced:
+				stopNewsletterLiveUpdates(id)
 			}
 			if env.Env.CallDebug {
 				if offer, ok := evt.(*events.CallOffer); ok {
@@ -320,6 +327,8 @@ func (s *Whatsmiau) handleClient(id string, source *whatsmeow.Client) whatsmeow.
 				s.stopHistorySyncWatchdog(id)
 			case *events.StreamReplaced:
 				s.stopHistorySyncWatchdog(id)
+			case *events.NewsletterLiveUpdate:
+				s.handleNewsletterLiveUpdate(id, instance, e, eventMap)
 			default:
 				zap.L().Debug("unknown event", zap.String("type", fmt.Sprintf("%T", evt)), zap.Any("raw", evt))
 			}
@@ -1207,6 +1216,20 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 			SelectableOptionsCount: poll.GetSelectableOptionsCount(),
 		}
 
+	} else if poll := m.GetPollCreationMessageV5(); poll != nil {
+		// Channel quizzes are posted as V5 polls with a correct answer.
+		messageType = "pollCreationMessageV5"
+		ci = poll.GetContextInfo()
+		raw.PollCreationMessage = convertPollCreation(poll)
+	} else if q := m.GetQuestionMessage().GetMessage(); q != nil {
+		// Channel questions wrap the text in a FutureProofMessage.
+		messageType = "questionMessage"
+		if et := q.GetExtendedTextMessage(); et != nil {
+			raw.Conversation = et.GetText()
+			ci = et.GetContextInfo()
+		} else {
+			raw.Conversation = q.GetConversation()
+		}
 	} else if pollUp := m.GetPollUpdateMessage(); pollUp != nil {
 		messageType = "pollUpdateMessage"
 		updKey := &WookKey{}
@@ -1266,6 +1289,27 @@ func (s *Whatsmiau) parseWAMessage(m *waE2E.Message) (string, *WookMessageRaw, *
 	}
 
 	return messageType, raw, ci
+}
+
+// convertPollCreation maps a poll to the webhook shape, including the quiz
+// fields when present.
+func convertPollCreation(poll *waE2E.PollCreationMessage) *WookPollCreationMessageRaw {
+	options := make([]WookPollOption, 0, len(poll.GetOptions()))
+	for _, opt := range poll.GetOptions() {
+		options = append(options, WookPollOption{OptionName: opt.GetOptionName()})
+	}
+	out := &WookPollCreationMessageRaw{
+		Name:                   poll.GetName(),
+		Options:                options,
+		SelectableOptionsCount: poll.GetSelectableOptionsCount(),
+	}
+	if poll.PollType != nil {
+		out.PollType = poll.GetPollType().String()
+	}
+	if answer := poll.GetCorrectAnswer(); answer != nil {
+		out.CorrectAnswer = &WookPollOption{OptionName: answer.GetOptionName()}
+	}
+	return out
 }
 
 func (s *Whatsmiau) convertContactHistorySync(id string, event []*waHistorySync.Pushname, conversations []*waHistorySync.Conversation) WookContactUpsertData {

@@ -72,6 +72,13 @@ func DocumentedV1Operations() []Operation {
 		appendOperation(http.MethodGet, "/v1/instance/{instance}/community/"+action)
 	}
 
+	for _, action := range []string{"fetchAll", "info", "inviteInfo"} {
+		appendOperation(http.MethodGet, "/v1/instance/{instance}/newsletter/"+action)
+	}
+	for _, action := range []string{"create", "follow", "unfollow", "mute", "unmute"} {
+		appendOperation(http.MethodPost, "/v1/instance/{instance}/newsletter/"+action)
+	}
+
 	appendOperation(http.MethodPost, "/v1/webhook/set/{instance}")
 	appendOperation(http.MethodGet, "/v1/webhook/find/{instance}", "/v1/swagger.json", "/v1/swagger.yaml")
 	return operations

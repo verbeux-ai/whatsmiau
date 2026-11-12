@@ -78,6 +78,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 		LinkPreview:      request.LinkPreview,
 		MentionsEveryOne: request.MentionsEveryOne,
 		Mentioned:        request.Mentioned,
+		Question:         request.Question,
 
 		LinkPreviewImage:       request.LinkPreviewImage,
 		LinkPreviewTitle:       request.LinkPreviewTitle,
@@ -99,7 +100,7 @@ func (s *Message) SendText(ctx echo.Context) error {
 	res, err := s.whatsmiau.SendText(c, sendText)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendText failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send text")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send text")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendTextResponse{
@@ -107,12 +108,13 @@ func (s *Message) SendText(ctx echo.Context) error {
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status: "sent",
 		Message: dto.SendTextResponseMessage{
 			Conversation: request.Text,
 		},
-		MessageType:      "conversation",
+		MessageType:      whatsmiau.TextMessageType(request.Question),
 		MessageTimestamp: int(res.CreatedAt.Unix()),
 		InstanceId:       request.InstanceID,
 	})
@@ -187,6 +189,7 @@ func (s *Message) SendAudio(ctx echo.Context) error {
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 
 		Status:           "sent",
@@ -288,7 +291,7 @@ func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest
 	res, err := s.whatsmiau.SendDocument(c, sendData)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendDocument failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send document")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send document")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendDocumentResponse{
@@ -296,6 +299,7 @@ func (s *Message) sendDocument(ctx echo.Context, request dto.SendDocumentRequest
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "documentMessage",
@@ -361,7 +365,7 @@ func (s *Message) sendImage(ctx echo.Context, request dto.SendDocumentRequest) e
 	res, err := s.whatsmiau.SendImage(c, sendData)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendDocument failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send document")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send document")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendDocumentResponse{
@@ -369,6 +373,7 @@ func (s *Message) sendImage(ctx echo.Context, request dto.SendDocumentRequest) e
 			RemoteJid: request.Number,
 			FromMe:    true,
 			Id:        res.ID,
+			ServerId:  int(res.ServerID),
 		},
 		Status:           "sent",
 		MessageType:      "imageMessage",
@@ -423,7 +428,7 @@ func (s *Message) SendReaction(ctx echo.Context) error {
 	res, err := s.whatsmiau.SendReaction(c, sendReaction)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendReaction failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send reaction")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send reaction")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendReactionResponse{
@@ -511,7 +516,7 @@ func (s *Message) SendList(ctx echo.Context) error {
 	res, err := s.whatsmiau.SendList(c, sendData)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendList failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send list")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send list")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendListResponse{
@@ -668,7 +673,7 @@ func (s *Message) sendReplyButtons(ctx echo.Context, c context.Context, request 
 	res, err := s.whatsmiau.SendButtons(c, sendData)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendButtons failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send buttons")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send buttons")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendButtonsResponse{
@@ -707,7 +712,7 @@ func (s *Message) sendPixButtons(ctx echo.Context, c context.Context, request dt
 	res, err := s.whatsmiau.SendPixPayment(c, sendData)
 	if err != nil {
 		zap.L().Error("Whatsmiau.SendPixPayment failed", zap.Error(err))
-		return utils.HTTPFail(ctx, http.StatusInternalServerError, err, "failed to send pix payment")
+		return utils.HTTPFail(ctx, sendFailStatus(err), err, "failed to send pix payment")
 	}
 
 	return ctx.JSON(http.StatusOK, dto.SendButtonsResponse{
